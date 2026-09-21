@@ -1,33 +1,61 @@
 /* Bengali Typography & Font Shaping (100% Offline Compatible) */
 
-@font-face {
-  font-family: 'Hind Siliguri';
-  src: url('../vendor/HindSiliguri-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: block;
-}
-
-@font-face {
-  font-family: 'Hind Siliguri';
-  src: url('../vendor/HindSiliguri-Bold.ttf') format('truetype');
-  font-weight: 700;
-  font-style: normal;
-  font-display: block;
-}
-
-/* Also map Kalpurush alias to Hind Siliguri or local system font */
+/* 1. Kalpurush Unicode (Default for Modern Unicode Bengali) */
 @font-face {
   font-family: 'Kalpurush';
-  src: local('Kalpurush'), url('../vendor/HindSiliguri-Regular.ttf') format('truetype');
+  src: local('Kalpurush'), url('../vendor/Kalpurush.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: block;
+  font-display: swap;
 }
 
-/* Typography smoothing variables and rules */
+@font-face {
+  font-family: 'Kalpurush';
+  src: local('Kalpurush'), url('../vendor/Kalpurush.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 2. Kalpurush ANSI (Default for Legacy Bijoy / SutonnyMJ ANSI Bengali) */
+@font-face {
+  font-family: 'Kalpurush ANSI';
+  src: local('Kalpurush ANSI'), local('SutonnyMJ'), url('../vendor/Kalpurush-ANSI.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Kalpurush ANSI';
+  src: local('Kalpurush ANSI'), local('SutonnyMJ'), url('../vendor/Kalpurush-ANSI.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 3. Hind Siliguri (High-Quality Backup Unicode Font) */
+@font-face {
+  font-family: 'Hind Siliguri';
+  src: local('Hind Siliguri'), url('../vendor/HindSiliguri-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Hind Siliguri';
+  src: local('Hind Siliguri Bold'), url('../vendor/HindSiliguri-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Typography tokens */
 :root {
-  --font-main: 'Kalpurush', 'Hind Siliguri', 'Nirmala UI', 'Vrinda', 'Noto Sans Bengali', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-unicode: 'Kalpurush', 'Hind Siliguri', 'Nirmala UI', 'Vrinda', 'Noto Sans Bengali', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-bijoy: 'Kalpurush ANSI', 'SutonnyMJ', sans-serif;
+  --font-main: var(--font-unicode);
   --font-code: 'Fira Code', 'Cascadia Code', Consolas, 'Courier New', monospace;
 }
 
@@ -42,6 +70,19 @@ select,
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Bijoy ANSI font mode for editor when viewing or editing Bijoy */
+.font-bijoy,
+.editor-textarea.font-bijoy {
+  font-family: var(--font-bijoy) !important;
+  letter-spacing: 0.2px;
+}
+
+/* Unicode font mode for editor */
+.font-unicode,
+.editor-textarea.font-unicode {
+  font-family: var(--font-unicode) !important;
 }
 
 code, pre, .code-font {

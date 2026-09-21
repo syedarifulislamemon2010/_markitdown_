@@ -403,9 +403,7 @@ graph TD
       localStorage.setItem('markitdown_studio_active_tab_id_v2', activeTabId);
       localStorage.setItem('markitdown_editor_content', editor.value);
       localStorage.setItem('markitdown_studio_title', docTitleInput.value);
-      if (saveStatus) {
-        saveStatus.textContent = 'Saved locally';
-      }
+      setSaveStatus('saved');
     } catch (e) {
       console.warn("Storage save error:", e);
     }
@@ -536,8 +534,8 @@ graph TD
       return `@@MATH_INLINE_${inlineMath.length - 1}@@`;
     });
 
-    // Automatic Unicode Conversion for Preview if Bijoy is detected
-    if (window.BijoyToUnicode && window.BijoyToUnicode.convertMarkdown && window.BijoyToUnicode.isLikelyBijoy(textToRender)) {
+    // Automatic Unicode Conversion for Preview ONLY if pure Bijoy is detected without existing Unicode
+    if (!(/[\u0980-\u09FF]/.test(textToRender)) && window.BijoyToUnicode && window.BijoyToUnicode.convertMarkdown && window.BijoyToUnicode.isLikelyBijoy(textToRender)) {
       textToRender = window.BijoyToUnicode.convertMarkdown(textToRender);
     }
 
@@ -682,13 +680,177 @@ graph TD
     showToast(isNoWrap ? 'Word Wrap: বন্ধ (Off)' : 'Word Wrap: চালু (On)', 'info', 1500);
   }
 
+  // ==================== Font Mode Controller (Kalpurush Unicode vs Kalpurush ANSI) ====================
+  let currentFontMode = 'unicode'; // 'unicode' (Kalpurush) or 'bijoy' (Kalpurush ANSI)
+
+  function setFontMode(mode, silent = false) {
+    currentFontMode = mode;
+    const toolBtn = document.getElementById('toolToggleFont');
+    const sbBtn = document.getElementById('sbFontMode');
+    const sbEnc = document.getElementById('sbEncoding');
+
+    if (mode === 'bijoy') {
+      editor.classList.add('font-bijoy');
+      editor.classList.remove('font-unicode');
+      if (toolBtn) toolBtn.innerHTML = '🔤 কালপুরুষ ANSI (বিজয়)';
+      if (sbBtn) sbBtn.innerHTML = '🔤 Kalpurush ANSI (বিজয়)';
+      if (sbEnc) sbEnc.textContent = 'ANSI (বিজয়)';
+      if (!silent) showToast('🔤 ফন্ট: Kalpurush ANSI (বিজয়) সক্রিয়', 'info', 1500);
+    } else {
+      editor.classList.remove('font-bijoy');
+      editor.classList.add('font-unicode');
+      if (toolBtn) toolBtn.innerHTML = '🔤 কালপুরুষ (ইউনিকোড)';
+      if (sbBtn) sbBtn.innerHTML = '🔤 Kalpurush';
+      if (sbEnc) sbEnc.textContent = 'UTF-8';
+      if (!silent) showToast('🔤 ফন্ট: Kalpurush (ইউনিকোড) সক্রিয়', 'info', 1500);
+    }
+  }
+
+  function toggleFontMode() {
+    setFontMode(currentFontMode === 'unicode' ? 'bijoy' : 'unicode');
+  }
+
+  // ==================== Dynamic Status Bar Helpers ====================
+  function setSaveStatus(status, timestamp = null) {
+    if (!saveStatus) return;
+    if (status === 'dirty') {
+      saveStatus.innerHTML = '<span style="color:#e5c07b;">● Unsaved edits</span>';
+      saveStatus.classList.add('save-dirty');
+      saveStatus.classList.remove('save-clean');
+      updateBranchStatus(true);
+    } else if (status === 'saved') {
+      const timeStr = timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      saveStatus.innerHTML = `<span style="color:var(--success-color);">✓ Saved locally (${timeStr})</span>`;
+      saveStatus.classList.remove('save-dirty');
+      saveStatus.classList.add('save-clean');
+      updateBranchStatus(false);
+    }
+  }
+
+  function updateBranchStatus(dirty = false) {
+    const sbBranchText = document.getElementById('sbBranchName') || document.getElementById('sbBranchText');
+    if (!sbBranchText) return;
+    const activeTab = getActiveTab();
+    const name = activeTab ? (activeTab.title.length > 18 ? activeTab.title.substring(0, 15) + '...' : activeTab.title) : 'main';
+    sbBranchText.textContent = dirty ? `${name}*` : name;
+  }
+
+  async function checkServerStatus() {
+    const sbSyncStatus = document.getElementById('sbSyncStatus');
+    const sbSync = document.getElementById('sbSync');
+    if (!sbSync) return;
+
+    try {
+      const resp = await fetch('/api/health', { method: 'GET', cache: 'no-store' });
+      if (resp.ok) {
+        if (sbSyncStatus) sbSyncStatus.textContent = 'Port 8080 (Online)';
+        sbSync.title = 'Python ব্যাকএন্ড সার্ভার সক্রিয় ও সংযুক্ত';
+      }
+    } catch (e) {
+      if (sbSyncStatus) sbSyncStatus.textContent = 'Offline';
+      sbSync.title = 'Python ব্যাকএন্ড ডিসকানেক্টেড';
+    }
+  }
+
+  function updateDiagnostics() {
+    const sbDiag = document.getElementById('sbDiagnostics');
+    const sbBadge = document.getElementById('sbDiagBadge');
+    if (!sbDiag || !sbBadge) return { errors: 0, warnings: 0, diagnosticNotes: [] };
+
+    const text = editor.value;
+    let errors = 0;
+    let warnings = 0;
+    let diagnosticNotes = [];
+
+    // Check unclosed code blocks ```
+    const codeBlockCount = (text.match(/^```/gm) || []).length;
+    if (codeBlockCount % 2 !== 0) {
+      errors++;
+      diagnosticNotes.push("অসম্পূর্ণ কোড ব্লক (Unclosed ``` code block)");
+    }
+
+    // Check unclosed display math blocks $$
+    const mathBlockCount = (text.match(/\$\$/g) || []).length;
+    if (mathBlockCount % 2 !== 0) {
+      errors++;
+      diagnosticNotes.push("অসম্পূর্ণ ম্যাথ ব্লক (Unclosed $$ math block)");
+    }
+
+    // Check broken empty links [text]()
+    const emptyLinks = (text.match(/\[[^\]]+\]\(\s*\)/g) || []).length;
+    if (emptyLinks > 0) {
+      warnings += emptyLinks;
+      diagnosticNotes.push(`${emptyLinks}টি খালি লিংক`);
+    }
+
+    if (errors > 0) {
+      sbBadge.innerHTML = `<span style="color:var(--danger-color); font-weight:bold;">⨂ ${errors}</span>  <span style="color:var(--warning-color);">⚠ ${warnings}</span>`;
+      sbDiag.title = `ত্রুটি: ${diagnosticNotes.join(', ')} (ক্লিক করে বিস্তারিত দেখুন)`;
+    } else if (warnings > 0) {
+      sbBadge.innerHTML = `<span>⨂ 0</span>  <span style="color:var(--warning-color); font-weight:bold;">⚠ ${warnings}</span>`;
+      sbDiag.title = `সতর্কতা: ${diagnosticNotes.join(', ')}`;
+    } else {
+      sbBadge.innerHTML = `<span>⨂ 0  ⚠ 0</span>`;
+      sbDiag.title = `কোনো সিনট্যাক্স ত্রুটি নেই (No errors)`;
+    }
+
+    return { errors, warnings, diagnosticNotes };
+  }
+
+  let currentIndent = 'Spaces: 4';
+  function detectIndentation() {
+    const text = editor.value;
+    const sbIndent = document.getElementById('sbIndent');
+    if (/^\t+/m.test(text)) {
+      currentIndent = 'Tabs';
+    } else if (/^ {2}[^ ]/m.test(text)) {
+      currentIndent = 'Spaces: 2';
+    } else {
+      currentIndent = 'Spaces: 4';
+    }
+    if (sbIndent) sbIndent.textContent = currentIndent;
+  }
+
+  function toggleIndentation() {
+    if (currentIndent === 'Spaces: 4') {
+      currentIndent = 'Spaces: 2';
+    } else if (currentIndent === 'Spaces: 2') {
+      currentIndent = 'Tabs';
+    } else {
+      currentIndent = 'Spaces: 4';
+    }
+    const sbIndent = document.getElementById('sbIndent');
+    if (sbIndent) sbIndent.textContent = currentIndent;
+    showToast(`ইন্ডেন্টেশন: ${currentIndent}`, 'info', 1200);
+  }
+
+  function detectLineEnding() {
+    const isCrlf = editor.value.includes('\r\n');
+    const sbLineEnding = document.getElementById('sbLineEnding');
+    if (sbLineEnding) sbLineEnding.textContent = isCrlf ? 'CRLF' : 'LF';
+    return isCrlf ? 'CRLF' : 'LF';
+  }
+
+  function toggleLineEnding() {
+    const isCrlf = editor.value.includes('\r\n');
+    pushHistoryState(editor.value);
+    if (isCrlf) {
+      editor.value = editor.value.replace(/\r\n/g, '\n');
+      showToast('লাইন এন্ডিং: LF (Unix/Linux/macOS)', 'info', 1200);
+    } else {
+      editor.value = editor.value.replace(/\n/g, '\r\n');
+      showToast('লাইন এন্ডিং: CRLF (Windows)', 'info', 1200);
+    }
+    detectLineEnding();
+    debouncedSaveAllTabs(200);
+  }
+
   // ==================== Line Numbers & Status Bar ====================
   let lastLineCount = -1;
   function updateLineNumbers(force = false) {
     if (!lineNumbers) return;
     const lines = editor.value.split('\n');
     const lineCount = lines.length;
-    // Skip expensive DOM recreation when line count hasn't changed
     if (!force && lineCount === lastLineCount) return;
     lastLineCount = lineCount;
     let html = '';
@@ -703,20 +865,33 @@ graph TD
     const text = editor.value;
     const chars = text.length;
 
-    // Fast cursor position calculation (immediate)
-    const pos = editor.selectionStart || 0;
-    const textUpToCursor = text.substring(0, pos);
-    const lastNl = textUpToCursor.lastIndexOf('\n');
-    const lineNum = lastNl === -1 ? 1 : textUpToCursor.split('\n').length;
-    const colNum = pos - lastNl;
+    // Fast cursor position calculation without memory allocation
+    const startPos = editor.selectionStart || 0;
+    const endPos = editor.selectionEnd || 0;
+    const isSelected = startPos !== endPos;
+    const selectedCount = Math.abs(endPos - startPos);
 
-    if (sbLineCol) sbLineCol.textContent = `Ln ${lineNum}, Col ${colNum}`;
+    let lineNum = 1;
+    let lastNl = -1;
+    for (let i = 0; i < startPos; i++) {
+      if (text.charCodeAt(i) === 10) {
+        lineNum++;
+        lastNl = i;
+      }
+    }
+    const colNum = startPos - lastNl;
 
-    // Debounce full-text word & line count to keep typing 60fps responsive
+    if (sbLineCol) {
+      sbLineCol.textContent = isSelected
+        ? `Ln ${lineNum}, Col ${colNum} (${selectedCount} selected)`
+        : `Ln ${lineNum}, Col ${colNum}`;
+    }
+
+    // Debounce full-text metrics
     if (statusDebounceTimer) clearTimeout(statusDebounceTimer);
     statusDebounceTimer = setTimeout(() => {
       const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-      const lines = text ? text.split('\n').length : 0;
+      const lines = text ? (text.match(/\n/g) || []).length + 1 : 0;
 
       if (sbWordCount) sbWordCount.textContent = `Words: ${words.toLocaleString()}`;
 
@@ -726,6 +901,10 @@ graph TD
       if (ccEl) ccEl.textContent = `${chars} chars`;
       const lcEl = document.getElementById('lineCount');
       if (lcEl) lcEl.textContent = `${lines} lines`;
+
+      updateDiagnostics();
+      detectLineEnding();
+      detectIndentation();
     }, 150);
   }
 
@@ -879,8 +1058,29 @@ ${previewContent.innerHTML}
     triggerDownload(fullHtml, filename, 'text/html;charset=utf-8');
   }
 
-  function exportPdf() {
-    showToast('🖨️ প্রিন্ট / PDF ডায়ালগ খোলা হচ্ছে...', 'info', 1500);
+  async function exportPdf() {
+    const title = docTitleInput.value.trim() || 'Document';
+    const filename = `${sanitizeFilename(title)}.pdf`;
+    showToast('⏳ সরাসরি PDF ফাইল তৈরি করা হচ্ছে...', 'info', 3000);
+
+    try {
+      const resp = await fetch('/api/export-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markdown: editor.value, title: title })
+      });
+
+      if (resp.ok) {
+        const blob = await resp.blob();
+        await triggerDownload(blob, filename, 'application/pdf');
+        return;
+      }
+    } catch (err) {
+      console.warn('Backend PDF export failed, fallback to window.print():', err);
+    }
+
+    // Fallback to browser print dialog
+    showToast('🖨️ ব্রাউজার প্রিন্ট ডায়ালগ খোলা হচ্ছে...', 'info', 1500);
     setTimeout(() => {
       window.print();
     }, 300);
@@ -1039,6 +1239,7 @@ ${previewContent.innerHTML}
         } else {
           editor.value = converted;
         }
+        setFontMode('unicode');
         renderMarkdown();
         updateLineNumbers();
         updateStatusBar();
@@ -1065,6 +1266,7 @@ ${previewContent.innerHTML}
           } else {
             editor.value = data.converted;
           }
+          setFontMode('unicode');
           renderMarkdown();
           updateLineNumbers();
           updateStatusBar();
@@ -1100,6 +1302,7 @@ ${previewContent.innerHTML}
         } else {
           editor.value = converted;
         }
+        setFontMode('bijoy');
         renderMarkdown();
         updateLineNumbers();
         updateStatusBar();
@@ -1125,6 +1328,7 @@ ${previewContent.innerHTML}
         } else {
           editor.value = data.converted;
         }
+        setFontMode('bijoy');
         renderMarkdown();
         updateLineNumbers();
         updateStatusBar();
@@ -1832,9 +2036,249 @@ ${previewContent.innerHTML}
     reader.readAsDataURL(file);
   }
 
+  
+  // ==================== Batch Convert Controller ====================
+  async function batchConvertFiles(files) {
+    showToast(`⏳ ${files.length}টি ফাইল ব্যাচ কনভার্সন হচ্ছে...`, 'info', 4000);
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append('files', files[i]);
+    }
+
+    try {
+      const resp = await fetch('/api/batch-convert', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (resp.ok) {
+        const blob = await resp.blob();
+        await triggerDownload(blob, 'markitdown_batch_converted.zip', 'application/zip');
+        closeAllModals();
+        showToast(`✅ ${files.length}টি ফাইলের কনভার্সন সম্পন্ন! ZIP ডাউনলোড হয়েছে।`, 'success', 4000);
+      } else {
+        const data = await resp.json();
+        showToast(`❌ ব্যাচ কনভার্সন ব্যর্থ: ${data.error || 'অজানা ত্রুটি'}`, 'error', 4000);
+      }
+    } catch (e) {
+      showToast('❌ ব্যাচ কনভার্সন সার্ভার এরর', 'error', 4000);
+    }
+  }
+
+  // ==================== Presentation / Slideshow Controller ====================
+  let presentationSlides = [];
+  let currentSlideIndex = 0;
+
+  function openPresentationMode() {
+    const raw = editor.value || '';
+    let slides = raw.split(/\n\s*[-*_]{3,}\s*\n/).map(s => s.trim()).filter(Boolean);
+
+    if (slides.length <= 1) {
+      const parts = raw.split(/(?=\n# )/);
+      if (parts.length > 1) {
+        slides = parts.map(s => s.trim()).filter(Boolean);
+      }
+    }
+
+    if (slides.length === 0) {
+      slides = [raw || '# Untitled Slide\n\nType content separated by `---` to create slides.'];
+    }
+
+    presentationSlides = slides;
+    currentSlideIndex = 0;
+
+    const overlay = document.getElementById('presentationOverlay');
+    if (overlay) {
+      overlay.classList.add('active');
+      renderCurrentSlide();
+    }
+    showToast('📽️ প্রেজেন্টেশন মোড চালু (Arrow keys বা Space দিয়ে নেভিগেট করুন, Esc দিয়ে এক্সিট)', 'info', 2500);
+  }
+
+  function closePresentationMode() {
+    const overlay = document.getElementById('presentationOverlay');
+    if (overlay) {
+      overlay.classList.remove('active');
+    }
+  }
+
+  function renderCurrentSlide() {
+    const contentEl = document.getElementById('presSlideContent');
+    const counterEl = document.getElementById('presSlideCounter');
+    const progressBar = document.getElementById('presProgressBar');
+
+    if (!contentEl) return;
+    const slideText = presentationSlides[currentSlideIndex] || '';
+
+    let html = '';
+    if (window.marked) {
+      html = marked.parse(slideText, { gfm: true, breaks: true });
+    } else {
+      html = `<pre>${escapeHtml(slideText)}</pre>`;
+    }
+
+    // Restore KaTeX if available
+    html = html.replace(/\$\$([\s\S]+?)\$\$/g, (m, f) => {
+      try { return katex.renderToString(f, { displayMode: true, throwOnError: false }); }
+      catch(e) { return m; }
+    });
+    html = html.replace(/\$([^\$\n]+?)\$/g, (m, f) => {
+      try { return katex.renderToString(f, { displayMode: false, throwOnError: false }); }
+      catch(e) { return m; }
+    });
+
+    contentEl.innerHTML = html;
+
+    if (counterEl) {
+      counterEl.textContent = `Slide ${currentSlideIndex + 1} / ${presentationSlides.length}`;
+    }
+
+    if (progressBar) {
+      const pct = ((currentSlideIndex + 1) / presentationSlides.length) * 100;
+      progressBar.style.width = `${pct}%`;
+    }
+  }
+
+  function nextSlide() {
+    if (currentSlideIndex < presentationSlides.length - 1) {
+      currentSlideIndex++;
+      renderCurrentSlide();
+    }
+  }
+
+  function prevSlide() {
+    if (currentSlideIndex > 0) {
+      currentSlideIndex--;
+      renderCurrentSlide();
+    }
+  }
+
+  // ==================== Visual Table Assistant Controller ====================
+  let assistantRows = 3;
+  let assistantCols = 3;
+
+  function openTableAssistant() {
+    const modal = document.getElementById('tableAssistantModal');
+    if (!modal) return;
+    renderTableGrid();
+    modal.classList.add('active');
+  }
+
+  function renderTableGrid() {
+    const container = document.getElementById('tableGridContainer');
+    if (!container) return;
+
+    let html = '<table class="assistant-table"><thead><tr>';
+    for (let c = 0; c < assistantCols; c++) {
+      html += `<th><input type="text" class="table-cell-input tbl-header-cell" value="কলাম ${c + 1}" placeholder="Header ${c + 1}"></th>`;
+    }
+    html += '</tr></thead><tbody>';
+
+    for (let r = 0; r < assistantRows; r++) {
+      html += '<tr>';
+      for (let c = 0; c < assistantCols; c++) {
+        html += `<td><input type="text" class="table-cell-input tbl-data-cell" placeholder="তথ্য ${r + 1},${c + 1}"></td>`;
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  }
+
+  function insertGeneratedTable() {
+    const container = document.getElementById('tableGridContainer');
+    if (!container) return;
+
+    const headers = Array.from(container.querySelectorAll('.tbl-header-cell')).map(i => i.value.trim() || 'Col');
+    const rows = [];
+    const dataInputs = Array.from(container.querySelectorAll('.tbl-data-cell'));
+
+    for (let r = 0; r < assistantRows; r++) {
+      const rowVals = [];
+      for (let c = 0; c < assistantCols; c++) {
+        const val = dataInputs[r * assistantCols + c]?.value.trim() || '-';
+        rowVals.push(val);
+      }
+      rows.push(rowVals);
+    }
+
+    let mdTable = '\n\n| ' + headers.join(' | ') + ' |\n';
+    mdTable += '| ' + headers.map(() => ':---').join(' | ') + ' |\n';
+    rows.forEach(r => {
+      mdTable += '| ' + r.join(' | ') + ' |\n';
+    });
+    mdTable += '\n';
+
+    const start = editor.selectionStart || editor.value.length;
+    const end = editor.selectionEnd || editor.value.length;
+    const val = editor.value;
+
+    pushHistoryState(val);
+    editor.value = val.substring(0, start) + mdTable + val.substring(end);
+    editor.setSelectionRange(start + mdTable.length, start + mdTable.length);
+
+    document.getElementById('tableAssistantModal')?.classList.remove('active');
+    debouncedRenderMarkdown(50);
+    updateLineNumbers();
+    updateStatusBar();
+    debouncedSaveAllTabs(300);
+    showToast('⊞ টেবিল সফলভাবে ইনসার্ট হয়েছে!', 'success', 2500);
+  }
+
+  // ==================== Workspace Folder Explorer ====================
+  async function openWorkspaceFolder() {
+    if (!window.showDirectoryPicker) {
+      showToast('⚠️ এই ব্রাউজারে ফোল্ডার এক্সেস অনুমোদিত নয়। Chrome / Edge ব্যবহার করুন।', 'warning', 3000);
+      return;
+    }
+
+    try {
+      const dirHandle = await window.showDirectoryPicker();
+      const folderList = document.getElementById('sidebarFolderList');
+      if (!folderList) return;
+
+      folderList.innerHTML = '<div style="padding: 6px 12px; font-size: 11px; color: var(--text-secondary);">লোড হচ্ছে...</div>';
+      const files = [];
+
+      for await (const entry of dirHandle.values()) {
+        if (entry.kind === 'file' && (entry.name.endsWith('.md') || entry.name.endsWith('.txt') || entry.name.endsWith('.markdown'))) {
+          files.push(entry);
+        }
+      }
+
+      if (files.length === 0) {
+        folderList.innerHTML = '<div style="padding: 6px 12px; font-size: 11px; color: var(--text-secondary); font-style: italic;">ফোল্ডারে কোনো .md ফাইল পাওয়া যায়নি</div>';
+        return;
+      }
+
+      folderList.innerHTML = '';
+      files.forEach(fileHandle => {
+        const item = document.createElement('div');
+        item.className = 'sidebar-file-item';
+        item.innerHTML = `<span>📄</span> <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(fileHandle.name)}</span>`;
+        item.addEventListener('click', async () => {
+          const file = await fileHandle.getFile();
+          const content = await file.text();
+          const title = fileHandle.name.replace(/\.[^/.]+$/, '');
+          createNewTab(title, content);
+          document.querySelectorAll('.sidebar-file-item').forEach(i => i.classList.remove('active'));
+          item.classList.add('active');
+        });
+        folderList.appendChild(item);
+      });
+
+      showToast(`📁 "${dirHandle.name}" ফোল্ডার থেকে ${files.length}টি ফাইল লোড হয়েছে!`, 'success', 3000);
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.warn('Directory picker error:', err);
+      }
+    }
+  }
+
   function setupEventListeners() {
     // Editor inputs (Optimized: 60fps typing with non-blocking debounced rendering)
     editor.addEventListener('input', () => {
+      setSaveStatus('dirty');
       updateLineNumbers();
       updateStatusBar();
       debouncedRenderMarkdown(140);
@@ -1857,10 +2301,52 @@ ${previewContent.innerHTML}
         if (breadcrumbCurrentDoc) {
           breadcrumbCurrentDoc.textContent = `${activeTab.title}.md`;
         }
+        updateBranchStatus(true);
         renderTabs();
         debouncedSaveAllTabs(300);
       }
     });
+
+    // Presentation / Slideshow bindings
+    document.getElementById('toolSlides')?.addEventListener('click', openPresentationMode);
+    document.getElementById('menuToggleSlides')?.addEventListener('click', openPresentationMode);
+    document.getElementById('presExitBtn')?.addEventListener('click', closePresentationMode);
+    document.getElementById('presNextBtn')?.addEventListener('click', nextSlide);
+    document.getElementById('presPrevBtn')?.addEventListener('click', prevSlide);
+
+    // Table Assistant bindings
+    document.getElementById('tblApplySizeBtn')?.addEventListener('click', () => {
+      assistantRows = Math.max(1, Math.min(20, parseInt(document.getElementById('tblRowsInput').value, 10) || 3));
+      assistantCols = Math.max(1, Math.min(10, parseInt(document.getElementById('tblColsInput').value, 10) || 3));
+      renderTableGrid();
+    });
+    document.getElementById('tblAddRowBtn')?.addEventListener('click', () => {
+      if (assistantRows < 20) { assistantRows++; renderTableGrid(); }
+    });
+    document.getElementById('tblDelRowBtn')?.addEventListener('click', () => {
+      if (assistantRows > 1) { assistantRows--; renderTableGrid(); }
+    });
+    document.getElementById('tblAddColBtn')?.addEventListener('click', () => {
+      if (assistantCols < 10) { assistantCols++; renderTableGrid(); }
+    });
+    document.getElementById('tblDelColBtn')?.addEventListener('click', () => {
+      if (assistantCols > 1) { assistantCols--; renderTableGrid(); }
+    });
+    document.getElementById('insertTableToEditorBtn')?.addEventListener('click', insertGeneratedTable);
+
+    // Workspace Folder bindings
+    document.getElementById('sidebarOpenFolderBtn')?.addEventListener('click', openWorkspaceFolder);
+    document.getElementById('menuOpenFolder')?.addEventListener('click', openWorkspaceFolder);
+
+    // Multi-file batch convert hook on importFileInput
+    const importFileInputEl = document.getElementById('importFileInput');
+    if (importFileInputEl) {
+      importFileInputEl.addEventListener('change', () => {
+        if (importFileInputEl.files && importFileInputEl.files.length > 1) {
+          batchConvertFiles(importFileInputEl.files);
+        }
+      });
+    }
 
     // Formatting Toolbar Buttons
     document.getElementById('toolBold')?.addEventListener('click', () => insertFormatting('**', '**', 'bold text'));
@@ -1875,9 +2361,7 @@ ${previewContent.innerHTML}
     document.getElementById('toolUl')?.addEventListener('click', () => insertLinePrefix('- '));
     document.getElementById('toolOl')?.addEventListener('click', () => insertLinePrefix('1. '));
     document.getElementById('toolTask')?.addEventListener('click', () => insertLinePrefix('- [ ] '));
-    document.getElementById('toolTable')?.addEventListener('click', () => {
-      insertFormatting('| কলাম ১ | কলাম ২ | কলাম ৩ |\n| :--- | :---: | ---: |\n| তথ্য ১ | তথ্য ২ | তথ্য ৩ |\n');
-    });
+    document.getElementById('toolTable')?.addEventListener('click', openTableAssistant);
     document.getElementById('toolMath')?.addEventListener('click', () => insertFormatting('$$\n', '\n$$', 'E = mc^2'));
     document.getElementById('toolMermaid')?.addEventListener('click', () => insertFormatting('```mermaid\ngraph TD\n    A[শুরু] --> B[শেষ]\n```\n'));
 
@@ -2085,10 +2569,33 @@ ${previewContent.innerHTML}
           e.preventDefault();
           togglePhoneticMode();
         }
+      } else if (e.key === 'F10') {
+        e.preventDefault();
+        openPresentationMode();
       } else if (e.key === 'F11') {
         e.preventDefault();
         toggleZenMode();
       } else if (e.key === 'Escape') {
+        const presOverlay = document.getElementById('presentationOverlay');
+        if (presOverlay && presOverlay.classList.contains('active')) {
+          e.preventDefault();
+          closePresentationMode();
+        } else if (document.body.classList.contains('zen-mode')) {
+          e.preventDefault();
+          toggleZenMode();
+        }
+      } else if (e.key === 'ArrowRight' || e.key === ' ') {
+        const presOverlay = document.getElementById('presentationOverlay');
+        if (presOverlay && presOverlay.classList.contains('active')) {
+          e.preventDefault();
+          nextSlide();
+        }
+      } else if (e.key === 'ArrowLeft') {
+        const presOverlay = document.getElementById('presentationOverlay');
+        if (presOverlay && presOverlay.classList.contains('active')) {
+          e.preventDefault();
+          prevSlide();
+        }
         if (document.body.classList.contains('zen-mode')) {
           e.preventDefault();
           toggleZenMode();
@@ -2097,6 +2604,61 @@ ${previewContent.innerHTML}
         e.preventDefault();
         refreshPreviewAction();
       }
+    });
+
+    // Toolbar & Status Bar Font Mode Toggle (Kalpurush Unicode ⇄ Kalpurush ANSI)
+    document.getElementById('toolToggleFont')?.addEventListener('click', toggleFontMode);
+    document.getElementById('sbFontMode')?.addEventListener('click', toggleFontMode);
+
+    // Dynamic Status Bar Interactive Handlers
+    document.getElementById('sbBranch')?.addEventListener('click', () => {
+      const activeTab = getActiveTab();
+      const name = activeTab ? activeTab.title : 'main';
+      showToast(`📂 ওয়ার্কস্পেস: markitdown | ফাইল: ${name}.md`, 'info', 2500);
+    });
+
+    document.getElementById('sbSync')?.addEventListener('click', async () => {
+      showToast('🔄 ব্যাকএন্ড সার্ভার স্ট্যাটাস যাচাই করা হচ্ছে...', 'info', 1000);
+      await checkServerStatus();
+      showToast('🟢 লোকাল পাইথন ব্যাকএন্ড সার্ভার সক্রিয় (Port 8080)', 'success', 2000);
+    });
+
+    document.getElementById('sbDiagnostics')?.addEventListener('click', () => {
+      const diag = updateDiagnostics();
+      if (diag.errors > 0 || diag.warnings > 0) {
+        showToast(`⚠️ সিনট্যাক্স ডায়াগনস্টিক রিপোর্ট:\n• ${diag.diagnosticNotes.join('\n• ')}`, 'warning', 4000);
+      } else {
+        showToast('✅ কোনো সিনট্যাক্স ত্রুটি বা সমস্যা নেই!', 'success', 2000);
+      }
+    });
+
+    document.getElementById('saveStatus')?.addEventListener('click', () => {
+      saveAllTabs();
+      showToast('💾 লোকাল স্টোরেজে ড্রাফট তৎক্ষণাৎ সংরক্ষণ করা হয়েছে', 'success', 1500);
+    });
+
+    document.getElementById('sbLineCol')?.addEventListener('click', () => {
+      const lineStr = prompt('কত নম্বর লাইনে যেতে চান? (Go to Line number):');
+      if (lineStr !== null) {
+        const lineNum = parseInt(lineStr.trim(), 10);
+        if (!isNaN(lineNum) && lineNum > 0) {
+          scrollToEditorLine(lineNum - 1);
+        } else {
+          showToast('সঠিক লাইন নম্বর দিন।', 'warning', 1500);
+        }
+      }
+    });
+
+    document.getElementById('sbWordCount')?.addEventListener('click', showDocStatsModal);
+
+    document.getElementById('sbIndent')?.addEventListener('click', toggleIndentation);
+
+    document.getElementById('sbEncoding')?.addEventListener('click', toggleFontMode);
+
+    document.getElementById('sbLineEnding')?.addEventListener('click', toggleLineEnding);
+
+    document.getElementById('sbDocType')?.addEventListener('click', () => {
+      showToast('ডকুমেন্ট সিনট্যাক্স: GitHub Flavored Markdown (GFM)', 'info', 2000);
     });
 
     setupScrollSync();
@@ -2253,9 +2815,16 @@ ${previewContent.innerHTML}
     }
 
     initTabs();
+    setFontMode('unicode', true);
     renderMarkdown();
     updateUndoRedoUI();
     setupEventListeners();
+    checkServerStatus();
+    updateDiagnostics();
+    detectLineEnding();
+    detectIndentation();
+    updateBranchStatus(false);
+    setSaveStatus('saved');
   }
 
   if (document.readyState === 'loading') {

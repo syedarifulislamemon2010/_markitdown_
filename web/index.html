@@ -6,7 +6,7 @@
   <title>MarkItDown Studio - Universal Markdown Editor & Converter</title>
   
   <!-- CSS -->
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=3.2.0">
   
   <!-- Local Vendor Libraries for 100% Offline Functionality (non-blocking) -->
   <script defer src="vendor/marked.min.js"></script>
@@ -35,6 +35,7 @@
             <button id="menuNewDoc" class="dropdown-item"><span class="menu-icon">📄</span> New Tab <span class="shortcut">Ctrl+N</span></button>
             <button id="menuCloseTab" class="dropdown-item"><span class="menu-icon">✕</span> Close Tab <span class="shortcut">Ctrl+W</span></button>
             <button id="menuImportDoc" class="dropdown-item"><span class="menu-icon">📂</span> Import Document... <span class="shortcut">Ctrl+O</span></button>
+            <button id="menuOpenFolder" class="dropdown-item"><span class="menu-icon">📁</span> Open Local Folder...</button>
             <div class="menu-separator"></div>
             <button id="menuSaveDocx" class="dropdown-item"><span class="menu-icon">📝</span> Export Word (.docx)</button>
             <button id="menuSaveMd" class="dropdown-item"><span class="menu-icon">💾</span> Export Markdown (.md) <span class="shortcut">Ctrl+S</span></button>
@@ -79,6 +80,7 @@
             <button id="menuFontSizeReset" class="dropdown-item"><span class="menu-icon">🔄</span> Reset Zoom <span class="shortcut">Ctrl+0</span></button>
             <button id="menuToggleWordWrap" class="dropdown-item"><span class="menu-icon">↩</span> Toggle Word Wrap</button>
             <button id="menuToggleZen" class="dropdown-item"><span class="menu-icon">🧘</span> Toggle Zen Mode <span class="shortcut">F11</span></button>
+            <button id="menuToggleSlides" class="dropdown-item"><span class="menu-icon">📽️</span> Presentation Slides <span class="shortcut">F10</span></button>
           </div>
         </div>
 
@@ -204,6 +206,9 @@
       <button id="toolUnicodeToAnsi" class="tool-btn tool-btn-accent" title="ইউনিকোড বাংলাকে প্রেস/সুতন্মীএমজে (ANSI) ফন্টে রূপান্তর">
         🔁 ইউনিকোড ➜ বিজয়
       </button>
+      <button id="toolToggleFont" class="tool-btn" title="ফন্ট পরিবর্তন করুন: কালপুরুষ (ইউনিকোড) ⇄ কালপুরুষ ANSI (বিজয়)">
+        🔤 কালপুরুষ
+      </button>
     </div>
 
     <div class="tool-group" style="border-left: 2px solid var(--border-color); padding-left: 6px;">
@@ -212,6 +217,9 @@
       </button>
       <button id="toolZenMode" class="tool-btn" title="জেন মোড / ফুলস্ক্রিন ফোকাস (F11 বা Esc দিয়ে এক্সিট)">
         🧘 Zen
+      </button>
+      <button id="toolSlides" class="tool-btn" title="স্লাইডশো / প্রেজেন্টেশন মোড (F10)">
+        📽️ Slides
       </button>
     </div>
 
@@ -279,6 +287,17 @@
             <!-- Injected dynamically based on markdown headers -->
           </div>
         </div>
+
+        <!-- Section 3: Workspace Folder Explorer -->
+        <div class="sidebar-section" style="margin-top: 14px;">
+          <div class="sidebar-section-header">
+            <span>▾ WORKSPACE FOLDER</span>
+            <button id="sidebarOpenFolderBtn" class="sidebar-add-btn" title="Open Local Folder (ফোল্ডার ওপেন করুন)">📁</button>
+          </div>
+          <div class="sidebar-folder-list" id="sidebarFolderList">
+            <div id="folderEmptyHint" style="padding: 6px 12px; font-size: 11px; color: var(--text-secondary); font-style: italic;">📁 আইকনে ক্লিক করে ফোল্ডার ওপেন করুন</div>
+          </div>
+        </div>
       </div>
     </aside>
 
@@ -340,26 +359,26 @@
     </div>
   </div>
 
-  <!-- ==================== VS Code Status Bar ==================== -->
+  <!-- ==================== VS Code Dynamic Status Bar ==================== -->
   <footer class="vscode-status-bar" id="statusBar">
     <div class="status-left">
-      <span class="status-item branch-item" title="Git Branch"><span class="git-icon"></span> emon*</span>
-      <span class="status-item" title="Synchronize / Connected">🔄</span>
-      <span class="status-item" title="0 Errors, 0 Warnings">⨂ 0  ⚠ 0</span>
-      <span class="status-item" id="saveStatus">Saved locally</span>
+      <span class="status-item branch-item clickable" id="sbBranch" title="Workspace: markitdown (click to check branch status)"><span class="git-icon">⑂</span> <span id="sbBranchName">main</span></span>
+      <span class="status-item clickable" id="sbSync" title="Local Python Backend: Click to test connection">🟢 <span id="sbSyncStatus">Port 8080</span></span>
+      <span class="status-item clickable" id="sbDiagnostics" title="Markdown Syntax Diagnostics: Click to check issues"><span id="sbDiagBadge">⨂ 0  ⚠ 0</span></span>
+      <span class="status-item clickable" id="saveStatus" title="Save Status: Click to save immediately">✓ Saved locally</span>
     </div>
     <div class="status-right">
-      <span class="status-item user-item" id="sbAuthor" title="Contributor & Author">syedarifulislamemon2010</span>
-      <span class="status-item" id="sbLineCol">Ln 1, Col 1</span>
-      <span class="status-item" id="sbWordCount">Words: 0</span>
-      <span class="status-item" id="charCount" style="display:none;">0 chars</span>
-      <span class="status-item" id="lineCount" style="display:none;">0 lines</span>
-      <span class="status-item" id="readTime" style="display:none;">1 min read</span>
-      <span class="status-item" id="wordCount" style="display:none;">0 words</span>
-      <span class="status-item">Spaces: 4</span>
-      <span class="status-item">UTF-8</span>
-      <span class="status-item">LF</span>
-      <span class="status-item highlight">Markdown</span>
+      <span class="status-item clickable font-badge" id="sbFontMode" title="Active Font Mode: Click to switch between Kalpurush (Unicode) and Kalpurush ANSI (বিজয়)">🔤 Kalpurush</span>
+      <span class="status-item clickable" id="sbLineCol" title="Cursor Position: Click to Go to Line">Ln 1, Col 1</span>
+      <span class="status-item clickable" id="sbWordCount" title="Word & Character Count: Click to open Document Statistics">Words: 0</span>
+      <span class="status-item clickable" id="sbIndent" title="Indentation: Click to change indent (Spaces: 4 / 2 / Tabs)">Spaces: 4</span>
+      <span class="status-item clickable" id="sbEncoding" title="Encoding: Click to toggle Unicode / Bijoy ANSI">UTF-8</span>
+      <span class="status-item clickable" id="sbLineEnding" title="Line Ending: Click to toggle LF / CRLF">LF</span>
+      <span class="status-item highlight clickable" id="sbDocType" title="Document Syntax Mode">Markdown</span>
+      <span id="charCount" style="display:none;"></span>
+      <span id="lineCount" style="display:none;"></span>
+      <span id="wordCount" style="display:none;"></span>
+      <span id="sbBranchText" style="display:none;">main</span>
     </div>
   </footer>
 
@@ -433,7 +452,7 @@
           <div class="drop-zone-icon">📁</div>
           <div class="drop-zone-text">Drag & drop PDF, Word, Excel, PPTX, or Audio here</div>
           <div class="drop-zone-sub">or click to browse files from your computer</div>
-          <input type="file" id="importFileInput" style="display: none;" accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.html,.htm,.json,.xml,.zip,.wav,.mp3">
+          <input type="file" id="importFileInput" multiple style="display: none;" accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.html,.htm,.json,.xml,.zip,.wav,.mp3">
         </div>
       </div>
       <div class="modal-footer">
@@ -623,11 +642,59 @@
     </div>
   </div>
 
+  <!-- ==================== Fullscreen Slide Presentation Overlay ==================== -->
+  <div id="presentationOverlay" class="presentation-overlay">
+    <div class="pres-header">
+      <span id="presSlideCounter" class="pres-counter">Slide 1 / 1</span>
+      <button id="presExitBtn" class="pres-exit-btn" title="Exit Presentation (Esc)">✕ Exit (Esc)</button>
+    </div>
+    <div class="pres-body">
+      <button id="presPrevBtn" class="pres-nav-btn pres-prev" title="Previous Slide (←)">◀</button>
+      <div id="presSlideContent" class="pres-slide-card"></div>
+      <button id="presNextBtn" class="pres-nav-btn pres-next" title="Next Slide (→ / Space)">▶</button>
+    </div>
+    <div class="pres-footer">
+      <div id="presProgressBar" class="pres-progress"></div>
+    </div>
+  </div>
+
+  <!-- ==================== Modal: Visual Table Assistant ==================== -->
+  <div id="tableAssistantModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 580px;">
+      <div class="modal-header">
+        <div class="modal-title">⊞ ভিজ্যুয়াল টেবিল এডিটর (Visual Table Assistant)</div>
+        <button class="modal-close btn-icon btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px;">
+          <label class="form-label" style="margin: 0;">সাইজ (Rows × Cols):</label>
+          <input type="number" id="tblRowsInput" class="form-input" style="width: 70px;" value="3" min="1" max="20">
+          <span>×</span>
+          <input type="number" id="tblColsInput" class="form-input" style="width: 70px;" value="3" min="1" max="10">
+          <button id="tblApplySizeBtn" class="btn" style="padding: 4px 10px;">Apply</button>
+        </div>
+        <div style="display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap;">
+          <button id="tblAddRowBtn" class="btn" style="padding: 3px 8px; font-size: 11px;">+ Row</button>
+          <button id="tblDelRowBtn" class="btn" style="padding: 3px 8px; font-size: 11px;">- Row</button>
+          <button id="tblAddColBtn" class="btn" style="padding: 3px 8px; font-size: 11px;">+ Column</button>
+          <button id="tblDelColBtn" class="btn" style="padding: 3px 8px; font-size: 11px;">- Column</button>
+        </div>
+        <div id="tableGridContainer" class="table-grid-container">
+          <!-- Dynamically generated table grid -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn modal-cancel">বাতিল</button>
+        <button id="insertTableToEditorBtn" class="btn btn-primary">ইনসার্ট করুন (Insert Table)</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ==================== Instant Non-Blocking Toast Container ==================== -->
   <div id="toastContainer" class="toast-container"></div>
 
-  <!-- Main JavaScript Application (non-blocking) -->
-  <script defer src="js/bijoy2unicode.js"></script>
-  <script defer src="js/app.js"></script>
+  <!-- Main JavaScript Application (non-blocking with cache buster) -->
+  <script defer src="js/bijoy2unicode.js?v=3.2.0"></script>
+  <script defer src="js/app.js?v=3.2.0"></script>
 </body>
 </html>

@@ -540,20 +540,25 @@ window.BijoyToUnicode = (function () {
 
   function isLikelyBijoy(text) {
     if (!text) return false;
-    if (BIJOY_SPECIALS.test(text)) return true;
 
-    const unicodeMatches = text.match(/[\u0980-\u09FF]/g);
-    if (unicodeMatches && unicodeMatches.length >= 15) {
+    // 1. If text already contains modern Unicode Bengali, it is definitely NOT Bijoy!
+    if (/[\u0980-\u09FF]/.test(text)) {
       return false;
     }
 
+    // 2. Strong Bijoy markers
     const markers = ['Avgvi', 'evsjv', 'wPÎ', 'cÖ', 'hy³', 'Avwg', '†mvbvi', '†Zvgvq', 'eivei', 'cwiPvjK', 'miKvi', 'GB AvB‡bi'];
     for (const m of markers) {
       if (text.includes(m)) return true;
     }
+
+    // 3. Check for specific Bijoy modifier glyphs that don't appear in normal text
+    if (/[†‡ˆ‰Š‹Œ˜™š›œŸ]/.test(text)) return true;
+
+    // 4. Token sampling
     const tokens = text.split(/\s+/).slice(0, 80);
     const count = tokens.filter(isBijoyToken).length;
-    return count >= 2;
+    return count >= 3;
   }
 
   function convert(text, preserveEnglish = true) {
@@ -806,5 +811,6 @@ window.BijoyToUnicode = (function () {
     convertUnicodeToBijoyMarkdown: convertUnicodeToBijoyMarkdown,
     isLikelyBijoy: isLikelyBijoy,
     isBijoyToken: isBijoyToken,
+    isEnglishToken: isEnglishToken,
   };
 })();

@@ -1,5 +1,7 @@
 import io
+import os
 import re
+import base64
 import docx
 from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -149,6 +151,62 @@ def markdown_to_docx_bytes(markdown_text: str, title: str = "Document") -> bytes
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             run = p.add_run('—' * 30)
             run.font.color.rgb = RGBColor(180, 180, 180)
+            i += 1
+            continue
+
+        # 4.5 Image handling: ![alt](src)
+        img_match = re.match(r'^\s*!\[(.*?)\]\((.*?)\)\s*$', stripped)
+        if img_match:
+            alt_text = img_match.group(1) or "Image"
+            img_src = img_match.group(2).strip()
+            image_inserted = False
+
+            if img_src.startswith('data:image/'):
+                try:
+                    b64_part = img_src.split(',', 1)[1]
+                    raw_bytes = base64.b64decode(b64_part)
+                    stream = io.BytesIO(raw_bytes)
+                    doc.add_picture(stream, width=Inches(5.0))
+                    image_inserted = True
+                except Exception:
+                    pass
+            elif os.path.exists(img_src):
+                try:
+                    doc.add_picture(img_src, width=Inches(5.0))
+                    image_inserted = True
+                except Exception:
+                    pass
+
+            if image_inserted:
+                caption_p = doc.add_paragraph()
+                caption_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                caption_run = caption_p.add_run(f"চিত্র: {alt_text}")
+                caption_run.font.size = Pt(9.5)
+                caption_run.font.italic = True
+                caption_run.font.color.rgb = RGBColor(120, 120, 120)
+                i += 1
+                continue
+
+        # 4.6 Math display block: $$ ... $$
+        if stripped.startswith('$$'):
+            formula = stripped.strip('$').strip()
+            if not formula and i + 1 < len(lines):
+                i += 1
+                math_lines = []
+                while i < len(lines) and not lines[i].strip().startswith('$$'):
+                    math_lines.append(lines[i].strip())
+                    i += 1
+                formula = ' '.join(math_lines).strip()
+
+            p = doc.add_paragraph()
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p.paragraph_format.left_indent = Inches(0.4)
+            p.paragraph_format.right_indent = Inches(0.4)
+            math_run = p.add_run(f"∑  {formula}")
+            math_run.font.name = 'Cambria Math'
+            math_run.font.size = Pt(11.5)
+            math_run.font.italic = True
+            math_run.font.color.rgb = RGBColor(0, 102, 204)
             i += 1
             continue
 

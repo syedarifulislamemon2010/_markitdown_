@@ -42,12 +42,22 @@ def serve_root():
     return static_file('index.html', root=str(WEB_DIR))
 
 
+@app.route('/api/health')
+def api_health():
+    """Ultra-fast health check endpoint for status bar and connectivity monitoring."""
+    response.content_type = 'application/json'
+    return '{"status": "ok", "version": "3.2.0"}'
+
+
 @app.route('/<filepath:path>')
 def serve_static(filepath):
     res = static_file(filepath, root=str(WEB_DIR))
-    # Cache static assets like vendor JS, fonts, and CSS for 1 day
-    if any(filepath.startswith(prefix) for prefix in ('vendor/', 'css/', 'js/')):
+    # Cache heavy vendor libraries (Mermaid, KaTeX, TTF fonts) for 1 day
+    if filepath.startswith('vendor/') or filepath.endswith('.ttf') or filepath.endswith('.woff2'):
         res.set_header('Cache-Control', 'public, max-age=86400')
+    else:
+        # Application code (app.js, style.css) must always stay fresh without stale cache
+        res.set_header('Cache-Control', 'no-cache, must-revalidate')
     return res
 
 
@@ -244,6 +254,171 @@ class ThreadedWSGIAdapter(ServerAdapter):
             handler_class=QuietHandler,
         )
         server.serve_forever()
+
+
+
+
+def generate_pdf_from_markdown(markdown_text, title="Document"):
+    """Generate high-fidelity PDF from markdown using Chrome/Edge headless."""
+    import subprocess
+    import html as html_module
+
+    chrome_candidates = [
+        r'C:\Program Files\Google\Chrome\Application\chrome.exe',
+        r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
+        r'C:\Program Files\Microsoft\Edge\Application\msedge.exe',
+        r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
+    ]
+    chrome_path = None
+    for c in chrome_candidates:
+        if os.path.exists(c):
+            chrome_path = c
+            break
+
+    if not chrome_path:
+        return None
+
+    # Minimal clean Markdown to HTML parser for PDF
+    escaped_body = html_module.escape(markdown_text).replace('\n', '<br>')
+    html_content = f"""<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <title>{html_module.escape(title)}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap');
+    @page {{
+      size: A4;
+      margin: 20mm 15mm 20mm 15mm;
+    }}
+    body {{
+      font-family: 'Hind Siliguri', 'Segoe UI', system-ui, sans-serif;
+      font-size: 11pt;
+      line-height: 1.65;
+      color: #1a1a1a;
+    }}
+    h1, h2, h3, h4 {{
+      color: #0078d4;
+      margin-top: 1.2em;
+      margin-bottom: 0.5em;
+      font-weight: 600;
+    }}
+    h1 {{ font-size: 20pt; border-bottom: 2px solid #0078d4; padding-bottom: 6px; }}
+    pre, code {{ font-family: Consolas, monospace; background: #f4f4f4; padding: 2px 4px; border-radius: 3px; }}
+    table {{ width: 100%; border-collapse: collapse; margin: 1em 0; }}
+    th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+    th {{ background: #f2f2f2; }}
+    img {{ max-width: 100%; height: auto; }}
+  </style>
+</head>
+<body>
+  <h1>{html_module.escape(title)}</h1>
+  <div class="content">{escaped_body}</div>
+</body>
+</html>"""
+
+    with tempfile.NamedTemporaryFile(suffix='.html', delete=False, mode='w', encoding='utf-8') as f_html:
+        f_html.write(html_content)
+        html_path = f_html.name
+
+    pdf_path = html_path.replace('.html', '.pdf')
+
+    cmd = [
+        chrome_path,
+        '--headless=new',
+        '--disable-gpu',
+        '--no-pdf-header-footer',
+        f'--print-to-pdf={pdf_path}',
+        html_path
+    ]
+
+    try:
+        res = subprocess.run(cmd, capture_output=True, timeout=15)
+        if res.returncode == 0 and os.path.exists(pdf_path):
+            with open(pdf_path, 'rb') as f_pdf:
+                return f_pdf.read()
+    except Exception as e:
+        print("PDF gen exception:", e)
+    finally:
+        if os.path.exists(html_path):
+            try: os.remove(html_path)
+            except Exception: pass
+        if os.path.exists(pdf_path):
+            try: os.remove(pdf_path)
+            except Exception: pass
+    return None
+
+
+@app.post('/api/export-pdf')
+def api_export_pdf():
+    """Convert Markdown to Direct Downloadable PDF using headless Chrome/Edge."""
+    data = request.json or {}
+    markdown_text = data.get('markdown', '')
+    title = data.get('title', 'Document')
+    if not markdown_text:
+        markdown_text = request.forms.get('markdown', '')
+    if not title:
+        title = request.forms.get('title', 'Document')
+
+    pdf_bytes = generate_pdf_from_markdown(markdown_text, title)
+    if not pdf_bytes:
+        response.status = 500
+        return {"success": False, "error": "Direct PDF generation failed. Use browser print dialog."}
+
+    ascii_title = "".join(c for c in title if c.isascii() and (c.isalnum() or c in (' ', '-', '_'))).strip() or "Document"
+    encoded_title = quote(f"{title}.pdf")
+    headers = {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': f'attachment; filename="{ascii_title}.pdf"; filename*=UTF-8\'\'{encoded_title}',
+        'Access-Control-Expose-Headers': 'Content-Disposition',
+        'Content-Length': str(len(pdf_bytes)),
+    }
+    return HTTPResponse(body=pdf_bytes, status=200, headers=headers)
+
+
+@app.post('/api/batch-convert')
+def api_batch_convert():
+    """Convert multiple files to Markdown and download as a single ZIP archive."""
+    import zipfile
+    files = request.files.getall('files') or request.files.getall('file')
+    if not files:
+        response.status = 400
+        return {"success": False, "error": "No files uploaded"}
+
+    zip_buffer = io.BytesIO()
+    converted_count = 0
+
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for upload in files:
+            filename = upload.filename
+            suffix = Path(filename).suffix
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                upload.save(tmp.name, overwrite=True)
+                tmp_path = tmp.name
+
+            try:
+                res = converter.convert_file(tmp_path)
+                if res.success and res.markdown:
+                    md_name = f"{Path(filename).stem}.md"
+                    zip_file.writestr(md_name, res.markdown.encode('utf-8'))
+                    converted_count += 1
+            finally:
+                if os.path.exists(tmp_path):
+                    try: os.remove(tmp_path)
+                    except Exception: pass
+
+    if converted_count == 0:
+        response.status = 500
+        return {"success": False, "error": "No files could be converted successfully"}
+
+    zip_bytes = zip_buffer.getvalue()
+    headers = {
+        'Content-Type': 'application/zip',
+        'Content-Disposition': 'attachment; filename="markitdown_batch_converted.zip"',
+        'Access-Control-Expose-Headers': 'Content-Disposition',
+        'Content-Length': str(len(zip_bytes)),
+    }
+    return HTTPResponse(body=zip_bytes, status=200, headers=headers)
 
 
 def run_server(host="127.0.0.1", port=8080):

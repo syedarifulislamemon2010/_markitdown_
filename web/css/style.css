@@ -1328,3 +1328,206 @@ body.zen-mode .editor-textarea {
   outline: 2px dashed var(--accent-color);
   outline-offset: -4px;
 }
+
+/* ==================== Presentation / Slideshow Mode ==================== */
+.presentation-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  flex-direction: column;
+  user-select: none;
+}
+
+.presentation-overlay.active {
+  display: flex !important;
+}
+
+.pres-header {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+}
+
+.pres-counter {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.pres-exit-btn {
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.12s;
+}
+
+.pres-exit-btn:hover {
+  background-color: var(--danger-color);
+  color: #ffffff;
+  border-color: var(--danger-color);
+}
+
+.pres-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 32px;
+  overflow: hidden;
+}
+
+.pres-nav-btn {
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 20px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.pres-nav-btn:hover {
+  background-color: var(--accent-color);
+  color: #ffffff;
+  border-color: var(--accent-color);
+  transform: scale(1.05);
+}
+
+.pres-slide-card {
+  flex: 1;
+  max-width: 960px;
+  min-height: 440px;
+  margin: 0 32px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 48px;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.25);
+  overflow-y: auto;
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+.pres-slide-card h1 {
+  font-size: 32px;
+  color: var(--accent-color);
+  margin-bottom: 24px;
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: 10px;
+}
+
+.pres-slide-card h2 {
+  font-size: 26px;
+  color: var(--text-bright);
+  margin-top: 20px;
+  margin-bottom: 14px;
+}
+
+.pres-slide-card ul, .pres-slide-card ol {
+  padding-left: 28px;
+  margin: 16px 0;
+}
+
+.pres-slide-card li {
+  margin-bottom: 8px;
+}
+
+.pres-footer {
+  height: 6px;
+  background-color: var(--bg-secondary);
+  width: 100%;
+}
+
+.pres-progress {
+  height: 100%;
+  background-color: var(--accent-color);
+  width: 0%;
+  transition: width 0.2s ease;
+}
+
+/* ==================== Visual Table Assistant Grid ==================== */
+.table-grid-container {
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: var(--bg-primary);
+  padding: 6px;
+}
+
+.assistant-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.assistant-table th, .assistant-table td {
+  border: 1px solid var(--border-color);
+  padding: 4px;
+}
+
+.assistant-table th {
+  background-color: var(--bg-secondary);
+}
+
+.table-cell-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  font-size: 12px;
+  padding: 4px;
+}
+
+.table-cell-input:focus {
+  background-color: var(--bg-hover);
+}
+
+/* ==================== Workspace Folder Explorer ==================== */
+.sidebar-folder-list {
+  padding: 2px 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.sidebar-file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.sidebar-file-item:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-bright);
+}
+
+.sidebar-file-item.active {
+  background-color: rgba(0, 120, 212, 0.15);
+  color: var(--accent-color);
+  font-weight: 600;
+}
