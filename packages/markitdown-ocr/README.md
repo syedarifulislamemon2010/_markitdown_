@@ -189,14 +189,14 @@ pytest tests/ -v
 ### Building from Source
 
 ```bash
-git clone https://github.com/syedarifulislamemon2010/markitdown.git
-cd markitdown
+git clone https://github.com/syedarifulislamemon2010/_markitdown_.git
+cd _markitdown_
 pip install -e 'packages/markitdown[docx,pptx,xlsx]' -e packages/markitdown-ocr
 ```
 
 ## Contributing
 
-Contributions are welcome! See the [MarkItDown repository](https://github.com/syedarifulislamemon2010/markitdown) for guidelines.
+Contributions are welcome! See the [MarkItDown repository](https://github.com/syedarifulislamemon2010/_markitdown_) for guidelines.
 
 ## License
 

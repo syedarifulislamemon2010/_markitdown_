@@ -6,7 +6,7 @@
 ### Universal Markdown Workspace, Document Conversion Engine & Bilingual NLP Suite
 
 [![Python Version](https://img.shields.io/badge/Python-3.10%2B-blue.svg?logo=python&logoColor=white)](https://www.python.org/)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-informational.svg)](https://github.com/syedarifulislamemon2010/markitdown)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-informational.svg)](https://github.com/syedarifulislamemon2010/_markitdown_)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Author](https://img.shields.io/badge/Author-Syed%20Ariful%20Islam%20Emon-purple.svg)](https://github.com/syedarifulislamemon2010)
 [![Offline Capable](https://img.shields.io/badge/100%25-Offline%20First-success.svg)](#)
@@ -205,8 +205,8 @@ MarkItDown Studio exposes a local REST API on `http://127.0.0.1:8080`:
 
 ```powershell
 # 1. Clone the repository
-git clone https://github.com/syedarifulislamemon2010/markitdown.git
-cd markitdown
+git clone https://github.com/syedarifulislamemon2010/_markitdown_.git
+cd _markitdown_
 
 # 2. Create Python virtual environment
 python -m venv .venv
