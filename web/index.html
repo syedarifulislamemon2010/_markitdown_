@@ -29,17 +29,17 @@
         <div class="menu-item" id="menuFile">
           <button class="menu-trigger">File</button>
           <div class="menu-dropdown">
-            <button id="menuNewDoc" class="dropdown-item"><span class="menu-icon">📄</span> নতুন ডকুমেন্ট (New Tab) <span class="shortcut">Ctrl+N</span></button>
-            <button id="menuCloseTab" class="dropdown-item"><span class="menu-icon">✕</span> বর্তমান ট্যাব বন্ধ (Close Tab) <span class="shortcut">Ctrl+W</span></button>
-            <button id="menuImportDoc" class="dropdown-item"><span class="menu-icon">📂</span> ডকুমেন্ট ইমপোর্ট (Import) <span class="shortcut">Ctrl+O</span></button>
+            <button id="menuNewDoc" class="dropdown-item"><span class="menu-icon">📄</span> New Tab <span class="shortcut">Ctrl+N</span></button>
+            <button id="menuCloseTab" class="dropdown-item"><span class="menu-icon">✕</span> Close Tab <span class="shortcut">Ctrl+W</span></button>
+            <button id="menuImportDoc" class="dropdown-item"><span class="menu-icon">📂</span> Import Document... <span class="shortcut">Ctrl+O</span></button>
             <div class="menu-separator"></div>
-            <button id="menuSaveDocx" class="dropdown-item"><span class="menu-icon">📝</span> এক্সপোর্ট ওয়ার্ড ডকুমেন্ট (.docx)</button>
-            <button id="menuSaveMd" class="dropdown-item"><span class="menu-icon">💾</span> এক্সপোর্ট মার্কডাউন (.md) <span class="shortcut">Ctrl+S</span></button>
-            <button id="menuSaveTxt" class="dropdown-item"><span class="menu-icon">📑</span> এক্সপোর্ট প্লেইন টেক্সট (.txt)</button>
-            <button id="menuSaveHtml" class="dropdown-item"><span class="menu-icon">🌐</span> এক্সপোর্ট এইচটিএমএল (.html)</button>
-            <button id="menuPrintPdf" class="dropdown-item"><span class="menu-icon">🖨️</span> প্রিন্ট / সেভ PDF <span class="shortcut">Ctrl+P</span></button>
+            <button id="menuSaveDocx" class="dropdown-item"><span class="menu-icon">📝</span> Export Word (.docx)</button>
+            <button id="menuSaveMd" class="dropdown-item"><span class="menu-icon">💾</span> Export Markdown (.md) <span class="shortcut">Ctrl+S</span></button>
+            <button id="menuSaveTxt" class="dropdown-item"><span class="menu-icon">📑</span> Export Plain Text (.txt)</button>
+            <button id="menuSaveHtml" class="dropdown-item"><span class="menu-icon">🌐</span> Export HTML (.html)</button>
+            <button id="menuPrintPdf" class="dropdown-item"><span class="menu-icon">🖨️</span> Print / PDF <span class="shortcut">Ctrl+P</span></button>
             <div class="menu-separator"></div>
-            <button id="menuReload" class="dropdown-item"><span class="menu-icon">🔄</span> রিলোড উইন্ডো (Reload)</button>
+            <button id="menuReload" class="dropdown-item"><span class="menu-icon">🔄</span> Reload Window</button>
           </div>
         </div>
 
@@ -47,49 +47,49 @@
         <div class="menu-item" id="menuEdit">
           <button class="menu-trigger">Edit</button>
           <div class="menu-dropdown">
-            <button id="menuUndo" class="dropdown-item"><span class="menu-icon">↩</span> আনডু (Undo) <span class="shortcut">Ctrl+Z</span></button>
-            <button id="menuRedo" class="dropdown-item"><span class="menu-icon">↪</span> রিডু (Redo) <span class="shortcut">Ctrl+Y</span></button>
+            <button id="menuUndo" class="dropdown-item"><span class="menu-icon">↩</span> Undo <span class="shortcut">Ctrl+Z</span></button>
+            <button id="menuRedo" class="dropdown-item"><span class="menu-icon">↪</span> Redo <span class="shortcut">Ctrl+Y</span></button>
             <div class="menu-separator"></div>
-            <button id="menuCut" class="dropdown-item"><span class="menu-icon">✂️</span> কাট (Cut) <span class="shortcut">Ctrl+X</span></button>
-            <button id="menuCopy" class="dropdown-item"><span class="menu-icon">📋</span> মার্কডাউন কপি (Copy) <span class="shortcut">Ctrl+C</span></button>
-            <button id="menuPaste" class="dropdown-item"><span class="menu-icon">📥</span> পেস্ট করুন (Paste) <span class="shortcut">Ctrl+V</span></button>
-            <button id="menuSelectAll" class="dropdown-item"><span class="menu-icon">🔘</span> সব সিলেক্ট (Select All) <span class="shortcut">Ctrl+A</span></button>
-            <button id="menuFindReplace" class="dropdown-item"><span class="menu-icon">🔍</span> খুঁজুন ও প্রতিস্থাপন (Find & Replace) <span class="shortcut">Ctrl+F</span></button>
+            <button id="menuCut" class="dropdown-item"><span class="menu-icon">✂️</span> Cut <span class="shortcut">Ctrl+X</span></button>
+            <button id="menuCopy" class="dropdown-item"><span class="menu-icon">📋</span> Copy Markdown <span class="shortcut">Ctrl+C</span></button>
+            <button id="menuPaste" class="dropdown-item"><span class="menu-icon">📥</span> Paste <span class="shortcut">Ctrl+V</span></button>
+            <button id="menuSelectAll" class="dropdown-item"><span class="menu-icon">🔘</span> Select All <span class="shortcut">Ctrl+A</span></button>
+            <button id="menuFindReplace" class="dropdown-item"><span class="menu-icon">🔍</span> Find & Replace <span class="shortcut">Ctrl+F</span></button>
             <div class="menu-separator"></div>
-            <button id="menuClear" class="dropdown-item text-danger"><span class="menu-icon">🗑️</span> সব ক্লিয়ার করুন (Clear All)</button>
+            <button id="menuClear" class="dropdown-item text-danger"><span class="menu-icon">🗑️</span> Clear All</button>
           </div>
         </div>
 
-        <!-- Selection / View Menu -->
+        <!-- View Menu -->
         <div class="menu-item" id="menuView">
           <button class="menu-trigger">View</button>
           <div class="menu-dropdown">
-            <button id="menuRefreshPreview" class="dropdown-item"><span class="menu-icon">🔄</span> প্রিভিউ রিফ্রেশ (Refresh) <span class="shortcut">F5</span></button>
-            <button id="menuToggleTheme" class="dropdown-item"><span class="menu-icon">🌓</span> থিম পরিবর্তন (Dark/Light)</button>
+            <button id="menuRefreshPreview" class="dropdown-item"><span class="menu-icon">🔄</span> Refresh Preview <span class="shortcut">F5</span></button>
+            <button id="menuToggleTheme" class="dropdown-item"><span class="menu-icon">🌓</span> Toggle Dark/Light Theme</button>
             <div class="menu-separator"></div>
-            <button id="menuViewBoth" class="dropdown-item"><span class="menu-icon">📑</span> স্প্লিট ভিউ (উভয় প্যান)</button>
-            <button id="menuViewEditorOnly" class="dropdown-item"><span class="menu-icon">📝</span> শুধু এডিটর মোড</button>
-            <button id="menuViewPreviewOnly" class="dropdown-item"><span class="menu-icon">👁️</span> শুধু প্রিভিউ মোড</button>
+            <button id="menuViewBoth" class="dropdown-item"><span class="menu-icon">📑</span> Split View (Both Panes)</button>
+            <button id="menuViewEditorOnly" class="dropdown-item"><span class="menu-icon">📝</span> Editor Only</button>
+            <button id="menuViewPreviewOnly" class="dropdown-item"><span class="menu-icon">👁️</span> Preview Only</button>
             <div class="menu-separator"></div>
-            <button id="menuFontSizeIncrease" class="dropdown-item"><span class="menu-icon">🔍+</span> ফন্ট বড় করুন (Zoom In)</button>
-            <button id="menuFontSizeDecrease" class="dropdown-item"><span class="menu-icon">🔍-</span> ফন্ট ছোট করুন (Zoom Out)</button>
-            <button id="menuFontSizeReset" class="dropdown-item"><span class="menu-icon">🔄</span> স্বাভাবিক সাইজ (Reset)</button>
-            <button id="menuToggleWordWrap" class="dropdown-item"><span class="menu-icon">↩</span> ওয়ার্ড র‍্যাপ টগল (Word Wrap)</button>
+            <button id="menuFontSizeIncrease" class="dropdown-item"><span class="menu-icon">🔍+</span> Zoom In <span class="shortcut">Ctrl+=</span></button>
+            <button id="menuFontSizeDecrease" class="dropdown-item"><span class="menu-icon">🔍-</span> Zoom Out <span class="shortcut">Ctrl+-</span></button>
+            <button id="menuFontSizeReset" class="dropdown-item"><span class="menu-icon">🔄</span> Reset Zoom <span class="shortcut">Ctrl+0</span></button>
+            <button id="menuToggleWordWrap" class="dropdown-item"><span class="menu-icon">↩</span> Toggle Word Wrap</button>
           </div>
         </div>
 
-        <!-- Tools / Bengali Menu -->
+        <!-- Tools Menu -->
         <div class="menu-item" id="menuTools">
           <button class="menu-trigger">Tools</button>
           <div class="menu-dropdown">
-            <button id="menuAnsiToUnicode" class="dropdown-item"><span class="menu-icon">🔄</span> ANSI (বিজয়) ➜ ইউনিকোড রূপান্তর</button>
-            <button id="menuUnicodeToAnsi" class="dropdown-item"><span class="menu-icon">🔁</span> ইউনিকোড ➜ ANSI (বিজয়) রূপান্তর</button>
+            <button id="menuAnsiToUnicode" class="dropdown-item"><span class="menu-icon">🔄</span> বিজয় (ANSI) ➜ ইউনিকোড রূপান্তর</button>
+            <button id="menuUnicodeToAnsi" class="dropdown-item"><span class="menu-icon">🔁</span> ইউনিকোড ➜ বিজয় (ANSI) রূপান্তর</button>
             <div class="menu-separator"></div>
-            <button id="menuOcr" class="dropdown-item"><span class="menu-icon">🔍</span> ইমেজ ওসিআর (Extract Text)</button>
-            <button id="menuCopyPreviewText" class="dropdown-item"><span class="menu-icon">📄</span> রেন্ডার করা টেক্সট কপি</button>
-            <button id="menuCopyHtml" class="dropdown-item"><span class="menu-icon">🌐</span> প্রিভিউ এইচটিএমএল কপি</button>
+            <button id="menuOcr" class="dropdown-item"><span class="menu-icon">🔍</span> Image OCR (Text Extraction)</button>
+            <button id="menuCopyPreviewText" class="dropdown-item"><span class="menu-icon">📄</span> Copy Rendered Text</button>
+            <button id="menuCopyHtml" class="dropdown-item"><span class="menu-icon">🌐</span> Copy Rendered HTML</button>
             <div class="menu-separator"></div>
-            <button id="menuDocStats" class="dropdown-item"><span class="menu-icon">📊</span> ডকুমেন্ট পরিসংখ্যান (Statistics)</button>
+            <button id="menuDocStats" class="dropdown-item"><span class="menu-icon">📊</span> Document Statistics</button>
           </div>
         </div>
 
@@ -105,8 +105,8 @@
         <div class="menu-item" id="menuHelp">
           <button class="menu-trigger">Help</button>
           <div class="menu-dropdown">
-            <button id="menuShortcuts" class="dropdown-item"><span class="menu-icon">⌨️</span> কীবোর্ড শর্টকাট (Shortcuts)</button>
-            <button id="menuSampleDoc" class="dropdown-item"><span class="menu-icon">📑</span> নমুনা ডকুমেন্ট লোড (Sample)</button>
+            <button id="menuShortcuts" class="dropdown-item"><span class="menu-icon">⌨️</span> Keyboard Shortcuts <span class="shortcut">Ctrl+/</span></button>
+            <button id="menuSampleDoc" class="dropdown-item"><span class="menu-icon">📑</span> Load Sample Document</button>
             <button id="menuAbout" class="dropdown-item"><span class="menu-icon">ℹ️</span> About MarkItDown Studio</button>
           </div>
         </div>
@@ -205,7 +205,7 @@
       <button id="toolRefresh" class="tool-btn" title="প্রিভিউ রিফ্রেশ করুন (F5)">🔄 Refresh</button>
       <button id="toolSelectAll" class="tool-btn" title="সব টেক্সট সিলেক্ট করুন (Ctrl+A)">🔘 Select All</button>
       <button id="toolCopy" class="tool-btn" title="মার্কডাউন কপি করুন (Ctrl+C)">📋 Copy</button>
-      <button id="toolClear" class="tool-btn" style="color: #ef4444;" title="এডিটর খালি করুন (Clear Editor)">🗑️ Clear</button>
+      <button id="toolClear" class="tool-btn" style="color: var(--danger-color);" title="এডিটর খালি করুন (Clear Editor)">🗑️ Clear</button>
     </div>
   </div>
 
@@ -217,8 +217,8 @@
         <button id="actBarExplorer" class="activity-btn active" title="Explorer (Toggle Sidebar)">
           📁
         </button>
-        <button id="actBarActions" class="activity-btn" title="Quick Actions & Export">
-          ⚡
+        <button id="actBarActions" class="activity-btn" title="Export Document">
+          💾
         </button>
         <button id="actBarBengali" class="activity-btn" title="Bengali Font Tools (ANSI ⇄ Unicode)">
           🌐
@@ -245,7 +245,7 @@
       </div>
 
       <div class="sidebar-content">
-        <!-- Section: Open Editors -->
+        <!-- Section 1: Open Editors -->
         <div class="sidebar-section">
           <div class="sidebar-section-header">
             <span>▾ OPEN EDITORS</span>
@@ -256,28 +256,13 @@
           </div>
         </div>
 
-        <!-- Section: Quick Actions -->
-        <div class="sidebar-section">
+        <!-- Section 2: Outline (Real VS Code Document Outline) -->
+        <div class="sidebar-section" style="margin-top: 14px;">
           <div class="sidebar-section-header">
-            <span>▾ QUICK ACTIONS</span>
+            <span>▾ OUTLINE</span>
           </div>
-          <div class="sidebar-action-list">
-            <div class="sidebar-action-item" id="sbActionWord"><span>📝</span> Export Word (.docx)</div>
-            <div class="sidebar-action-item" id="sbActionMd"><span>📄</span> Export Markdown (.md)</div>
-            <div class="sidebar-action-item" id="sbActionPdf"><span>🖨️</span> Print / Save to PDF</div>
-            <div class="sidebar-action-item" id="sbActionImport"><span>📂</span> Import Any File</div>
-            <div class="sidebar-action-item" id="sbActionOcr"><span>🔍</span> Extract Text (OCR)</div>
-          </div>
-        </div>
-
-        <!-- Section: Bengali Tools -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-header">
-            <span>▾ BENGALI CONVERSION</span>
-          </div>
-          <div class="sidebar-action-list">
-            <div class="sidebar-action-item" id="sbActionAnsi"><span>🔄</span> বিজয় ➜ ইউনিকোড</div>
-            <div class="sidebar-action-item" id="sbActionUnicode"><span>🔁</span> ইউনিকোড ➜ বিজয়</div>
+          <div class="sidebar-outline-list" id="sidebarOutlineList">
+            <!-- Injected dynamically based on markdown headers -->
           </div>
         </div>
       </div>
@@ -309,14 +294,9 @@
           <div class="pane-header">
             <div class="pane-title">
               <span>Markdown Source</span>
-              <span style="font-size: 10px; color: var(--text-secondary);">GFM + Math + Mermaid</span>
             </div>
             <div class="pane-actions">
-              <button id="paneUndoBtn" class="pane-btn" title="Undo (Ctrl+Z)">↩</button>
-              <button id="paneRedoBtn" class="pane-btn" title="Redo (Ctrl+Y)">↪</button>
-              <button id="paneSelectAllBtn" class="pane-btn" title="Select All (Ctrl+A)">Select All</button>
-              <button id="paneCopyBtn" class="pane-btn" title="Copy Markdown to Clipboard">📋 Copy</button>
-              <button id="paneClearBtn" class="pane-btn pane-btn-danger" title="Clear Editor">🗑️ Clear</button>
+              <button id="editorWordWrapBtn" class="pane-btn" title="Toggle Word Wrap">↩ Wrap</button>
             </div>
           </div>
           <div class="editor-wrapper">
@@ -333,12 +313,9 @@
           <div class="pane-header">
             <div class="pane-title">
               <span>Live Rendered Preview</span>
-              <span style="font-size: 10px; color: var(--text-secondary);">Synced Scrolling</span>
             </div>
             <div class="pane-actions">
               <button id="paneRefreshBtn" class="pane-btn" title="Refresh & Re-render Preview (F5)">🔄 Refresh</button>
-              <button id="paneCopyTextBtn" class="pane-btn" title="Copy Rendered Text">📋 Copy Text</button>
-              <button id="paneCopyHtmlBtn" class="pane-btn" title="Copy Rendered HTML">🌐 Copy HTML</button>
             </div>
           </div>
           <div id="preview" class="preview-container">

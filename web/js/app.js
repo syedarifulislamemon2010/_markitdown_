@@ -552,6 +552,7 @@ graph TD
 
     previewContent.innerHTML = html;
     renderMermaidDiagrams();
+    updateOutline();
   }
 
   function renderMermaidDiagrams() {
@@ -575,6 +576,80 @@ graph TD
         container.innerHTML = `<div style="color:#f87171;font-size:12px;">⚠️ ডায়াগ্রাম ত্রুটি</div>`;
       }
     });
+  }
+
+  // ==================== Real VS Code Document Outline ====================
+  function updateOutline() {
+    const outlineList = document.getElementById('sidebarOutlineList');
+    if (!outlineList) return;
+    const ed = document.getElementById('editor');
+    if (!ed) return;
+
+    const text = ed.value || '';
+    const lines = text.split('\n');
+    const headers = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const match = lines[i].match(/^(#{1,6})\s+(.+)$/);
+      if (match) {
+        headers.push({
+          level: match[1].length,
+          text: match[2].replace(/[#*_`~]/g, '').trim(),
+          line: i
+        });
+      }
+    }
+
+    if (headers.length === 0) {
+      outlineList.innerHTML = '<div style="padding: 8px 12px; font-size: 11px; color: var(--text-secondary); font-style: italic;">কোনো হেডিং পাওয়া যায়নি</div>';
+      return;
+    }
+
+    outlineList.innerHTML = headers.map(h => `
+      <div class="sidebar-outline-item" data-line="${h.line}" style="padding-left: ${8 + (h.level - 1) * 10}px;" title="Go to line ${h.line + 1}: ${escapeHtml(h.text)}">
+        <span class="outline-icon">H${h.level}</span>
+        <span class="outline-text">${escapeHtml(h.text)}</span>
+      </div>
+    `).join('');
+
+    outlineList.querySelectorAll('.sidebar-outline-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const lineNum = parseInt(item.dataset.line, 10);
+        scrollToEditorLine(lineNum);
+      });
+    });
+  }
+
+  function scrollToEditorLine(lineNum) {
+    const ed = document.getElementById('editor');
+    if (!ed) return;
+    const lines = ed.value.split('\n');
+    let charIndex = 0;
+    for (let i = 0; i < lineNum && i < lines.length; i++) {
+      charIndex += lines[i].length + 1;
+    }
+    ed.focus();
+    ed.setSelectionRange(charIndex, charIndex + (lines[lineNum] ? lines[lineNum].length : 0));
+    const lineHeight = 20.8;
+    ed.scrollTop = Math.max(0, lineNum * lineHeight - 100);
+
+    const prev = document.getElementById('preview');
+    if (prev) {
+      const headings = prev.querySelectorAll('h1, h2, h3, h4, h5, h6');
+      for (const h of headings) {
+        if (lines[lineNum] && lines[lineNum].includes(h.textContent.trim())) {
+          h.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          break;
+        }
+      }
+    }
+  }
+
+  function toggleWordWrap() {
+    const ed = document.getElementById('editor');
+    if (!ed) return;
+    const isNoWrap = ed.classList.toggle('no-wrap');
+    showToast(isNoWrap ? 'Word Wrap: বন্ধ (Off)' : 'Word Wrap: চালু (On)', 'info', 1500);
   }
 
   // ==================== Line Numbers & Status Bar ====================
@@ -1397,8 +1472,6 @@ ${previewContent.innerHTML}
     document.getElementById('toolUnicodeToAnsi')?.addEventListener('click', convertUnicodeToAnsiAction);
     document.getElementById('menuAnsiToUnicode')?.addEventListener('click', convertAnsiToUnicodeAction);
     document.getElementById('menuUnicodeToAnsi')?.addEventListener('click', convertUnicodeToAnsiAction);
-    document.getElementById('sbActionAnsi')?.addEventListener('click', convertAnsiToUnicodeAction);
-    document.getElementById('sbActionUnicode')?.addEventListener('click', convertUnicodeToAnsiAction);
 
     // Toolbar utilities
     document.getElementById('toolUndo')?.addEventListener('click', undo);
@@ -1408,17 +1481,9 @@ ${previewContent.innerHTML}
     document.getElementById('toolCopy')?.addEventListener('click', () => copyMarkdownAction());
     document.getElementById('toolClear')?.addEventListener('click', clearEditorAction);
 
-    // Editor Pane Header Buttons
-    document.getElementById('paneUndoBtn')?.addEventListener('click', undo);
-    document.getElementById('paneRedoBtn')?.addEventListener('click', redo);
-    document.getElementById('paneSelectAllBtn')?.addEventListener('click', selectAllAction);
-    document.getElementById('paneCopyBtn')?.addEventListener('click', () => copyMarkdownAction());
-    document.getElementById('paneClearBtn')?.addEventListener('click', clearEditorAction);
-
-    // Preview Pane Header Buttons
+    // Pane Header Buttons
+    document.getElementById('editorWordWrapBtn')?.addEventListener('click', toggleWordWrap);
     document.getElementById('paneRefreshBtn')?.addEventListener('click', refreshPreviewAction);
-    document.getElementById('paneCopyTextBtn')?.addEventListener('click', () => copyPreviewTextAction());
-    document.getElementById('paneCopyHtmlBtn')?.addEventListener('click', () => copyPreviewHtmlAction());
 
     // Export Dropdown & Modal triggers
     const exportDropdownBtn = document.getElementById('exportDropdownBtn');
@@ -1444,13 +1509,6 @@ ${previewContent.innerHTML}
     document.getElementById('exportPdfBtn')?.addEventListener('click', exportPdf);
     document.getElementById('exportTxtBtn')?.addEventListener('click', exportTxt);
     document.getElementById('exportHtmlBtn')?.addEventListener('click', exportHtml);
-
-    // Sidebar quick actions
-    document.getElementById('sbActionWord')?.addEventListener('click', exportDocx);
-    document.getElementById('sbActionMd')?.addEventListener('click', exportMarkdown);
-    document.getElementById('sbActionPdf')?.addEventListener('click', exportPdf);
-    document.getElementById('sbActionImport')?.addEventListener('click', () => importModal?.classList.add('active'));
-    document.getElementById('sbActionOcr')?.addEventListener('click', () => ocrModal?.classList.add('active'));
 
     // Activity bar buttons
     document.getElementById('actBarExplorer')?.addEventListener('click', toggleSidebar);
