@@ -16,12 +16,17 @@ PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from core.converter import DocumentConverter
-from core.ocr import extract_text_from_image
+_converter_instance = None
+
+def get_converter():
+    global _converter_instance
+    if _converter_instance is None:
+        from core.converter import DocumentConverter
+        _converter_instance = DocumentConverter()
+    return _converter_instance
 
 app = Bottle()
 WEB_DIR = PROJECT_ROOT / "web"
-converter = DocumentConverter()
 
 
 @app.hook('after_request')
@@ -39,7 +44,11 @@ def serve_root():
 
 @app.route('/<filepath:path>')
 def serve_static(filepath):
-    return static_file(filepath, root=str(WEB_DIR))
+    res = static_file(filepath, root=str(WEB_DIR))
+    # Cache static assets like vendor JS, fonts, and CSS for 1 day
+    if any(filepath.startswith(prefix) for prefix in ('vendor/', 'css/', 'js/')):
+        res.set_header('Cache-Control', 'public, max-age=86400')
+    return res
 
 
 @app.post('/api/convert')
@@ -58,7 +67,8 @@ def api_convert():
     gemini_key = request.forms.get('gemini_key') or request.headers.get('X-Gemini-Key') or os.environ.get('GEMINI_API_KEY')
     openai_model = request.forms.get('openai_model') or request.headers.get('X-OpenAI-Model') or "gpt-4o"
 
-    converter.update_config(
+    conv = get_converter()
+    conv.update_config(
         openai_api_key=openai_key,
         gemini_api_key=gemini_key,
         llm_model=openai_model,
@@ -70,7 +80,7 @@ def api_convert():
         tmp_path = tmp.name
 
     try:
-        res = converter.convert_file(tmp_path)
+        res = conv.convert_file(tmp_path)
         return {
             "success": res.success,
             "filename": filename,
@@ -105,6 +115,7 @@ def api_ocr():
         tmp_path = tmp.name
 
     try:
+        from core.ocr import extract_text_from_image
         extracted = extract_text_from_image(
             tmp_path,
             openai_api_key=openai_key,
@@ -201,8 +212,42 @@ def api_download_file():
     return HTTPResponse(body=encoded, status=200, headers=headers)
 
 
+from socketserver import ThreadingMixIn
+from wsgiref.simple_server import WSGIServer, WSGIRequestHandler, make_server
+from bottle import ServerAdapter
+
+
+class ThreadedWSGIServer(ThreadingMixIn, WSGIServer):
+    daemon_threads = True
+
+    def address_string(self):
+        # Return client IP directly to bypass slow reverse-DNS lookups on Windows
+        return self.client_address[0]
+
+
+class ThreadedWSGIAdapter(ServerAdapter):
+    """Multi-threaded WSGI adapter preventing synchronous server stalls."""
+
+    def run(self, handler):
+        class QuietHandler(WSGIRequestHandler):
+            def log_message(self, format, *args):
+                pass
+
+            def address_string(self):
+                return self.client_address[0]
+
+        server = make_server(
+            self.host,
+            self.port,
+            handler,
+            server_class=ThreadedWSGIServer,
+            handler_class=QuietHandler,
+        )
+        server.serve_forever()
+
+
 def run_server(host="127.0.0.1", port=8080):
-    app.run(host=host, port=port, quiet=True)
+    app.run(host=host, port=port, server=ThreadedWSGIAdapter, quiet=True)
 
 
 if __name__ == '__main__':

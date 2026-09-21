@@ -8,12 +8,15 @@
   <!-- CSS -->
   <link rel="stylesheet" href="css/style.css">
   
-  <!-- Local Vendor Libraries for 100% Offline Functionality -->
-  <script src="vendor/marked.min.js"></script>
-  <script src="vendor/katex.min.js"></script>
-  <script src="vendor/mermaid.min.js"></script>
+  <!-- Local Vendor Libraries for 100% Offline Functionality (non-blocking) -->
+  <script defer src="vendor/marked.min.js"></script>
+  <script defer src="vendor/katex.min.js"></script>
+  <script defer src="vendor/mermaid.min.js"></script>
 </head>
 <body data-theme="dark">
+
+  <!-- Floating Exit Zen Mode Button -->
+  <button id="zenExitBtn" class="zen-exit-btn" title="জেন মোড থেকে বের হন (Esc)">✕ Exit Zen Mode (Esc)</button>
 
   <!-- ==================== VS Code Top Title Bar & Menus ==================== -->
   <header class="navbar" id="topNavbar">
@@ -75,6 +78,7 @@
             <button id="menuFontSizeDecrease" class="dropdown-item"><span class="menu-icon">🔍-</span> Zoom Out <span class="shortcut">Ctrl+-</span></button>
             <button id="menuFontSizeReset" class="dropdown-item"><span class="menu-icon">🔄</span> Reset Zoom <span class="shortcut">Ctrl+0</span></button>
             <button id="menuToggleWordWrap" class="dropdown-item"><span class="menu-icon">↩</span> Toggle Word Wrap</button>
+            <button id="menuToggleZen" class="dropdown-item"><span class="menu-icon">🧘</span> Toggle Zen Mode <span class="shortcut">F11</span></button>
           </div>
         </div>
 
@@ -84,6 +88,7 @@
           <div class="menu-dropdown">
             <button id="menuAnsiToUnicode" class="dropdown-item"><span class="menu-icon">🔄</span> বিজয় (ANSI) ➜ ইউনিকোড রূপান্তর</button>
             <button id="menuUnicodeToAnsi" class="dropdown-item"><span class="menu-icon">🔁</span> ইউনিকোড ➜ বিজয় (ANSI) রূপান্তর</button>
+            <button id="menuTogglePhonetic" class="dropdown-item"><span class="menu-icon">অ</span> Toggle Phonetic Bangla <span class="shortcut">Ctrl+M</span></button>
             <div class="menu-separator"></div>
             <button id="menuOcr" class="dropdown-item"><span class="menu-icon">🔍</span> Image OCR (Text Extraction)</button>
             <button id="menuCopyPreviewText" class="dropdown-item"><span class="menu-icon">📄</span> Copy Rendered Text</button>
@@ -198,6 +203,15 @@
       </button>
       <button id="toolUnicodeToAnsi" class="tool-btn tool-btn-accent" title="ইউনিকোড বাংলাকে প্রেস/সুতন্মীএমজে (ANSI) ফন্টে রূপান্তর">
         🔁 ইউনিকোড ➜ বিজয়
+      </button>
+    </div>
+
+    <div class="tool-group" style="border-left: 2px solid var(--border-color); padding-left: 6px;">
+      <button id="toolPhoneticBangla" class="tool-btn" title="অভ্র ফোনেটিক বাংলা টাইপিং চালু/বন্ধ (Ctrl+M)">
+        <span class="tool-icon">অ</span> ফোনেটিক: অফ
+      </button>
+      <button id="toolZenMode" class="tool-btn" title="জেন মোড / ফুলস্ক্রিন ফোকাস (F11 বা Esc দিয়ে এক্সিট)">
+        🧘 Zen
       </button>
     </div>
 
@@ -612,8 +626,8 @@
   <!-- ==================== Instant Non-Blocking Toast Container ==================== -->
   <div id="toastContainer" class="toast-container"></div>
 
-  <!-- Main JavaScript Application -->
-  <script src="js/bijoy2unicode.js"></script>
-  <script src="js/app.js"></script>
+  <!-- Main JavaScript Application (non-blocking) -->
+  <script defer src="js/bijoy2unicode.js"></script>
+  <script defer src="js/app.js"></script>
 </body>
 </html>

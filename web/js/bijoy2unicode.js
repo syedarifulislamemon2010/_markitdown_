@@ -25,6 +25,60 @@ window.BijoyToUnicode = (function () {
 
   const conversionMap = {
     // Multi-character overrides
+    '¯Í': 'স্ত',
+    '¯^': 'স্ব',
+    '¤^': 'ম্ব',
+    '”Q': 'চ্ছ',
+    '”P': 'চ্চ',
+    '¯’': 'স্থ',
+    '¯‹': 'স্ক',
+    '¯ú': 'স্প',
+    '¯œ': 'স্ন',
+    '¯¿': 'স্ত্র',
+    '¯cø': 'স্প্ল',
+    '¯c': 'স্প',
+    '¯d': 'স্ফ',
+    '¯U': 'স্ট',
+    '¯V': 'ষ্ঠ',
+    '¯g': 'স্ম',
+    '¯§': 'স্ম',
+    'm§': 'স্ম',
+    'm^': 'স্ব',
+    'k^': 'শ্ব',
+    'kª': 'শ্র',
+    'k«': 'শ্র',
+    'kø': 'শ্ল',
+    'k¦': 'শ্ব',
+    'k¥': 'শ্ম',
+    'n¬': 'হ্ল',
+    'j&j': 'ল্ল',
+    '¤¢': 'ম্ভ',
+    '¤§': 'ম্ম',
+    'e&e': 'ব্ব',
+    'cø': 'প্ল',
+    'cœ': 'প্ন',
+    'bœ': 'ন্ন',
+    'b¥': 'ন্ম',
+    'Y&Y': 'ণ্ণ',
+    'cÖ': 'প্র',
+    'MÖ': 'গ্র',
+    'K«': 'ক্র',
+    'c«': 'প্র',
+    'M«': 'গ্র',
+    'eª': 'ব্র',
+    'e«': 'ব্র',
+    'aª': 'ধ্র',
+    'a«': 'ধ্র',
+    'fª': 'ভ্র',
+    'f«': 'ভ্র',
+    'mª': 'স্র',
+    'm«': 'স্র',
+    'n¥': 'হ্ম',
+    'nœ': 'হ্ন',
+    '÷&': 'স্ট্',
+    'š¿': 'ন্ত্র',
+    '”P©': 'র্চ্চ',
+    '”Q©': 'র্চ্ছ',
     'šÍ': 'ন্ত',
     'š’': 'ন্থ',
     'š‘': 'ন্তু',
@@ -321,10 +375,13 @@ window.BijoyToUnicode = (function () {
     return s;
   }
 
-  function convert(text) {
+  function _rawConvert(text) {
     if (!text) return '';
 
-    // Protect (cid:X) from being converted using Unicode PUA characters
+    // Pre-clean space within conjunct glyphs (e.g. B” QvK…Z -> B”QvK…Z -> ইচ্ছাকৃত)
+    text = text.replace(/([”¯š¤˜®])\s+([a-zA-Z])/g, '$1$2');
+
+    // Protect (cid:X)
     const cidPlaceholders = [];
     text = text.replace(/\(?cid:\d+\)?/gi, (match) => {
       const idx = cidPlaceholders.length;
@@ -334,12 +391,10 @@ window.BijoyToUnicode = (function () {
       return '\uE000' + String.fromCharCode(0xE100 + high) + String.fromCharCode(0xE400 + low) + '\uE001';
     });
 
-    // Apply pre-conversion regex
     for (const [pattern, rep] of Object.entries(preConversionMap)) {
       text = text.replace(new RegExp(pattern, 'g'), rep);
     }
 
-    // Sort conversion keys by length descending
     const keys = Object.keys(conversionMap).sort((a, b) => b.length - a.length);
     const result = [];
     let i = 0;
@@ -368,7 +423,6 @@ window.BijoyToUnicode = (function () {
       rearranged = rearranged.split(pattern).join(rep);
     }
 
-    // Restore cid tokens
     for (let idx = 0; idx < cidPlaceholders.length; idx++) {
       const high = Math.floor(idx / 1000);
       const low = idx % 1000;
@@ -379,64 +433,121 @@ window.BijoyToUnicode = (function () {
     return rearranged;
   }
 
-  const BIJOY_SPECIALS = /[†‡ˆ‰Š‹Œ”˜™š›œŸ¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþ]/;
+  const BIJOY_SPECIALS = /[†‡ˆ‰Š‹Œ”˜™š›œŸ¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ…–•~|`^]/;
 
-  const BIJOY_EXACT_WORDS = new Set([
-    'eivei', 'cwiPvjK', 'gnvcwiPvjK', 'miKvi', 'wefvM', 'Dc‡Rjv', 'Zvs', 'wkÿv',
-    'cixÿv', '†Pqvig¨vb', 'mnKvix', 'MYcÖRvZš¿x', 'Av‡e', 'evsjv', 'evsjvq', 'evsjvi',
-    'Avgvi', 'Avwg', 'Avgv‡`i', 'Avgv‡K', 'Avgvq', 'Avcbvi', 'Avcbv‡`i', 'Mvb', 'MvB',
-    '†mvbvi', '†Zvgvq', 'cÖ_g', 'wØZxq', 'ZvwiL', 'weeiY', 'mKj', 'Rb¨', 'hy³', 'wPÎ',
-    'wbe©vPb', 'gvÎ', 'c„ôv', 'gš¿Yvjq', 'Awa', 'Awdm', 'AvBb', 'evsjv‡`k', 'evsjv‡`kx',
-    'fvj', 'fv‡jv', 'K‡i', 'n‡e', 'GB', '†h', '†m', 'bv', 'hveZxq', 'mshy³',
-    '¯^vÿi', 'Abywjwc', 'wmw×', 'MwVZ', 'nIqv', 'wewfbœ', 'we‡kl', 'welq', 'Dci',
-    'AvaywbK', 'cÖKvk', 'msNwVZ', 'mswkøó', 'cÖavb', 'weMZ', 'cÖ`vb', 'Av‡e`b',
-    'Av‡jvPbv', 'Dcgnv', 'wb‡qvM', 'weÁwß', 'cÎ', 'wek^vm', 'wk^vm', 'cÖwZ',
-    'ZvB', 'fvB', 'hw`', 'wKš‘', 'KviY', 'Ges', 'A_ev', 'ev', 'wQj', 'Av‡Q', '†bB'
+  const BIJOY_EXCLUSIONS = new Set([
+    'ev', 'bv', 'hw', 'hwi', 'gvgjv', 'avivi', 'kiv', 'dnvi', 'mij', 'e¨', 'cÿ',
+    'Av', 'GB', 'GK', 'AZ', 'Ab', 'Ac', 'wbKU', 'cÖ', 'hy³', 'wPÎ', 'c„ôv'
   ]);
 
-  const BIJOY_CONSONANT_KARS = /([K-Z][vwxy])|([jckdfgpq]v)|(vq)|(xq)|(sj)|(w[K-Z])|(\bw[kmpbftdcjqzly])|(&[K-Za-z])|(\bAv[a-zA-Z])/;
-
-  const ENGLISH_COMMON = new Set([
-    'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i',
-    'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at',
-    'this', 'but', 'his', 'by', 'from', 'they', 'we', 'say', 'her', 'she',
-    'or', 'an', 'will', 'my', 'one', 'all', 'would', 'there', 'their',
-    'what', 'so', 'up', 'out', 'if', 'about', 'who', 'get', 'which', 'go',
-    'me', 'when', 'make', 'can', 'like', 'time', 'no', 'just', 'him', 'know',
-    'take', 'people', 'into', 'year', 'your', 'good', 'some', 'could', 'them',
-    'see', 'other', 'than', 'then', 'now', 'look', 'only', 'come', 'its', 'over',
-    'think', 'also', 'back', 'after', 'use', 'two', 'how', 'our', 'work',
-    'first', 'well', 'way', 'even', 'new', 'want', 'because', 'any', 'these',
-    'give', 'day', 'most', 'us', 'is', 'are', 'was', 'were', 'been', 'has',
-    'had', 'report', 'project', 'table', 'date', 'name', 'title', 'status',
-    'director', 'general', 'executive', 'officer', 'department', 'ministry',
-    'government', 'page', 'code', 'file', 'data', 'test', 'result', 'error',
-    'warning', 'success', 'hello', 'world', 'summary', 'details', 'total'
+  const LEGAL_COMPOUNDS = new Set([
+    'hereinafter', 'hereinbefore', 'herein', 'hereof', 'hereunder', 'hereto', 'herewith',
+    'thereinafter', 'thereinbefore', 'therein', 'thereof', 'thereunder', 'thereto', 'therewith',
+    'whereas', 'whereby', 'whereof', 'wherein', 'notwithstanding', 'inasmuch', 'insofar'
   ]);
+
+  const REGIONAL_PROPER_NAMES = new Set([
+    'sonali', 'janata', 'agrani', 'rupali', 'pubali', 'uttara', 'krishi',
+    'dhaka', 'bangladesh', 'chittagong', 'rajshahi', 'khulna', 'barisal',
+    'sylhet', 'rangpur', 'mymensingh', 'comilla', 'gazipur', 'narayanganj'
+  ]);
+
+  const ENGLISH_CURATED = new Set([
+    'the', 'of', 'and', 'to', 'in', 'is', 'you', 'that', 'it', 'he', 'was', 'for', 'on', 'are', 'as', 'with',
+    'his', 'they', 'i', 'at', 'be', 'this', 'have', 'from', 'or', 'one', 'had', 'by', 'word', 'but', 'not',
+    'what', 'all', 'were', 'we', 'when', 'your', 'can', 'said', 'there', 'use', 'an', 'each', 'which', 'she',
+    'do', 'how', 'their', 'if', 'will', 'up', 'other', 'about', 'out', 'many', 'then', 'them', 'these', 'so',
+    'some', 'her', 'would', 'make', 'like', 'him', 'into', 'time', 'has', 'look', 'two', 'more', 'write', 'go',
+    'see', 'number', 'no', 'way', 'could', 'people', 'my', 'than', 'first', 'water', 'been', 'call', 'who',
+    'oil', 'its', 'now', 'find', 'long', 'down', 'day', 'did', 'get', 'come', 'made', 'may', 'part', 'court',
+    'legal', 'proceedings', 'act', 'bank', 'company', 'public', 'bodies', 'section', 'evidence', 'books',
+    'civil', 'criminal', 'order', 'high', 'division', 'suit', 'case', 'provisions', 'under', 'powers',
+    'costs', 'application', 'shall', 'manager', 'person', 'property', 'office', 'branch', 'state', 'pakistan',
+    'bangladesh', 'governor', 'circular', 'rule', 'rules', 'regulation', 'regulations', 'statutory',
+    'corporation', 'corporations', 'director', 'directors', 'managing', 'executive', 'officer', 'officers',
+    'chief', 'general', 'deputy', 'assistant', 'secretary', 'ministry', 'department', 'division', 'board',
+    'revenue', 'customs', 'tax', 'taxes', 'income', 'value', 'added', 'audit', 'accounts', 'finance',
+    'financial', 'institution', 'institutions', 'limited', 'ltd', 'plc', 'co', 'corp', 'inc', 'authority',
+    'commission', 'tribunal', 'judge', 'justice', 'advocate', 'barrister', 'counsel', 'solicitor', 'plaintiff',
+    'defendant', 'appellant', 'respondent', 'petitioner', 'decree', 'judgment', 'appeal', 'revision',
+    'jurisdiction', 'affidavit', 'notice', 'summons', 'warrant', 'bail', 'custody', 'charge', 'complaint',
+    'investigation', 'inquiry', 'evidence', 'witness', 'testimony', 'document', 'documents', 'record',
+    'records', 'certified', 'copy', 'copies', 'original', 'ledger', 'register', 'account', 'entry', 'entries',
+    'banker', 'bankers', 'customer', 'borrower', 'lender', 'loan', 'credit', 'deposit', 'advance', 'mortgage',
+    'hypothecation', 'pledge', 'guarantee', 'surety', 'security', 'securities', 'share', 'shares', 'stock',
+    'debenture', 'bond', 'interest', 'profit', 'rate', 'default', 'defaulter', 'recovery', 'repayment',
+    'schedule', 'annexure', 'appendix', 'form', 'clause', 'sub', 'paragraph', 'sub-section', 'proviso',
+    'explanation', 'definition', 'definitions', 'title', 'preamble', 'enactment', 'commencement', 'extent',
+    'repeal', 'amendment', 'schedule', 'table', 'date', 'year', 'month', 'period', 'amount', 'sum', 'total',
+    'balance', 'debit', 'credit', 'payment', 'receipt', 'voucher', 'cheque', 'draft', 'bill', 'exchange',
+    'promissory', 'note', 'instrument', 'negotiable', 'clearing', 'settlement', 'transaction', 'operations',
+    'business', 'commercial', 'trade', 'industry', 'market', 'price', 'fee', 'charge', 'penalty', 'fine',
+    'punishment', 'imprisonment', 'offence', 'offences', 'contravention', 'violation', 'liability', 'liabilities',
+    'asset', 'assets', 'capital', 'reserve', 'fund', 'funds', 'liquidity', 'solvency', 'insolvent', 'bankruptcy',
+    'liquidation', 'winding', 'receiver', 'liquidator', 'resolution', 'governance', 'compliance', 'audit',
+    'internal', 'external', 'inspection', 'supervision', 'monitoring', 'report', 'reports', 'statement',
+    'statements', 'return', 'returns', 'guidelines', 'policy', 'framework', 'standard', 'standards', 'code',
+    'manual', 'circulars', 'notifications', 'gazette', 'published', 'authority', 'government', 'republic',
+    'people', 'national', 'central', 'state', 'federal', 'international', 'foreign', 'domestic', 'local',
+    'head', 'branch', 'sub-branch', 'zone', 'regional', 'area', 'unit', 'cell', 'desk', 'wing', 'team',
+    'email', 'e-mail', 'mail', 'phone', 'tel', 'telephone', 'mobile', 'cell', 'fax', 'website', 'web',
+    'url', 'http', 'https', 'www', 'com', 'org', 'net', 'edu', 'gov', 'mil', 'bd', 'in', 'uk', 'us',
+    'page', 'pages', 'vol', 'volume', 'no', 'number', 'ref', 'reference', 'memo', 'circular', 'gazette',
+    'law', 'laws', 'contact', 'amend', 'said', 'purposes', 'appearing', 'expedient', 'short', 'meaning',
+    'prescribed', 'provided', 'force', 'subject', 'contained', 'matter', 'matters', 'power', 'officers',
+    'servants', 'any', 'such', 'other', 'being', 'made', 'done', 'taken', 'given', 'held', 'sent'
+  ]);
+
+  const ENGLISH_SUFFIXES = [
+    'tion', 'tions', 'sion', 'sions', 'ment', 'ments', 'able', 'ible',
+    'ing', 'ings', 'ed', 'ly', 'ness', 'ship', 'ity', 'ities', 'ive', 'ives',
+    'al', 'ally', 'ous', 'ic', 'ical', 'ist', 'ists', 'ism', 'ize', 'ized',
+    'ise', 'ised', 'izing', 'ising', 'er', 'ers', 'est', 'ance', 'ence',
+    'ant', 'ants', 'ent', 'ents', 'less', 'ful', 'fully', 'hood'
+  ];
+
+  function isEnglishToken(token) {
+    if (!token) return false;
+    const clean = token.replace(/^[.,;:?!'"()\[\]{}<>«»\u201c\u201d\u2018\u2019/\\|\-*#_~0-9]+|[.,;:?!'"()\[\]{}<>«»\u201c\u201d\u2018\u2019/\\|\-*#_~0-9]+$/g, '');
+    if (!clean) return false;
+    if (BIJOY_SPECIALS.test(clean)) return false;
+    if (/[\u0980-\u09FF]/.test(clean)) return false;
+    if (!/^[a-zA-Z]+(-[a-zA-Z]+)?$/.test(clean)) return false;
+    if (/[a-z][A-Z]/.test(clean)) return false;
+    if (/^(Av|GB|GK|AZ|Aax)/.test(clean)) return false;
+
+    const lower = clean.toLowerCase();
+    if (BIJOY_EXCLUSIONS.has(lower)) return false;
+    if (ENGLISH_CURATED.has(lower) || LEGAL_COMPOUNDS.has(lower) || REGIONAL_PROPER_NAMES.has(lower)) return true;
+    if (clean.length >= 2 && clean === clean.toUpperCase()) return true;
+
+    if (lower.length >= 5) {
+      for (const sfx of ENGLISH_SUFFIXES) {
+        if (lower.endsWith(sfx) && lower.length > sfx.length + 2) return true;
+      }
+    }
+    return false;
+  }
 
   function isBijoyToken(token) {
     if (!token) return false;
     const clean = token.replace(/^[.,;:?!'"()\[\]{}<>«»\u201c\u201d\u2018\u2019/\\|\-*#_~0-9]+|[.,;:?!'"()\[\]{}<>«»\u201c\u201d\u2018\u2019/\\|\-*#_~0-9]+$/g, '');
     if (!clean) return false;
     if (/[\u0980-\u09FF]/.test(clean)) return false;
-    if (BIJOY_SPECIALS.test(clean)) return true;
-    if (ENGLISH_COMMON.has(clean.toLowerCase())) return false;
-    if (BIJOY_EXACT_WORDS.has(clean)) return true;
-    if (BIJOY_CONSONANT_KARS.test(clean)) return true;
-    return false;
+    if (isEnglishToken(clean)) return false;
+    return true;
   }
 
   function isLikelyBijoy(text) {
     if (!text) return false;
     if (BIJOY_SPECIALS.test(text)) return true;
 
-    // If text already contains modern Unicode Bengali (> 15 chars) and no Bijoy specials, do not alter it
     const unicodeMatches = text.match(/[\u0980-\u09FF]/g);
     if (unicodeMatches && unicodeMatches.length >= 15) {
       return false;
     }
 
-    const markers = ['Avgvi', 'evsjv', 'wPÎ', 'cÖ', 'hy³', 'Avwg', '†mvbvi', '†Zvgvq', 'eivei', 'cwiPvjK', 'miKvi'];
+    const markers = ['Avgvi', 'evsjv', 'wPÎ', 'cÖ', 'hy³', 'Avwg', '†mvbvi', '†Zvgvq', 'eivei', 'cwiPvjK', 'miKvi', 'GB AvB‡bi'];
     for (const m of markers) {
       if (text.includes(m)) return true;
     }
@@ -445,88 +556,119 @@ window.BijoyToUnicode = (function () {
     return count >= 2;
   }
 
-  function convertMarkdown(markdownText) {
-    if (!markdownText || !isLikelyBijoy(markdownText)) return markdownText;
+  function convert(text, preserveEnglish = true) {
+    if (!text) return '';
 
-    // 0. Protect Math blocks
-    const mathBlocks = [];
-    let text = markdownText.replace(/\$\$[\s\S]*?\$\$/g, m => {
-      mathBlocks.push(m);
-      return `__MATH_BLOCK_${mathBlocks.length - 1}__`;
+    // Pre-clean space within conjunct glyphs (e.g. B” QvK…Z -> B”QvK…Z -> ইচ্ছাকৃত)
+    text = text.replace(/([”¯š¤˜®])\s+([a-zA-Z])/g, '$1$2');
+
+    if (!preserveEnglish) {
+      return _rawConvert(text);
+    }
+
+    const protectedBlocks = [];
+    function puaBlock(val) {
+      const idx = protectedBlocks.length;
+      protectedBlocks.push(val);
+      const high = Math.floor(idx / 1000);
+      const low = idx % 1000;
+      return '\uE010' + String.fromCharCode(0xE100 + high) + String.fromCharCode(0xE400 + low) + '\uE011';
+    }
+
+    // 1. Protect parenthesized English expressions
+    text = text.replace(/\(([^)]+)\)/g, (m, inner) => {
+      const tokens = inner.match(/[a-zA-Z]+/g) || [];
+      if (tokens.length > 0 && tokens.every(isEnglishToken)) {
+        return puaBlock(m);
+      }
+      return m;
+    });
+    text = text.replace(/\[([^\]]+)\]/g, (m, inner) => {
+      const tokens = inner.match(/[a-zA-Z]+/g) || [];
+      if (tokens.length > 0 && tokens.every(isEnglishToken)) {
+        return puaBlock(m);
+      }
+      return m;
     });
 
-    const inlineMaths = [];
-    text = text.replace(/\$[^\$\n]+?\$/g, m => {
-      inlineMaths.push(m);
-      return `__INLINE_MATH_${inlineMaths.length - 1}__`;
-    });
+    // 2. Protect URLs, emails, and section references
+    text = text.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, puaBlock);
+    text = text.replace(/https?:\/\/\S+/g, puaBlock);
+    text = text.replace(/\b(?:Section|Act|No|Vol|Volume|Page|Part|Clause|Rule|Order|Schedule)\s+\d+(?:\/\d+)?\b/gi, puaBlock);
 
-    const codeBlocks = [];
-    text = text.replace(/```[\s\S]*?```/g, m => {
-      codeBlocks.push(m);
-      return `__CODE_BLOCK_${codeBlocks.length - 1}__`;
-    });
-
-    const inlineCodes = [];
-    text = text.replace(/`[^`\n]+`/g, m => {
-      inlineCodes.push(m);
-      return `__INLINE_CODE_${inlineCodes.length - 1}__`;
-    });
-
-    const urls = [];
-    text = text.replace(/\[(.*?)\]\((https?:\/\/[^\s)]+|file:\/\/[^\s)]+|\/[^\s)]+)\)/g, (m, txt, url) => {
-      urls.push(url);
-      return `[${txt}](__URL_${urls.length - 1}__)`;
-    });
-
+    // 3. Process line by line
     const lines = text.split('\n');
     const processed = [];
 
     for (const line of lines) {
-      const stripped = line.trim();
-      if (!stripped || stripped.startsWith('__CODE_BLOCK_')) {
-        processed.push(line);
-        continue;
-      }
-
-      const prefixMatch = line.match(/^(\s*(?:#{1,6}\s+|[-*+]\s+(?:\[[ xX]\]\s+)?|\d+\.\s+|>\s*))(.*)$/);
-      const prefix = prefixMatch ? prefixMatch[1] : '';
-      const content = prefixMatch ? prefixMatch[2] : line;
-
-      if (stripped.startsWith('|') && stripped.endsWith('|')) {
-        if (/^\|[\s:\-]+(?:\|[\s:\-]+)*\|$/.test(stripped)) {
+      const wordsInLine = line.match(/[A-Za-z]+/g) || [];
+      if (wordsInLine.length >= 5 && !BIJOY_SPECIALS.test(line) && !/[\u0980-\u09FF]/.test(line)) {
+        const enRatio = wordsInLine.filter(isEnglishToken).length / wordsInLine.length;
+        if (enRatio >= 0.9) {
           processed.push(line);
           continue;
         }
-        const cells = content.split('|');
-        const convertedCells = cells.map(cell => {
-          const parts = cell.split(/(\s+|[.,;!?()[\]{}<>"'/\\:])/);
-          return parts.map(p => isBijoyToken(p) ? convert(p) : p).join('');
-        });
-        processed.push(prefix + convertedCells.join('|'));
-        continue;
       }
 
-      const tokens = content.match(/\S+/g) || [];
-      const hasBijoy = tokens.some(isBijoyToken);
-      if (!hasBijoy) {
-        processed.push(line);
-        continue;
-      }
-
-      const parts = content.split(/(\s+|[.,;!?()[\]{}<>"'/\\:])/);
-      const convertedContent = parts.map(p => isBijoyToken(p) ? convert(p) : p).join('');
-      processed.push(prefix + convertedContent);
+      const parts = line.split(/(\s+|[.,;!?()[\]{}<>"'/\\:]|\uE010[^\uE011]+\uE011)/);
+      const newParts = parts.map(p => {
+        if (!p) return '';
+        if (p.startsWith('\uE010') && p.endsWith('\uE011')) return p;
+        if (isEnglishToken(p)) return p;
+        return _rawConvert(p);
+      });
+      processed.push(newParts.join(''));
     }
 
     let result = processed.join('\n');
-    inlineMaths.forEach((im, idx) => { result = result.replace(`__INLINE_MATH_${idx}__`, im); });
-    mathBlocks.forEach((mb, idx) => { result = result.replace(`__MATH_BLOCK_${idx}__`, mb); });
-    urls.forEach((u, idx) => { result = result.replace(`__URL_${idx}__`, u); });
-    inlineCodes.forEach((ic, idx) => { result = result.replace(`__INLINE_CODE_${idx}__`, ic); });
-    codeBlocks.forEach((cb, idx) => { result = result.replace(`__CODE_BLOCK_${idx}__`, cb); });
+    for (let idx = 0; idx < protectedBlocks.length; idx++) {
+      const high = Math.floor(idx / 1000);
+      const low = idx % 1000;
+      const placeholder = '\uE010' + String.fromCharCode(0xE100 + high) + String.fromCharCode(0xE400 + low) + '\uE011';
+      result = result.split(placeholder).join(protectedBlocks[idx]);
+    }
 
     return result;
+  }
+
+  function convertMarkdown(markdownText) {
+    if (!markdownText || !isLikelyBijoy(markdownText)) return markdownText;
+
+    const puaTokens = [];
+    function savePua(val) {
+      const idx = puaTokens.length;
+      puaTokens.push(val);
+      const high = Math.floor(idx / 1000);
+      const low = idx % 1000;
+      return '\uE020' + String.fromCharCode(0xE100 + high) + String.fromCharCode(0xE400 + low) + '\uE021';
+    }
+
+    let text = markdownText;
+
+    // 0. Protect Math blocks
+    text = text.replace(/\$\$[\s\S]*?\$\$/g, savePua);
+    text = text.replace(/\$[^\$\n]+?\$/g, savePua);
+
+    // 1. Protect fenced code blocks
+    text = text.replace(/```[\s\S]*?```/g, savePua);
+
+    // 2. Protect URLs inside markdown links/images
+    text = text.replace(/\[(.*?)\]\((https?:\/\/[^\s)]+|file:\/\/[^\s)]+|\/[^\s)]+)\)/g, (m, txt, url) => {
+      return `[${txt}](${savePua(url)})`;
+    });
+
+    // 3. Convert using smart English-preserving converter
+    let converted = convert(text, true);
+
+    // 4. Restore PUA tokens
+    for (let idx = 0; idx < puaTokens.length; idx++) {
+      const high = Math.floor(idx / 1000);
+      const low = idx % 1000;
+      const placeholder = '\uE020' + String.fromCharCode(0xE100 + high) + String.fromCharCode(0xE400 + low) + '\uE021';
+      converted = converted.split(placeholder).join(puaTokens[idx]);
+    }
+
+    return converted;
   }
 
   // ==================== Unicode to Bijoy / ANSI Engine ====================

@@ -122,6 +122,60 @@ CONVERSION_MAP: Dict[str, str] = {
     '^': '্ব',
     'ÿ': 'ক্ষ',
     # Conjuncts    # Multi-character conjunct overrides
+    '¯Í': 'স্ত',
+    '¯^': 'স্ব',
+    '¤^': 'ম্ব',
+    '”Q': 'চ্ছ',
+    '”P': 'চ্চ',
+    '¯’': 'স্থ',
+    '¯‹': 'স্ক',
+    '¯ú': 'স্প',
+    '¯œ': 'স্ন',
+    '¯¿': 'স্ত্র',
+    '¯cø': 'স্প্ল',
+    '¯c': 'স্প',
+    '¯d': 'স্ফ',
+    '¯U': 'স্ট',
+    '¯V': 'ষ্ঠ',
+    '¯g': 'স্ম',
+    '¯§': 'স্ম',
+    'm§': 'স্ম',
+    'm^': 'স্ব',
+    'k^': 'শ্ব',
+    'kª': 'শ্র',
+    'k«': 'শ্র',
+    'kø': 'শ্ল',
+    'k¦': 'শ্ব',
+    'k¥': 'শ্ম',
+    'n¬': 'হ্ল',
+    'j&j': 'ল্ল',
+    '¤¢': 'ম্ভ',
+    '¤§': 'ম্ম',
+    'e&e': 'ব্ব',
+    'cø': 'প্ল',
+    'cœ': 'প্ন',
+    'bœ': 'ন্ন',
+    'b¥': 'ন্ম',
+    'Y&Y': 'ণ্ণ',
+    'cÖ': 'প্র',
+    'MÖ': 'গ্র',
+    'K«': 'ক্র',
+    'c«': 'প্র',
+    'M«': 'গ্র',
+    'eª': 'ব্র',
+    'e«': 'ব্র',
+    'aª': 'ধ্র',
+    'a«': 'ধ্র',
+    'fª': 'ভ্র',
+    'f«': 'ভ্র',
+    'mª': 'স্র',
+    'm«': 'স্র',
+    'n¥': 'হ্ম',
+    'nœ': 'হ্ন',
+    '÷&': 'স্ট্',
+    'š¿': 'ন্ত্র',
+    '”P©': 'র্চ্চ',
+    '”Q©': 'র্চ্ছ',
     'šÍ': 'ন্ত',
     'š’': 'ন্থ',
     'š‘': 'ন্তু',
@@ -345,16 +399,15 @@ def _rearrange_unicode(text: str) -> str:
     return s
 
 
-def bijoy_to_unicode(text: str) -> str:
-    """
-    Convert Bijoy / ANSI / SutonnyMJ encoded Bengali string to standard UTF-8 Unicode.
-    Safe, fast, and handles full documents.
-    """
+def _raw_bijoy_to_unicode(text: str) -> str:
+    """Low-level Bijoy ANSI to Unicode mapping and phonetic rearrangement."""
     if not text:
         return ""
 
-    # Protect (cid:X) from being converted to (পরফ:X)
-    # Using Unicode Private Use Area (PUA) characters so they never collide with Bijoy maps
+    # Pre-clean space within conjunct glyphs (e.g. B” QvK…Z -> B”QvK…Z -> ইচ্ছাকৃত)
+    text = re.sub(r'([”¯š¤˜®])\s+([a-zA-Z])', r'\1\2', text)
+
+    # Protect (cid:X)
     cid_placeholders = []
     def _save_cid(match):
         idx = len(cid_placeholders)
@@ -387,15 +440,11 @@ def bijoy_to_unicode(text: str) -> str:
             i += 1
 
     intermediate = "".join(res)
-
-    # Rearrange vowel and conjunct tokens into Unicode order
     rearranged = _rearrange_unicode(intermediate)
 
-    # Post-conversion cleanup
     for pattern, replacement in POST_CONVERSION_MAP.items():
         rearranged = rearranged.replace(pattern, replacement)
 
-    # Restore CID placeholders
     for idx, orig in enumerate(cid_placeholders):
         high = idx // 1000
         low = idx % 1000
@@ -405,48 +454,142 @@ def bijoy_to_unicode(text: str) -> str:
     return rearranged
 
 
-BIJOY_SPECIALS = set('†‡ˆ‰Š‹Œ”˜™š›œŸ¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþ')
+BIJOY_SPECIALS = set('†‡ˆ‰Š‹Œ”˜™š›œŸ¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ…–•~|`^')
 
-BIJOY_EXACT_WORDS = {
-    'eivei', 'cwiPvjK', 'gnvcwiPvjK', 'miKvi', 'wefvM', 'Dc‡Rjv', 'Zvs', 'wkÿv',
-    'cixÿv', '†Pqvig¨vb', 'mnKvix', 'MYcÖRvZš¿x', 'Av‡e', 'evsjv', 'evsjvq', 'evsjvi',
-    'Avgvi', 'Avwg', 'Avgv‡`i', 'Avgv‡K', 'Avgvq', 'Avcbvi', 'Avcbv‡`i', 'Mvb', 'MvB',
-    '†mvbvi', '†Zvgvq', 'cÖ_g', 'wØZxq', 'ZvwiL', 'weeiY', 'mKj', 'Rb¨', 'hy³', 'wPÎ',
-    'wbe©vPb', 'gvÎ', 'c„ôv', 'gš¿Yvjq', 'Awa', 'Awdm', 'AvBb', 'evsjv‡`k', 'evsjv‡`kx',
-    'fvj', 'fv‡jv', 'K‡i', 'n‡e', 'GB', '†h', '†m', 'bv', 'hveZxq', 'mshy³',
-    '¯^vÿi', 'Abywjwc', 'wmw×', 'MwVZ', 'nIqv', 'wewfbœ', 'we‡kl', 'welq', 'Dci',
-    'AvaywbK', 'cÖKvk', 'msNwVZ', 'mswkøó', 'cÖavb', 'weMZ', 'cÖ`vb', 'Av‡e`b',
-    'Av‡jvPbv', 'Dcgnv', 'wb‡qvM', 'weÁwß', 'cÎ', 'wek^vm', 'wk^vm', 'cÖwZ',
-    'ZvB', 'fvB', 'hw`', 'wKš‘', 'KviY', 'Ges', 'A_ev', 'ev', 'wQj', 'Av‡Q', '†bB'
+BIJOY_EXCLUSIONS = {
+    'ev', 'bv', 'hw', 'hwi', 'gvgjv', 'avivi', 'kiv', 'dnvi', 'mij', 'e¨', 'cÿ',
+    'Av', 'GB', 'GK', 'AZ', 'Ab', 'Ac', 'wbKU', 'cÖ', 'hy³', 'wPÎ', 'c„ôv'
 }
 
-BIJOY_CONSONANT_KARS = re.compile(
-    r'([K-Z][vwxy])|'                 # Uppercase consonant + kar e.g. Kv, Mv, Zv, Ky, My, Pv, Rv
-    r'([jckdfgpq]v)|'                 # Lowercase consonant + aa-kar e.g. jv, kv, cv, fv, gv, qv, pv (NEVER in English)
-    r'(vq)|(xq)|(sj)|'                # vq (ায়), xq (ীয়), sj (ংলা) - NEVER in English
-    r'(w[K-Z])|'                      # i-kar before uppercase consonant e.g. wP, wM, wZ
-    r'(\bw[kmpbftdcjqzly])|'          # Word starts with w + Bijoy consonant e.g. wk (কি), wb (নি), wg (মি), wP (চি), wj (লি)
-    r'(&[K-Za-z])|'                   # Conjunct halant e.g. &K
-    r'(\bAv[a-zA-Z])'                 # Starts with Av e.g. Avwg, Avgvi, Avcbvi
+LEGAL_COMPOUNDS = {
+    'hereinafter', 'hereinbefore', 'herein', 'hereof', 'hereunder', 'hereto', 'herewith',
+    'thereinafter', 'thereinbefore', 'therein', 'thereof', 'thereunder', 'thereto', 'therewith',
+    'whereas', 'whereby', 'whereof', 'wherein', 'notwithstanding', 'inasmuch', 'insofar'
+}
+
+REGIONAL_PROPER_NAMES = {
+    'sonali', 'janata', 'agrani', 'rupali', 'pubali', 'uttara', 'krishi',
+    'dhaka', 'bangladesh', 'chittagong', 'rajshahi', 'khulna', 'barisal',
+    'sylhet', 'rangpur', 'mymensingh', 'comilla', 'gazipur', 'narayanganj'
+}
+
+ENGLISH_CURATED = {
+    'the', 'of', 'and', 'to', 'in', 'is', 'you', 'that', 'it', 'he', 'was', 'for', 'on', 'are', 'as', 'with',
+    'his', 'they', 'i', 'at', 'be', 'this', 'have', 'from', 'or', 'one', 'had', 'by', 'word', 'but', 'not',
+    'what', 'all', 'were', 'we', 'when', 'your', 'can', 'said', 'there', 'use', 'an', 'each', 'which', 'she',
+    'do', 'how', 'their', 'if', 'will', 'up', 'other', 'about', 'out', 'many', 'then', 'them', 'these', 'so',
+    'some', 'her', 'would', 'make', 'like', 'him', 'into', 'time', 'has', 'look', 'two', 'more', 'write', 'go',
+    'see', 'number', 'no', 'way', 'could', 'people', 'my', 'than', 'first', 'water', 'been', 'call', 'who',
+    'oil', 'its', 'now', 'find', 'long', 'down', 'day', 'did', 'get', 'come', 'made', 'may', 'part', 'court',
+    'legal', 'proceedings', 'act', 'bank', 'company', 'public', 'bodies', 'section', 'evidence', 'books',
+    'civil', 'criminal', 'order', 'high', 'division', 'suit', 'case', 'provisions', 'under', 'powers',
+    'costs', 'application', 'shall', 'manager', 'person', 'property', 'office', 'branch', 'state', 'pakistan',
+    'bangladesh', 'governor', 'circular', 'rule', 'rules', 'regulation', 'regulations', 'statutory',
+    'corporation', 'corporations', 'director', 'directors', 'managing', 'executive', 'officer', 'officers',
+    'chief', 'general', 'deputy', 'assistant', 'secretary', 'ministry', 'department', 'division', 'board',
+    'revenue', 'customs', 'tax', 'taxes', 'income', 'value', 'added', 'audit', 'accounts', 'finance',
+    'financial', 'institution', 'institutions', 'limited', 'ltd', 'plc', 'co', 'corp', 'inc', 'authority',
+    'commission', 'tribunal', 'judge', 'justice', 'advocate', 'barrister', 'counsel', 'solicitor', 'plaintiff',
+    'defendant', 'appellant', 'respondent', 'petitioner', 'decree', 'judgment', 'appeal', 'revision',
+    'jurisdiction', 'affidavit', 'notice', 'summons', 'warrant', 'bail', 'custody', 'charge', 'complaint',
+    'investigation', 'inquiry', 'evidence', 'witness', 'testimony', 'document', 'documents', 'record',
+    'records', 'certified', 'copy', 'copies', 'original', 'ledger', 'register', 'account', 'entry', 'entries',
+    'banker', 'bankers', 'customer', 'borrower', 'lender', 'loan', 'credit', 'deposit', 'advance', 'mortgage',
+    'hypothecation', 'pledge', 'guarantee', 'surety', 'security', 'securities', 'share', 'shares', 'stock',
+    'debenture', 'bond', 'interest', 'profit', 'rate', 'default', 'defaulter', 'recovery', 'repayment',
+    'schedule', 'annexure', 'appendix', 'form', 'clause', 'sub', 'paragraph', 'sub-section', 'proviso',
+    'explanation', 'definition', 'definitions', 'title', 'preamble', 'enactment', 'commencement', 'extent',
+    'repeal', 'amendment', 'schedule', 'table', 'date', 'year', 'month', 'period', 'amount', 'sum', 'total',
+    'balance', 'debit', 'credit', 'payment', 'receipt', 'voucher', 'cheque', 'draft', 'bill', 'exchange',
+    'promissory', 'note', 'instrument', 'negotiable', 'clearing', 'settlement', 'transaction', 'operations',
+    'business', 'commercial', 'trade', 'industry', 'market', 'price', 'fee', 'charge', 'penalty', 'fine',
+    'punishment', 'imprisonment', 'offence', 'offences', 'contravention', 'violation', 'liability', 'liabilities',
+    'asset', 'assets', 'capital', 'reserve', 'fund', 'funds', 'liquidity', 'solvency', 'insolvent', 'bankruptcy',
+    'liquidation', 'winding', 'receiver', 'liquidator', 'resolution', 'governance', 'compliance', 'audit',
+    'internal', 'external', 'inspection', 'supervision', 'monitoring', 'report', 'reports', 'statement',
+    'statements', 'return', 'returns', 'guidelines', 'policy', 'framework', 'standard', 'standards', 'code',
+    'manual', 'circulars', 'notifications', 'gazette', 'published', 'authority', 'government', 'republic',
+    'people', 'national', 'central', 'state', 'federal', 'international', 'foreign', 'domestic', 'local',
+    'head', 'branch', 'sub-branch', 'zone', 'regional', 'area', 'unit', 'cell', 'desk', 'wing', 'team',
+    'email', 'e-mail', 'mail', 'phone', 'tel', 'telephone', 'mobile', 'cell', 'fax', 'website', 'web',
+    'url', 'http', 'https', 'www', 'com', 'org', 'net', 'edu', 'gov', 'mil', 'bd', 'in', 'uk', 'us',
+    'page', 'pages', 'vol', 'volume', 'no', 'number', 'ref', 'reference', 'memo', 'circular', 'gazette',
+    'law', 'laws', 'contact', 'amend', 'said', 'purposes', 'appearing', 'expedient', 'short', 'meaning',
+    'prescribed', 'provided', 'force', 'subject', 'contained', 'matter', 'matters', 'power', 'officers',
+    'servants', 'any', 'such', 'other', 'being', 'made', 'done', 'taken', 'given', 'held', 'sent'
+}
+
+# English morphological suffixes
+ENGLISH_SUFFIXES = (
+    'tion', 'tions', 'sion', 'sions', 'ment', 'ments', 'able', 'ible',
+    'ing', 'ings', 'ed', 'ly', 'ness', 'ship', 'ity', 'ities', 'ive', 'ives',
+    'al', 'ally', 'ous', 'ic', 'ical', 'ist', 'ists', 'ism', 'ize', 'ized',
+    'ise', 'ised', 'izing', 'ising', 'er', 'ers', 'est', 'ance', 'ence',
+    'ant', 'ants', 'ent', 'ents', 'less', 'ful', 'fully', 'hood'
 )
 
-ENGLISH_COMMON_WORDS = {
-    'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i',
-    'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at',
-    'this', 'but', 'his', 'by', 'from', 'they', 'we', 'say', 'her', 'she',
-    'or', 'an', 'will', 'my', 'one', 'all', 'would', 'there', 'their',
-    'what', 'so', 'up', 'out', 'if', 'about', 'who', 'get', 'which', 'go',
-    'me', 'when', 'make', 'can', 'like', 'time', 'no', 'just', 'him', 'know',
-    'take', 'people', 'into', 'year', 'your', 'good', 'some', 'could', 'them',
-    'see', 'other', 'than', 'then', 'now', 'look', 'only', 'come', 'its', 'over',
-    'think', 'also', 'back', 'after', 'use', 'two', 'how', 'our', 'work',
-    'first', 'well', 'way', 'even', 'new', 'want', 'because', 'any', 'these',
-    'give', 'day', 'most', 'us', 'is', 'are', 'was', 'were', 'been', 'has',
-    'had', 'report', 'project', 'table', 'date', 'name', 'title', 'status',
-    'director', 'general', 'executive', 'officer', 'department', 'ministry',
-    'government', 'page', 'code', 'file', 'data', 'test', 'result', 'error',
-    'warning', 'success', 'hello', 'world', 'summary', 'details', 'total'
-}
+# Optional system/pocketsphinx dictionary loader for 100,000+ words
+import os
+_EXTRA_ENGLISH_WORDS = set()
+_CANDIDATE_DICTS = [
+    r'd:\markitdown\.venv\Lib\site-packages\speech_recognition\pocketsphinx-data\en-US\pronounciation-dictionary.dict',
+    os.path.join(os.path.dirname(__file__), '..', '.venv', 'Lib', 'site-packages', 'speech_recognition', 'pocketsphinx-data', 'en-US', 'pronounciation-dictionary.dict')
+]
+for p in _CANDIDATE_DICTS:
+    if os.path.exists(p):
+        try:
+            with open(p, 'r', encoding='utf-8', errors='ignore') as f:
+                for line in f:
+                    parts = line.strip().split()
+                    if parts:
+                        w = parts[0].lower()
+                        w = re.sub(r'\(\d+\)$', '', w)
+                        if re.match(r'^[a-z]+$', w) and len(w) >= 2 and w not in BIJOY_EXCLUSIONS:
+                            _EXTRA_ENGLISH_WORDS.add(w)
+            break
+        except Exception:
+            pass
+
+
+def is_english_token(token: str) -> bool:
+    """Check if token is genuinely English and must NOT be converted into Bengali."""
+    clean = token.strip(".,;:?!'\"()[]{}<>«»\u201c\u201d\u2018\u2019/\\|-*#_~0123456789")
+    if not clean:
+        return False
+    if any(c in BIJOY_SPECIALS for c in clean):
+        return False
+    if any('\u0980' <= c <= '\u09FF' for c in clean):
+        return False
+    if not re.match(r'^[a-zA-Z]+(-[a-zA-Z]+)?$', clean):
+        return False
+    # If contains internal uppercase (camelCase like LiP, wefvM, e¨w³) -> Bijoy, NOT English
+    if re.search(r'[a-z][A-Z]', clean):
+        return False
+    # If matches Bijoy-specific vowel starts like Av, GB, GK, AZ, Aax
+    if re.match(r'^(Av|GB|GK|AZ|Aax)', clean):
+        return False
+
+    clean_lower = clean.lower()
+    if clean_lower in BIJOY_EXCLUSIONS:
+        return False
+
+    if clean_lower in ENGLISH_CURATED or clean_lower in LEGAL_COMPOUNDS or clean_lower in REGIONAL_PROPER_NAMES:
+        return True
+
+    if clean_lower in _EXTRA_ENGLISH_WORDS:
+        return True
+
+    # All-caps acronyms (e.g. CEO, BRPD, PLC, LTD, BB, PDF)
+    if len(clean) >= 2 and clean.isupper():
+        return True
+
+    # English morphological suffix check (length >= 5)
+    if len(clean_lower) >= 5:
+        for sfx in ENGLISH_SUFFIXES:
+            if clean_lower.endswith(sfx) and len(clean_lower) > len(sfx) + 2:
+                return True
+
+    return False
 
 
 def is_bijoy_token(token: str) -> bool:
@@ -454,190 +597,161 @@ def is_bijoy_token(token: str) -> bool:
     clean = token.strip(".,;:?!'\"()[]{}<>«»\u201c\u201d\u2018\u2019/\\|-*#_~1234567890")
     if not clean:
         return False
-    # If already Unicode Bengali -> NOT Bijoy
     if any('\u0980' <= c <= '\u09FF' for c in clean):
         return False
-    # If contains Bijoy extended ASCII character -> 100% Bijoy
+    if is_english_token(clean):
+        return False
     if any(c in BIJOY_SPECIALS for c in clean):
         return True
-    # If in common English words -> NOT Bijoy
-    if clean.lower() in ENGLISH_COMMON_WORDS:
-        return False
-    # If in exact Bijoy words
-    if clean in BIJOY_EXACT_WORDS:
-        return True
-    # If matches Bijoy structural patterns
-    if BIJOY_CONSONANT_KARS.search(clean):
-        return True
-    return False
+    return True
 
 
 def is_likely_bijoy(text: str) -> bool:
-    """
-    Intelligently detect if text contains legacy ANSI / Bijoy Bengali patterns.
-    Uses token analysis, special character density, and structural heuristics.
-    """
+    """Detect if text contains legacy ANSI / Bijoy Bengali patterns."""
     if not text:
         return False
 
-    # Check for Bijoy special characters (always 100% indicative of Bijoy)
     if any(c in BIJOY_SPECIALS for c in text):
         return True
 
-    # If text already contains pure Unicode Bengali (> 15 chars) and no Bijoy specials,
-    # it is already a modern Unicode document, not legacy ANSI!
     unicode_bengali_chars = sum(1 for c in text if '\u0980' <= c <= '\u09FF')
     if unicode_bengali_chars >= 15:
         return False
 
-    # Check for known markers
-    bijoy_markers = ['Avgvi', 'evsjv', 'wPÎ', 'cÖ', 'hy³', 'Avwg', '†mvbvi', '†Zvgvq', 'eivei', 'cwiPvjK', 'miKvi']
+    bijoy_markers = ['Avgvi', 'evsjv', 'wPÎ', 'cÖ', 'hy³', 'Avwg', '†mvbvi', '†Zvgvq', 'eivei', 'cwiPvjK', 'miKvi', 'GB AvB‡bi']
     for marker in bijoy_markers:
         if marker in text:
             return True
 
-    # Check token-level sample (first 100 tokens)
     tokens = text.split()[:100]
     bijoy_count = sum(1 for t in tokens if is_bijoy_token(t))
-    if bijoy_count >= 2:
-        return True
+    return bijoy_count >= 2
 
-    return False
+
+def bijoy_to_unicode(text: str, preserve_english: bool = True) -> str:
+    """
+    Convert Bijoy / ANSI / SutonnyMJ encoded Bengali string to standard UTF-8 Unicode.
+    When preserve_english=True (default), preserves English words, parentheticals,
+    URLs, emails, and citations.
+    """
+    if not text:
+        return ""
+
+    # Pre-clean space within conjunct glyphs (e.g. B” QvK…Z -> B”QvK…Z -> ইচ্ছাকৃত)
+    text = re.sub(r'([”¯š¤˜®])\s+([a-zA-Z])', r'\1\2', text)
+
+    if not preserve_english:
+        return _raw_bijoy_to_unicode(text)
+
+    # 1. Protect parenthesized English expressions e.g. (legal proceedings), (Bank-Company Act, 1991)
+    protected_blocks = []
+    def _pua_block(val: str) -> str:
+        idx = len(protected_blocks)
+        protected_blocks.append(val)
+        high = idx // 1000
+        low = idx % 1000
+        return f"\uE010{chr(0xE100 + high)}{chr(0xE400 + low)}\uE011"
+
+    def protect_parentheses(m):
+        inner = m.group(1)
+        tokens = re.findall(r'[a-zA-Z]+', inner)
+        if tokens and all(is_english_token(t) for t in tokens):
+            return _pua_block(m.group(0))
+        return m.group(0)
+
+    text = re.sub(r'\(([^)]+)\)', protect_parentheses, text)
+    text = re.sub(r'\[([^\]]+)\]', protect_parentheses, text)
+
+    # 2. Protect URLs, emails, and English section numbers e.g. Section 5, Act No. 14 of 1991
+    def protect_token(m):
+        return _pua_block(m.group(0))
+
+    text = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b', protect_token, text)
+    text = re.sub(r'https?://\S+', protect_token, text)
+    text = re.sub(r'\b(?:Section|Act|No|Vol|Volume|Page|Part|Clause|Rule|Order|Schedule)\s+\d+(?:/\d+)?\b', protect_token, text, flags=re.IGNORECASE)
+
+    # 3. Process line by line
+    processed_lines = []
+    for line in text.split('\n'):
+        words_in_line = re.findall(r'[A-Za-z]+', line)
+        if (words_in_line and len(words_in_line) >= 5
+                and not any(c in BIJOY_SPECIALS for c in line)
+                and not any('\u0980' <= c <= '\u09FF' for c in line)):
+            en_ratio = sum(1 for w in words_in_line if is_english_token(w)) / len(words_in_line)
+            if en_ratio >= 0.9:
+                processed_lines.append(line)
+                continue
+
+        parts = re.split(r'(\s+|[.,;!?()[\]{}<>"\'/\\:]|\uE010[^\uE011]+\uE011)', line)
+        new_parts = []
+        for p in parts:
+            if not p:
+                continue
+            if p.startswith('\uE010') and p.endswith('\uE011'):
+                new_parts.append(p)
+            elif is_english_token(p):
+                new_parts.append(p)
+            else:
+                new_parts.append(_raw_bijoy_to_unicode(p))
+        processed_lines.append("".join(new_parts))
+
+    result = '\n'.join(processed_lines)
+    for idx, orig in enumerate(protected_blocks):
+        high = idx // 1000
+        low = idx % 1000
+        placeholder = f"\uE010{chr(0xE100 + high)}{chr(0xE400 + low)}\uE011"
+        result = result.replace(placeholder, orig)
+
+    return result
 
 
 def auto_convert_markdown(markdown_text: str) -> str:
     """
     Convert legacy ANSI/Bijoy Bengali to standard UTF-8 Unicode with full Markdown awareness.
-    Preserves:
-    - LaTeX Math equations ($$...$$ and $...$)
-    - Fenced code blocks (``` ... ```)
-    - Inline code (`...`)
-    - URLs in links and images [text](url)
-    - Markdown headings (#), blockquotes (>), lists (-, *, 1.), tables (|)
-    - Existing Unicode Bengali and plain English words.
+    Preserves LaTeX equations, code blocks, URLs, markdown syntax, and English text.
     """
     if not markdown_text:
         return ""
 
-    # Fast bail-out if no Bijoy is present
     if not is_likely_bijoy(markdown_text):
         return markdown_text
 
+    # Use Unicode PUA characters for placeholders so they are never touched by Bijoy
+    pua_tokens = []
+    def _save_pua(val: str) -> str:
+        idx = len(pua_tokens)
+        pua_tokens.append(val)
+        high = idx // 1000
+        low = idx % 1000
+        return f"\uE020{chr(0xE100 + high)}{chr(0xE400 + low)}\uE021"
+
+    text = markdown_text
+
     # 0. Protect LaTeX Math equations
-    math_blocks = []
-    def math_block_sub(match):
-        math_blocks.append(match.group(0))
-        return f"__MATH_BLOCK_{len(math_blocks)-1}__"
+    text = re.sub(r'\$\$[\s\S]*?\$\$', lambda m: _save_pua(m.group(0)), text)
+    text = re.sub(r'\$[^\$\n]+?\$', lambda m: _save_pua(m.group(0)), text)
 
-    text = re.sub(r'\$\$[\s\S]*?\$\$', math_block_sub, markdown_text)
+    # 1. Protect fenced code blocks
+    text = re.sub(r'```[\s\S]*?```', lambda m: _save_pua(m.group(0)), text)
 
-    inline_maths = []
-    def inline_math_sub(match):
-        inline_maths.append(match.group(0))
-        return f"__INLINE_MATH_{len(inline_maths)-1}__"
+    # 2. Protect URLs inside markdown links/images [text](url)
+    text = re.sub(
+        r'\[(.*?)\]\((https?://[^\s)]+|file://[^\s)]+|/[^\s)]+)\)',
+        lambda m: f"[{m.group(1)}]({_save_pua(m.group(2))})",
+        text
+    )
 
-    text = re.sub(r'\$[^\$\n]+?\$', inline_math_sub, text)
+    # 3. Convert using smart English-preserving converter
+    converted = bijoy_to_unicode(text, preserve_english=True)
 
-    # 1. Protect code blocks
-    code_blocks = []
-    def code_block_sub(match):
-        code_blocks.append(match.group(0))
-        return f"__CODE_BLOCK_{len(code_blocks)-1}__"
+    # 4. Restore protected PUA tokens
+    for idx, orig in enumerate(pua_tokens):
+        high = idx // 1000
+        low = idx % 1000
+        placeholder = f"\uE020{chr(0xE100 + high)}{chr(0xE400 + low)}\uE021"
+        converted = converted.replace(placeholder, orig)
 
-    text = re.sub(r'```[\s\S]*?```', code_block_sub, text)
-
-    # 2. Protect inline code
-    inline_codes = []
-    def inline_code_sub(match):
-        inline_codes.append(match.group(0))
-        return f"__INLINE_CODE_{len(inline_codes)-1}__"
-
-    text = re.sub(r'`[^`\n]+`', inline_code_sub, text)
-
-    # 3. Protect URLs inside markdown links/images [text](url)
-    urls = []
-    def url_sub(match):
-        urls.append(match.group(2))
-        return f"[{match.group(1)}](__URL_{len(urls)-1}__)"
-
-    text = re.sub(r'\[(.*?)\]\((https?://[^\s)]+|file://[^\s)]+|/[^\s)]+)\)', url_sub, text)
-
-    # 4. Process lines selectively
-    lines = text.split('\n')
-    processed_lines = []
-
-    for line in lines:
-        stripped = line.strip()
-        if not stripped or stripped.startswith("__CODE_BLOCK_"):
-            processed_lines.append(line)
-            continue
-
-        # Check for standard Markdown block prefixes (heading, list bullet, task, quote)
-        m = re.match(r'^(\s*(?:#{1,6}\s+|[-*+]\s+(?:\[[ xX]\]\s+)?|\d+\.\s+|>\s*))(.*)$', line)
-        if m:
-            prefix = m.group(1)
-            content = m.group(2)
-        else:
-            prefix = ""
-            content = line
-
-        # If line is a markdown table row with pipes
-        stripped_c = content.strip()
-        if stripped_c.startswith('|') and stripped_c.endswith('|'):
-            # Preserve table separator row e.g. | :--- | :--- |
-            if re.match(r'^\|[\s:\-]+(?:\|[\s:\-]+)*\|$', stripped_c):
-                processed_lines.append(line)
-                continue
-            cells = content.split('|')
-            converted_cells = []
-            for cell in cells:
-                parts = re.split(r'(\s+|[.,;!?()[\]{}<>"\'/\\:])', cell)
-                new_parts = []
-                for p in parts:
-                    if is_bijoy_token(p):
-                        new_parts.append(bijoy_to_unicode(p))
-                    else:
-                        new_parts.append(p)
-                converted_cells.append("".join(new_parts))
-            processed_lines.append(prefix + "|".join(converted_cells))
-            continue
-
-        # Check tokens in content
-        tokens = re.findall(r'\S+', content)
-        if not tokens:
-            processed_lines.append(line)
-            continue
-
-        bijoy_tokens = [t for t in tokens if is_bijoy_token(t)]
-        if not bijoy_tokens:
-            processed_lines.append(line)
-            continue
-
-        # Segment/token-level conversion for lines containing Bijoy
-        parts = re.split(r'(\s+|[.,;!?()[\]{}<>"\'/\\:])', content)
-        converted_parts = []
-        for p in parts:
-            if is_bijoy_token(p):
-                converted_parts.append(bijoy_to_unicode(p))
-            else:
-                converted_parts.append(p)
-        processed_lines.append(prefix + "".join(converted_parts))
-
-    result = '\n'.join(processed_lines)
-
-    # 5. Restore protected tokens
-    for i, im in enumerate(inline_maths):
-        result = result.replace(f"__INLINE_MATH_{i}__", im)
-    for i, mb in enumerate(math_blocks):
-        result = result.replace(f"__MATH_BLOCK_{i}__", mb)
-    for i, u in enumerate(urls):
-        result = result.replace(f"__URL_{i}__", u)
-    for i, ic in enumerate(inline_codes):
-        result = result.replace(f"__INLINE_CODE_{i}__", ic)
-    for i, cb in enumerate(code_blocks):
-        result = result.replace(f"__CODE_BLOCK_{i}__", cb)
-
-    return result
+    return converted
 
 
 def auto_convert_text(text: str) -> str:

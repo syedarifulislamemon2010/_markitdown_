@@ -496,6 +496,27 @@ graph TD
     });
   }
 
+  // Caches for expensive rendering operations
+  const katexCache = new Map();
+  const mermaidCache = new Map();
+  let lastHeadersSerialized = '';
+
+  function renderKatexCached(formula, displayMode) {
+    const key = `${displayMode ? 'D' : 'I'}:${formula}`;
+    if (katexCache.has(key)) return katexCache.get(key);
+    try {
+      const rendered = katex.renderToString(formula, { displayMode: displayMode, throwOnError: false });
+      if (katexCache.size > 300) {
+        const firstKey = katexCache.keys().next().value;
+        katexCache.delete(firstKey);
+      }
+      katexCache.set(key, rendered);
+      return rendered;
+    } catch (e) {
+      return displayMode ? `<div class="katex-error">$$${escapeHtml(formula)}$$</div>` : `$${escapeHtml(formula)}$`;
+    }
+  }
+
   // ==================== Markdown & Math Rendering ====================
   function renderMarkdown() {
     const rawText = editor.value;
@@ -531,23 +552,16 @@ graph TD
       html = `<pre>${escapeHtml(textToRender)}</pre>`;
     }
 
-    // Restore Math blocks
+    // Restore Math blocks with cached KaTeX rendering
     html = html.replace(/@@MATH_BLOCK_(\d+)@@/g, (match, id) => {
       const formula = mathBlocks[parseInt(id)];
-      try {
-        return `<div class="katex-block">${katex.renderToString(formula, { displayMode: true, throwOnError: false })}</div>`;
-      } catch (e) {
-        return `<div class="katex-error">$$${escapeHtml(formula)}$$</div>`;
-      }
+      const rendered = renderKatexCached(formula, true);
+      return `<div class="katex-block">${rendered}</div>`;
     });
 
     html = html.replace(/@@MATH_INLINE_(\d+)@@/g, (match, id) => {
       const formula = inlineMath[parseInt(id)];
-      try {
-        return katex.renderToString(formula, { displayMode: false, throwOnError: false });
-      } catch (e) {
-        return `$${escapeHtml(formula)}$`;
-      }
+      return renderKatexCached(formula, false);
     });
 
     previewContent.innerHTML = html;
@@ -560,14 +574,25 @@ graph TD
     const mermaidNodes = previewContent.querySelectorAll('pre code.language-mermaid');
     mermaidNodes.forEach((codeNode, idx) => {
       const preNode = codeNode.parentElement;
-      const rawGraph = codeNode.textContent;
+      const rawGraph = codeNode.textContent.trim();
       const container = document.createElement('div');
       container.className = 'mermaid-chart';
       preNode.parentNode.replaceChild(container, preNode);
 
+      // Instant render from cache if diagram definition unchanged
+      if (mermaidCache.has(rawGraph)) {
+        container.innerHTML = mermaidCache.get(rawGraph);
+        return;
+      }
+
       const uniqueId = 'mermaid-' + Date.now() + '-' + idx;
       try {
         mermaid.render(uniqueId, rawGraph).then(({ svg }) => {
+          mermaidCache.set(rawGraph, svg);
+          if (mermaidCache.size > 50) {
+            const firstKey = mermaidCache.keys().next().value;
+            mermaidCache.delete(firstKey);
+          }
           container.innerHTML = svg;
         }).catch(err => {
           container.innerHTML = `<div style="color:#f87171;font-size:12px;">⚠️ ডায়াগ্রাম রেন্ডার ত্রুটি: ${escapeHtml(err.message)}</div>`;
@@ -599,6 +624,11 @@ graph TD
         });
       }
     }
+
+    // Skip DOM recreation if headers have not changed
+    const serialized = headers.map(h => `${h.level}:${h.line}:${h.text}`).join('|');
+    if (serialized === lastHeadersSerialized) return;
+    lastHeadersSerialized = serialized;
 
     if (headers.length === 0) {
       outlineList.innerHTML = '<div style="padding: 8px 12px; font-size: 11px; color: var(--text-secondary); font-style: italic;">কোনো হেডিং পাওয়া যায়নি</div>';
@@ -653,10 +683,14 @@ graph TD
   }
 
   // ==================== Line Numbers & Status Bar ====================
-  function updateLineNumbers() {
+  let lastLineCount = -1;
+  function updateLineNumbers(force = false) {
     if (!lineNumbers) return;
     const lines = editor.value.split('\n');
     const lineCount = lines.length;
+    // Skip expensive DOM recreation when line count hasn't changed
+    if (!force && lineCount === lastLineCount) return;
+    lastLineCount = lineCount;
     let html = '';
     for (let i = 1; i <= lineCount; i++) {
       html += `<span>${i}</span>`;
@@ -664,30 +698,35 @@ graph TD
     lineNumbers.innerHTML = html;
   }
 
+  let statusDebounceTimer = null;
   function updateStatusBar() {
     const text = editor.value;
-    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
     const chars = text.length;
-    const lines = text ? text.split('\n').length : 0;
 
-    if (sbWordCount) sbWordCount.textContent = `Words: ${words.toLocaleString()}`;
-
-    // Cursor position
+    // Fast cursor position calculation (immediate)
     const pos = editor.selectionStart || 0;
     const textUpToCursor = text.substring(0, pos);
-    const cursorLines = textUpToCursor.split('\n');
-    const lineNum = cursorLines.length;
-    const colNum = cursorLines[cursorLines.length - 1].length + 1;
+    const lastNl = textUpToCursor.lastIndexOf('\n');
+    const lineNum = lastNl === -1 ? 1 : textUpToCursor.split('\n').length;
+    const colNum = pos - lastNl;
 
     if (sbLineCol) sbLineCol.textContent = `Ln ${lineNum}, Col ${colNum}`;
 
-    // Legacy stat elements for compatibility
-    const wcEl = document.getElementById('wordCount');
-    if (wcEl) wcEl.textContent = `${words} words`;
-    const ccEl = document.getElementById('charCount');
-    if (ccEl) ccEl.textContent = `${chars} chars`;
-    const lcEl = document.getElementById('lineCount');
-    if (lcEl) lcEl.textContent = `${lines} lines`;
+    // Debounce full-text word & line count to keep typing 60fps responsive
+    if (statusDebounceTimer) clearTimeout(statusDebounceTimer);
+    statusDebounceTimer = setTimeout(() => {
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      const lines = text ? text.split('\n').length : 0;
+
+      if (sbWordCount) sbWordCount.textContent = `Words: ${words.toLocaleString()}`;
+
+      const wcEl = document.getElementById('wordCount');
+      if (wcEl) wcEl.textContent = `${words} words`;
+      const ccEl = document.getElementById('charCount');
+      if (ccEl) ccEl.textContent = `${chars} chars`;
+      const lcEl = document.getElementById('lineCount');
+      if (lcEl) lcEl.textContent = `${lines} lines`;
+    }, 150);
   }
 
   // ==================== Resilient File Download Pipeline ====================
@@ -1360,29 +1399,62 @@ ${previewContent.innerHTML}
 
   // ==================== Synchronized Scrolling ====================
   function setupScrollSync() {
+    let activeScroller = null;
+    let scrollResetTimer = null;
+
     editor.addEventListener('scroll', () => {
-      // Sync line numbers scroll
+      // Sync line numbers scroll immediately
       if (lineNumbers) {
         lineNumbers.scrollTop = editor.scrollTop;
       }
 
-      if (isScrolling) return;
-      isScrolling = true;
-      const pct = editor.scrollTop / (editor.scrollHeight - editor.clientHeight || 1);
-      preview.scrollTop = pct * (preview.scrollHeight - preview.clientHeight);
-      setTimeout(() => { isScrolling = false; }, 40);
-    });
+      if (activeScroller && activeScroller !== 'editor') return;
+      activeScroller = 'editor';
+      if (scrollResetTimer) clearTimeout(scrollResetTimer);
+      scrollResetTimer = setTimeout(() => { activeScroller = null; }, 100);
+
+      window.requestAnimationFrame(() => {
+        const maxScroll = editor.scrollHeight - editor.clientHeight;
+        const pct = maxScroll > 0 ? editor.scrollTop / maxScroll : 0;
+        const previewMax = preview.scrollHeight - preview.clientHeight;
+        preview.scrollTop = pct * previewMax;
+      });
+    }, { passive: true });
 
     preview.addEventListener('scroll', () => {
-      if (isScrolling) return;
-      isScrolling = true;
-      const pct = preview.scrollTop / (preview.scrollHeight - preview.clientHeight || 1);
-      editor.scrollTop = pct * (editor.scrollHeight - editor.clientHeight);
-      if (lineNumbers) {
-        lineNumbers.scrollTop = editor.scrollTop;
-      }
-      setTimeout(() => { isScrolling = false; }, 40);
-    });
+      if (activeScroller && activeScroller !== 'preview') return;
+      activeScroller = 'preview';
+      if (scrollResetTimer) clearTimeout(scrollResetTimer);
+      scrollResetTimer = setTimeout(() => { activeScroller = null; }, 100);
+
+      window.requestAnimationFrame(() => {
+        const previewMax = preview.scrollHeight - preview.clientHeight;
+        const pct = previewMax > 0 ? preview.scrollTop / previewMax : 0;
+        const editorMax = editor.scrollHeight - editor.clientHeight;
+        editor.scrollTop = pct * editorMax;
+        if (lineNumbers) {
+          lineNumbers.scrollTop = editor.scrollTop;
+        }
+      });
+    }, { passive: true });
+  }
+
+  // ==================== Debounced Rendering & Auto-save ====================
+  let renderDebounceTimer = null;
+  let saveDebounceTimer = null;
+
+  function debouncedRenderMarkdown(delay = 140) {
+    if (renderDebounceTimer) clearTimeout(renderDebounceTimer);
+    renderDebounceTimer = setTimeout(() => {
+      renderMarkdown();
+    }, delay);
+  }
+
+  function debouncedSaveAllTabs(delay = 400) {
+    if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = setTimeout(() => {
+      saveAllTabs();
+    }, delay);
   }
 
   // ==================== DropZone Setup Helper ====================
@@ -1418,13 +1490,355 @@ ${previewContent.innerHTML}
   }
 
   // ==================== Event Listeners ====================
-  function setupEventListeners() {
-    // Editor inputs
-    editor.addEventListener('input', () => {
+  
+  // ==================== Zen Mode & Distraction-Free Controller ====================
+  function toggleZenMode() {
+    const isZen = document.body.classList.toggle('zen-mode');
+    const zenBtn = document.getElementById('toolZenMode');
+    if (zenBtn) {
+      zenBtn.classList.toggle('active', isZen);
+    }
+    showToast(isZen ? '🧘 জেন মোড চালু (Esc দিয়ে বের হতে পারেন)' : 'জেন মোড বন্ধ', 'info', 2000);
+  }
+
+  // ==================== Built-in Avro Phonetic Controller ====================
+  function togglePhoneticMode() {
+    if (!window.PhoneticBangla) {
+      showToast('⚠️ ফোনেটিক ইঞ্জিন লোড হয়নি', 'warning');
+      return;
+    }
+    const enabled = window.PhoneticBangla.toggle();
+    const btn = document.getElementById('toolPhoneticBangla');
+    if (btn) {
+      btn.classList.toggle('active-phonetic', enabled);
+      btn.innerHTML = enabled ? '<span class="tool-icon">অ</span> ফোনেটিক: অন' : '<span class="tool-icon">অ</span> ফোনেটিক: অফ';
+    }
+    showToast(enabled ? 'অ আ ফোনেটিক বাংলা: চালু (Ctrl+M দিয়ে টগল করুন)' : 'ফোনেটিক বাংলা: বন্ধ', enabled ? 'success' : 'info', 2000);
+  }
+
+  // ==================== Smart Editor Productivity Engine ====================
+  function initSmartEditor() {
+    if (!editor) return;
+
+    editor.addEventListener('keydown', handleEditorKeyDown);
+    editor.addEventListener('paste', handleEditorPaste);
+
+    editor.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      editor.classList.add('dragover');
+    });
+
+    editor.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      editor.classList.remove('dragover');
+    });
+
+    editor.addEventListener('drop', handleEditorDrop);
+  }
+
+  function handleEditorKeyDown(e) {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const val = editor.value;
+
+    // --- 1. Phonetic Typing Handler ---
+    if (window.PhoneticBangla && window.PhoneticBangla.isEnabled) {
+      if ([' ', 'Enter', 'Tab', ',', '.', ';', '?', '!', ':', '\n'].includes(e.key) && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        if (start === end) {
+          const textBeforeCursor = val.substring(0, start);
+          const match = textBeforeCursor.match(/([a-zA-Z0-9`^]+)$/);
+          if (match) {
+            const word = match[1];
+            const wordStart = start - word.length;
+            const converted = window.PhoneticBangla.parse(word);
+            if (converted && converted !== word) {
+              e.preventDefault();
+              pushHistoryState(val);
+              const keyToInsert = e.key === 'Enter' ? '\n' : (e.key === 'Tab' ? '    ' : e.key);
+              editor.value = val.substring(0, wordStart) + converted + keyToInsert + val.substring(end);
+              const newPos = wordStart + converted.length + keyToInsert.length;
+              editor.setSelectionRange(newPos, newPos);
+              debouncedRenderMarkdown(50);
+              updateLineNumbers();
+              updateStatusBar();
+              debouncedSaveAllTabs(300);
+              return;
+            }
+          }
+        }
+      }
+    }
+
+    // --- 2. Tab & Shift+Tab Indentation ---
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      pushHistoryState(val);
+
+      if (start === end) {
+        if (!e.shiftKey) {
+          editor.value = val.substring(0, start) + '    ' + val.substring(end);
+          editor.setSelectionRange(start + 4, start + 4);
+        } else {
+          const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+          const linePrefix = val.substring(lineStart, lineStart + 4);
+          const spacesToRemove = linePrefix.match(/^ {1,4}/);
+          if (spacesToRemove) {
+            const count = spacesToRemove[0].length;
+            editor.value = val.substring(0, lineStart) + val.substring(lineStart + count);
+            const newCursor = Math.max(lineStart, start - count);
+            editor.setSelectionRange(newCursor, newCursor);
+          }
+        }
+      } else {
+        const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+        let lineEnd = val.indexOf('\n', end);
+        if (lineEnd === -1) lineEnd = val.length;
+
+        const selectedLines = val.substring(lineStart, lineEnd).split('\n');
+        let modifiedLines;
+        let charsDelta = 0;
+
+        if (!e.shiftKey) {
+          modifiedLines = selectedLines.map(l => {
+            charsDelta += 4;
+            return '    ' + l;
+          });
+        } else {
+          modifiedLines = selectedLines.map(l => {
+            const m = l.match(/^ {1,4}/);
+            if (m) {
+              charsDelta -= m[0].length;
+              return l.substring(m[0].length);
+            }
+            return l;
+          });
+        }
+
+        editor.value = val.substring(0, lineStart) + modifiedLines.join('\n') + val.substring(lineEnd);
+        editor.setSelectionRange(lineStart, Math.max(lineStart, end + charsDelta));
+      }
+
+      debouncedRenderMarkdown(50);
+      updateLineNumbers();
+      updateStatusBar();
+      debouncedSaveAllTabs(300);
+      return;
+    }
+
+    // --- 3. Auto-Pairing & Selection Wrapping ---
+    const pairs = {
+      '(': ')',
+      '[': ']',
+      '{': '}',
+      '"': '"',
+      "'": "'",
+      '`': '`',
+      '*': '*',
+      '_': '_',
+      '~': '~'
+    };
+
+    if (pairs[e.key] && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      const openChar = e.key;
+      const closeChar = pairs[openChar];
+
+      if (start !== end) {
+        e.preventDefault();
+        pushHistoryState(val);
+        const selectedText = val.substring(start, end);
+        const wrapped = openChar + selectedText + closeChar;
+        editor.value = val.substring(0, start) + wrapped + val.substring(end);
+        editor.setSelectionRange(start + 1, start + 1 + selectedText.length);
+        debouncedRenderMarkdown(50);
+        updateLineNumbers();
+        updateStatusBar();
+        debouncedSaveAllTabs(300);
+        return;
+      } else {
+        const nextChar = val.charAt(start);
+        if (Object.values(pairs).includes(openChar) && nextChar === openChar) {
+          e.preventDefault();
+          editor.setSelectionRange(start + 1, start + 1);
+          return;
+        }
+
+        if (['(', '[', '{', '`'].includes(openChar)) {
+          e.preventDefault();
+          pushHistoryState(val);
+          editor.value = val.substring(0, start) + openChar + closeChar + val.substring(end);
+          editor.setSelectionRange(start + 1, start + 1);
+          debouncedRenderMarkdown(50);
+          updateLineNumbers();
+          updateStatusBar();
+          debouncedSaveAllTabs(300);
+          return;
+        }
+      }
+    }
+
+    // --- 4. Backspace between empty pairs deletes both ---
+    if (e.key === 'Backspace' && start === end && start > 0) {
+      const prevChar = val.charAt(start - 1);
+      const nextChar = val.charAt(start);
+      if (pairs[prevChar] === nextChar) {
+        e.preventDefault();
+        pushHistoryState(val);
+        editor.value = val.substring(0, start - 1) + val.substring(start + 1);
+        editor.setSelectionRange(start - 1, start - 1);
+        debouncedRenderMarkdown(50);
+        updateLineNumbers();
+        updateStatusBar();
+        debouncedSaveAllTabs(300);
+        return;
+      }
+    }
+
+    // --- 5. Smart List Continuation on Enter ---
+    if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      if (start === end) {
+        const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+        const currentLine = val.substring(lineStart, start);
+
+        // Task list
+        const taskMatch = currentLine.match(/^(\s*)([-*+])\s+\[([ xX])\]\s*(.*)$/);
+        if (taskMatch) {
+          e.preventDefault();
+          pushHistoryState(val);
+          const indent = taskMatch[1];
+          const marker = taskMatch[2];
+          const text = taskMatch[4];
+
+          if (!text.trim()) {
+            editor.value = val.substring(0, lineStart) + val.substring(start);
+            editor.setSelectionRange(lineStart, lineStart);
+          } else {
+            const nextItem = '\n' + indent + marker + ' [ ] ';
+            editor.value = val.substring(0, start) + nextItem + val.substring(end);
+            editor.setSelectionRange(start + nextItem.length, start + nextItem.length);
+          }
+          debouncedRenderMarkdown(50);
+          updateLineNumbers();
+          updateStatusBar();
+          debouncedSaveAllTabs(300);
+          return;
+        }
+
+        // Numbered list
+        const numMatch = currentLine.match(/^(\s*)(\d+)\.\s*(.*)$/);
+        if (numMatch) {
+          e.preventDefault();
+          pushHistoryState(val);
+          const indent = numMatch[1];
+          const num = parseInt(numMatch[2], 10);
+          const text = numMatch[3];
+
+          if (!text.trim()) {
+            editor.value = val.substring(0, lineStart) + val.substring(start);
+            editor.setSelectionRange(lineStart, lineStart);
+          } else {
+            const nextItem = '\n' + indent + (num + 1) + '. ';
+            editor.value = val.substring(0, start) + nextItem + val.substring(end);
+            editor.setSelectionRange(start + nextItem.length, start + nextItem.length);
+          }
+          debouncedRenderMarkdown(50);
+          updateLineNumbers();
+          updateStatusBar();
+          debouncedSaveAllTabs(300);
+          return;
+        }
+
+        // Bullet list
+        const bulletMatch = currentLine.match(/^(\s*)([-*+])\s*(.*)$/);
+        if (bulletMatch) {
+          e.preventDefault();
+          pushHistoryState(val);
+          const indent = bulletMatch[1];
+          const marker = bulletMatch[2];
+          const text = bulletMatch[3];
+
+          if (!text.trim()) {
+            editor.value = val.substring(0, lineStart) + val.substring(start);
+            editor.setSelectionRange(lineStart, lineStart);
+          } else {
+            const nextItem = '\n' + indent + marker + ' ';
+            editor.value = val.substring(0, start) + nextItem + val.substring(end);
+            editor.setSelectionRange(start + nextItem.length, start + nextItem.length);
+          }
+          debouncedRenderMarkdown(50);
+          updateLineNumbers();
+          updateStatusBar();
+          debouncedSaveAllTabs(300);
+          return;
+        }
+      }
+    }
+  }
+
+  function handleEditorPaste(e) {
+    if (!e.clipboardData || !e.clipboardData.items) return;
+
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.indexOf('image') !== -1) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          insertImageAsBase64(file);
+        }
+        return;
+      }
+    }
+  }
+
+  function handleEditorDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    editor.classList.remove('dragover');
+
+    if (!e.dataTransfer || !e.dataTransfer.files) return;
+    const files = e.dataTransfer.files;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.type.startsWith('image/')) {
+        insertImageAsBase64(file);
+        return;
+      }
+    }
+  }
+
+  function insertImageAsBase64(file) {
+    showToast('⏳ ইমেজ প্রসেস করা হচ্ছে...', 'info', 1500);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64Data = event.target.result;
+      const start = editor.selectionStart || editor.value.length;
+      const end = editor.selectionEnd || editor.value.length;
+      const val = editor.value;
+
+      pushHistoryState(val);
+      const imgTag = `\n\n![${file.name || 'Image'}](${base64Data})\n\n`;
+      editor.value = val.substring(0, start) + imgTag + val.substring(end);
+      editor.setSelectionRange(start + imgTag.length, start + imgTag.length);
+
       renderMarkdown();
       updateLineNumbers();
       updateStatusBar();
-      saveAllTabs();
+      debouncedSaveAllTabs(300);
+      showToast('🖼️ ইমেজ সফলভাবে ইনসার্ট হয়েছে!', 'success', 3000);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function setupEventListeners() {
+    // Editor inputs (Optimized: 60fps typing with non-blocking debounced rendering)
+    editor.addEventListener('input', () => {
+      updateLineNumbers();
+      updateStatusBar();
+      debouncedRenderMarkdown(140);
+      debouncedSaveAllTabs(400);
     });
 
     editor.addEventListener('keyup', updateStatusBar);
@@ -1444,7 +1858,7 @@ ${previewContent.innerHTML}
           breadcrumbCurrentDoc.textContent = `${activeTab.title}.md`;
         }
         renderTabs();
-        saveAllTabs();
+        debouncedSaveAllTabs(300);
       }
     });
 
@@ -1520,6 +1934,18 @@ ${previewContent.innerHTML}
     document.getElementById('actBarProfile')?.addEventListener('click', () => {
       showToast('👤 Contributor & Author: Syed Ariful Islam Emon (syedarifulislamemon2010)', 'info', 3000);
     });
+
+    // Smart Editor Engine initialization
+    initSmartEditor();
+
+    // Zen Mode bindings
+    document.getElementById('toolZenMode')?.addEventListener('click', toggleZenMode);
+    document.getElementById('menuToggleZen')?.addEventListener('click', toggleZenMode);
+    document.getElementById('zenExitBtn')?.addEventListener('click', toggleZenMode);
+
+    // Phonetic Bangla bindings
+    document.getElementById('toolPhoneticBangla')?.addEventListener('click', togglePhoneticMode);
+    document.getElementById('menuTogglePhonetic')?.addEventListener('click', togglePhoneticMode);
 
     // Top Header Buttons
     document.getElementById('importDocBtn')?.addEventListener('click', () => importModal?.classList.add('active'));
@@ -1655,6 +2081,17 @@ ${previewContent.innerHTML}
         } else if (e.key === '0') {
           e.preventDefault();
           changeFontSize(0);
+        } else if (e.key === 'm' || e.key === 'M') {
+          e.preventDefault();
+          togglePhoneticMode();
+        }
+      } else if (e.key === 'F11') {
+        e.preventDefault();
+        toggleZenMode();
+      } else if (e.key === 'Escape') {
+        if (document.body.classList.contains('zen-mode')) {
+          e.preventDefault();
+          toggleZenMode();
         }
       } else if (e.key === 'F5') {
         e.preventDefault();

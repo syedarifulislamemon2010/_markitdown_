@@ -21,12 +21,28 @@ from desktop.server import run_server
 
 
 def find_free_port(start_port=8080):
-    """Find an available port starting from start_port."""
+    """Find an available port starting from start_port using SO_REUSEADDR."""
     for port in range(start_port, start_port + 50):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            if s.connect_ex(('127.0.0.1', port)) != 0:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                s.bind(('127.0.0.1', port))
                 return port
+        except OSError:
+            continue
     return start_port
+
+
+def wait_for_server(host="127.0.0.1", port=8080, timeout=5.0):
+    """Poll until server socket is ready to accept connections."""
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            with socket.create_connection((host, port), timeout=0.15):
+                return True
+        except (OSError, ConnectionRefusedError):
+            time.sleep(0.04)
+    return False
 
 
 def main():
@@ -41,8 +57,9 @@ def main():
     )
     server_thread.start()
 
-    # Wait a moment for server to start
-    time.sleep(0.5)
+    # Actively wait until the server is ready to accept connections
+    if not wait_for_server("127.0.0.1", port, timeout=5.0):
+        print(f"⚠️ Warning: Server did not respond within 5s at {url}")
 
     print(f"==================================================")
     print(f"✨ MarkItDown Studio is running at: {url}")
@@ -64,6 +81,11 @@ def main():
         import webview
         import base64
 
+        try:
+            webview.settings['ALLOW_DOWNLOADS'] = True
+        except Exception:
+            pass
+
         class StudioApi:
             def __init__(self):
                 self.window = None
@@ -78,6 +100,24 @@ def main():
                         f.write(base64.b64decode(content_b64))
                     return {"success": True, "path": target_path}
                 return {"success": False, "cancelled": True}
+
+            def convert_file_content(self, filename, content_b64):
+                import tempfile
+                from desktop.server import get_converter
+                suffix = Path(filename).suffix
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                    tmp.write(base64.b64decode(content_b64))
+                    tmp_path = tmp.name
+                try:
+                    conv = get_converter()
+                    res = conv.convert_file(tmp_path)
+                    return res.markdown if res.success else f"Error: {res.error_message}"
+                finally:
+                    if Path(tmp_path).exists():
+                        try:
+                            Path(tmp_path).unlink()
+                        except Exception:
+                            pass
 
         api = StudioApi()
         window = webview.create_window(

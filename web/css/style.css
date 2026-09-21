@@ -1249,3 +1249,82 @@ body {
     color: #000000 !important;
   }
 }
+
+/* ==================== Zen Mode & Smart Productivity ==================== */
+.zen-exit-btn {
+  display: none;
+  position: fixed;
+  top: 16px;
+  right: 24px;
+  z-index: 9999;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  transition: all 0.15s ease;
+}
+
+.zen-exit-btn:hover {
+  background-color: var(--accent-color);
+  color: #ffffff;
+  border-color: var(--accent-color);
+  transform: translateY(-1px);
+}
+
+body.zen-mode #topNavbar,
+body.zen-mode #formattingToolbar,
+body.zen-mode #activityBar,
+body.zen-mode #primarySidebar,
+body.zen-mode #statusBar,
+body.zen-mode #breadcrumbBar,
+body.zen-mode #resizer,
+body.zen-mode .pane-header {
+  display: none !important;
+}
+
+body.zen-mode .zen-exit-btn {
+  display: block;
+}
+
+body.zen-mode .ide-body {
+  height: 100vh;
+  width: 100vw;
+}
+
+body.zen-mode .workspace {
+  justify-content: center;
+  background-color: var(--bg-primary);
+}
+
+body.zen-mode .pane-editor {
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+  border: none !important;
+}
+
+body.zen-mode .editor-textarea {
+  font-size: 15px;
+  line-height: 1.8;
+  padding: 40px 32px;
+}
+
+/* Phonetic Active Button Styling */
+.tool-btn.active-phonetic {
+  background-color: var(--accent-color) !important;
+  color: #ffffff !important;
+  border-color: var(--accent-color) !important;
+  font-weight: 600;
+}
+
+/* Dragover state for editor */
+.editor-textarea.dragover {
+  background-color: var(--bg-hover) !important;
+  outline: 2px dashed var(--accent-color);
+  outline-offset: -4px;
+}
