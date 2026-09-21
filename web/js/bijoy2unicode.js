@@ -394,7 +394,7 @@ window.BijoyToUnicode = (function () {
     'ZvB', 'fvB', 'hw`', 'wKš‘', 'KviY', 'Ges', 'A_ev', 'ev', 'wQj', 'Av‡Q', '†bB'
   ]);
 
-  const BIJOY_CONSONANT_KARS = /([K-Z][vwxy])|([jckdfgpq]v)|(vq)|(xq)|(sj)|(w[K-Z])|(\bw[kmpbftdcjqzly])|([a-z][K-Z][a-z])|(&[K-Za-z])|(\bAv[a-zA-Z])|([K-Zb-df-hj-np-tv-z]\^)|([a-z]+[BI][a-z]*)/;
+  const BIJOY_CONSONANT_KARS = /([K-Z][vwxy])|([jckdfgpq]v)|(vq)|(xq)|(sj)|(w[K-Z])|(\bw[kmpbftdcjqzly])|(&[K-Za-z])|(\bAv[a-zA-Z])/;
 
   const ENGLISH_COMMON = new Set([
     'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i',
@@ -429,19 +429,40 @@ window.BijoyToUnicode = (function () {
   function isLikelyBijoy(text) {
     if (!text) return false;
     if (BIJOY_SPECIALS.test(text)) return true;
+
+    // If text already contains modern Unicode Bengali (> 15 chars) and no Bijoy specials, do not alter it
+    const unicodeMatches = text.match(/[\u0980-\u09FF]/g);
+    if (unicodeMatches && unicodeMatches.length >= 15) {
+      return false;
+    }
+
     const markers = ['Avgvi', 'evsjv', 'wPÎ', 'cÖ', 'hy³', 'Avwg', '†mvbvi', '†Zvgvq', 'eivei', 'cwiPvjK', 'miKvi'];
     for (const m of markers) {
       if (text.includes(m)) return true;
     }
     const tokens = text.split(/\s+/).slice(0, 80);
-    return tokens.some(isBijoyToken);
+    const count = tokens.filter(isBijoyToken).length;
+    return count >= 2;
   }
 
   function convertMarkdown(markdownText) {
     if (!markdownText || !isLikelyBijoy(markdownText)) return markdownText;
 
+    // 0. Protect Math blocks
+    const mathBlocks = [];
+    let text = markdownText.replace(/\$\$[\s\S]*?\$\$/g, m => {
+      mathBlocks.push(m);
+      return `__MATH_BLOCK_${mathBlocks.length - 1}__`;
+    });
+
+    const inlineMaths = [];
+    text = text.replace(/\$[^\$\n]+?\$/g, m => {
+      inlineMaths.push(m);
+      return `__INLINE_MATH_${inlineMaths.length - 1}__`;
+    });
+
     const codeBlocks = [];
-    let text = markdownText.replace(/```[\s\S]*?```/g, m => {
+    text = text.replace(/```[\s\S]*?```/g, m => {
       codeBlocks.push(m);
       return `__CODE_BLOCK_${codeBlocks.length - 1}__`;
     });
@@ -499,6 +520,8 @@ window.BijoyToUnicode = (function () {
     }
 
     let result = processed.join('\n');
+    inlineMaths.forEach((im, idx) => { result = result.replace(`__INLINE_MATH_${idx}__`, im); });
+    mathBlocks.forEach((mb, idx) => { result = result.replace(`__MATH_BLOCK_${idx}__`, mb); });
     urls.forEach((u, idx) => { result = result.replace(`__URL_${idx}__`, u); });
     inlineCodes.forEach((ic, idx) => { result = result.replace(`__INLINE_CODE_${idx}__`, ic); });
     codeBlocks.forEach((cb, idx) => { result = result.replace(`__CODE_BLOCK_${idx}__`, cb); });

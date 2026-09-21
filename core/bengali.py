@@ -421,16 +421,13 @@ BIJOY_EXACT_WORDS = {
 }
 
 BIJOY_CONSONANT_KARS = re.compile(
-    r'([K-Z][vwxy])|'                 # Uppercase consonant + kar e.g. Kv, Mv, Zv, Ky, My
+    r'([K-Z][vwxy])|'                 # Uppercase consonant + kar e.g. Kv, Mv, Zv, Ky, My, Pv, Rv
     r'([jckdfgpq]v)|'                 # Lowercase consonant + aa-kar e.g. jv, kv, cv, fv, gv, qv, pv (NEVER in English)
     r'(vq)|(xq)|(sj)|'                # vq (ায়), xq (ীয়), sj (ংলা) - NEVER in English
     r'(w[K-Z])|'                      # i-kar before uppercase consonant e.g. wP, wM, wZ
     r'(\bw[kmpbftdcjqzly])|'          # Word starts with w + Bijoy consonant e.g. wk (কি), wb (নি), wg (মি), wP (চি), wj (লি)
-    r'([a-z][K-Z][a-z])|'             # Mixed case inside word e.g. cwiPvjK, wefvM, evsjv‡`k
     r'(&[K-Za-z])|'                   # Conjunct halant e.g. &K
-    r'(\bAv[a-zA-Z])|'                # Starts with Av e.g. Avwg, Avgvi, Avcbvi
-    r'([K-Zb-df-hj-np-tv-z]\^)|'      # Consonant + ba-fola e.g. k^, e^
-    r'([a-z]+[BI][a-z]*)'             # Uppercase B (ই) or I (ও) in word e.g. MvB (গাই), fvB (ভাই), ZvB (তাই), †KvbI (কোনো)
+    r'(\bAv[a-zA-Z])'                 # Starts with Av e.g. Avwg, Avgvi, Avcbvi
 )
 
 ENGLISH_COMMON_WORDS = {
@@ -483,9 +480,15 @@ def is_likely_bijoy(text: str) -> bool:
     if not text:
         return False
 
-    # Check for Bijoy special characters
+    # Check for Bijoy special characters (always 100% indicative of Bijoy)
     if any(c in BIJOY_SPECIALS for c in text):
         return True
+
+    # If text already contains pure Unicode Bengali (> 15 chars) and no Bijoy specials,
+    # it is already a modern Unicode document, not legacy ANSI!
+    unicode_bengali_chars = sum(1 for c in text if '\u0980' <= c <= '\u09FF')
+    if unicode_bengali_chars >= 15:
+        return False
 
     # Check for known markers
     bijoy_markers = ['Avgvi', 'evsjv', 'wPÎ', 'cÖ', 'hy³', 'Avwg', '†mvbvi', '†Zvgvq', 'eivei', 'cwiPvjK', 'miKvi']
@@ -496,7 +499,7 @@ def is_likely_bijoy(text: str) -> bool:
     # Check token-level sample (first 100 tokens)
     tokens = text.split()[:100]
     bijoy_count = sum(1 for t in tokens if is_bijoy_token(t))
-    if bijoy_count >= 1:
+    if bijoy_count >= 2:
         return True
 
     return False
@@ -506,6 +509,7 @@ def auto_convert_markdown(markdown_text: str) -> str:
     """
     Convert legacy ANSI/Bijoy Bengali to standard UTF-8 Unicode with full Markdown awareness.
     Preserves:
+    - LaTeX Math equations ($$...$$ and $...$)
     - Fenced code blocks (``` ... ```)
     - Inline code (`...`)
     - URLs in links and images [text](url)
@@ -519,13 +523,28 @@ def auto_convert_markdown(markdown_text: str) -> str:
     if not is_likely_bijoy(markdown_text):
         return markdown_text
 
+    # 0. Protect LaTeX Math equations
+    math_blocks = []
+    def math_block_sub(match):
+        math_blocks.append(match.group(0))
+        return f"__MATH_BLOCK_{len(math_blocks)-1}__"
+
+    text = re.sub(r'\$\$[\s\S]*?\$\$', math_block_sub, markdown_text)
+
+    inline_maths = []
+    def inline_math_sub(match):
+        inline_maths.append(match.group(0))
+        return f"__INLINE_MATH_{len(inline_maths)-1}__"
+
+    text = re.sub(r'\$[^\$\n]+?\$', inline_math_sub, text)
+
     # 1. Protect code blocks
     code_blocks = []
     def code_block_sub(match):
         code_blocks.append(match.group(0))
         return f"__CODE_BLOCK_{len(code_blocks)-1}__"
 
-    text = re.sub(r'```[\s\S]*?```', code_block_sub, markdown_text)
+    text = re.sub(r'```[\s\S]*?```', code_block_sub, text)
 
     # 2. Protect inline code
     inline_codes = []
@@ -607,6 +626,10 @@ def auto_convert_markdown(markdown_text: str) -> str:
     result = '\n'.join(processed_lines)
 
     # 5. Restore protected tokens
+    for i, im in enumerate(inline_maths):
+        result = result.replace(f"__INLINE_MATH_{i}__", im)
+    for i, mb in enumerate(math_blocks):
+        result = result.replace(f"__MATH_BLOCK_{i}__", mb)
     for i, u in enumerate(urls):
         result = result.replace(f"__URL_{i}__", u)
     for i, ic in enumerate(inline_codes):

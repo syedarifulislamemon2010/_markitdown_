@@ -1,113 +1,50 @@
 /**
- * MarkItDown Studio - Application Engine
- * Live Synced Preview, KaTeX Math, Mermaid Diagrams, Bengali Typography, Document Converter & OCR
+ * MarkItDown Studio - Advanced VS Code Dark Modern Markdown Workspace
+ * Author: Syed Ariful Islam Emon (syedarifulislamemon2010)
+ * Copyright (c) 2026 Syed Ariful Islam Emon
  */
 
 (function () {
   'use strict';
 
-  // DOM Elements
+  // ==================== Global Elements & State ====================
   const editor = document.getElementById('editor');
   const preview = document.getElementById('preview');
   const previewContent = document.getElementById('previewContent');
   const docTitleInput = document.getElementById('docTitle');
-  const wordCountEl = document.getElementById('wordCount');
-  const charCountEl = document.getElementById('charCount');
-  const lineCountEl = document.getElementById('lineCount');
-  const readTimeEl = document.getElementById('readTime');
-  const saveStatusEl = document.getElementById('saveStatus');
+  const lineNumbers = document.getElementById('lineNumbers');
+  const saveStatus = document.getElementById('saveStatus');
+  const sbLineCol = document.getElementById('sbLineCol');
+  const sbWordCount = document.getElementById('sbWordCount');
+  const breadcrumbCurrentDoc = document.getElementById('breadcrumbCurrentDoc');
 
   // Modals
   const importModal = document.getElementById('importModal');
   const ocrModal = document.getElementById('ocrModal');
   const settingsModal = document.getElementById('settingsModal');
   const shortcutsModal = document.getElementById('shortcutsModal');
+  const findReplaceModal = document.getElementById('findReplaceModal');
+  const statsModal = document.getElementById('statsModal');
+  const aboutModal = document.getElementById('aboutModal');
+  const exportModal = document.getElementById('exportModal');
   const exportDropdown = document.getElementById('exportDropdown');
 
-  // State & History Stack (Undo / Redo)
+  // Sidebar & Activity Bar
+  const primarySidebar = document.getElementById('primarySidebar');
+  const sidebarTabList = document.getElementById('sidebarTabList');
+
+  // Multi-Document Tabs State
+  let tabs = [];
+  let activeTabId = null;
   let isScrolling = false;
-  let renderTimeout = null;
-  let historyDebounceTimeout = null;
-  const undoStack = [];
-  const redoStack = [];
-  const MAX_HISTORY = 60;
+  let currentFontSize = 13;
+  let selectedExportFormat = 'docx';
+  let activeToastTimer = null;
 
-  function pushHistoryState(val) {
-    if (val === undefined) val = editor.value;
-    if (undoStack.length > 0 && undoStack[undoStack.length - 1] === val) {
-      return;
-    }
-    undoStack.push(val);
-    if (undoStack.length > MAX_HISTORY) undoStack.shift();
-    redoStack.length = 0;
-    updateUndoRedoUI();
-  }
-
-  function undo() {
-    if (undoStack.length === 0) return;
-    const current = editor.value;
-    redoStack.push(current);
-    const prev = undoStack.pop();
-    editor.value = prev;
-    renderMarkdown();
-    updateUndoRedoUI();
-    saveStatusEl.textContent = '↩ Undo performed';
-    setTimeout(() => { saveStatusEl.textContent = 'Saved locally'; }, 1500);
-  }
-
-  function redo() {
-    if (redoStack.length === 0) return;
-    const current = editor.value;
-    undoStack.push(current);
-    const next = redoStack.pop();
-    editor.value = next;
-    renderMarkdown();
-    updateUndoRedoUI();
-    saveStatusEl.textContent = '↪ Redo performed';
-    setTimeout(() => { saveStatusEl.textContent = 'Saved locally'; }, 1500);
-  }
-
-  function updateUndoRedoUI() {
-    const hasUndo = undoStack.length > 0;
-    const hasRedo = redoStack.length > 0;
-    ['paneUndoBtn', 'toolUndo', 'menuUndo'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.disabled = !hasUndo;
-    });
-    ['paneRedoBtn', 'toolRedo', 'menuRedo'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.disabled = !hasRedo;
-    });
-  }
-
-  // Initialize Mermaid
-  if (window.mermaid) {
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: document.body.getAttribute('data-theme') === 'light' ? 'default' : 'dark',
-      securityLevel: 'loose',
-    });
-  }
-
-  // ==================== Startup & State Restoration ====================
-  function init() {
-    const savedDraft = localStorage.getItem('markitdown_studio_draft');
-    const savedTitle = localStorage.getItem('markitdown_studio_title');
-    const savedTheme = localStorage.getItem('markitdown_studio_theme') || 'dark';
-
-    setTheme(savedTheme);
-
-    if (savedTitle) {
-      docTitleInput.value = savedTitle;
-    }
-
-    if (savedDraft !== null) {
-      editor.value = savedDraft;
-    } else {
-      // Default initial welcome template with Bengali, Math, Table and Mermaid demo
-      editor.value = `# MarkItDown Studio ✨
-
-স্বাগতম! এটি একটি সম্পূর্ণ আধুনিক **মার্কডাউন এডিটর ও ইউনিভার্সাল কনভার্টার**। 
+  // Default Welcome Content
+  const DEFAULT_WELCOME_MD = `# MarkItDown Studio
+**সর্বাধুনিক বাংলা ও ইংরেজি মার্কডাউন এডিটর ও ইউনিভার্সাল কনভার্টার**
+*নির্মাতা: সৈয়দ আরিফুল ইসলাম ইমন (Syed Ariful Islam Emon)*
 
 ---
 
@@ -135,9 +72,9 @@ graph TD
     A[ডকুমেন্ট আপলোড / ড্রপ] --> B{MarkItDown ইঞ্জিন}
     B -->|PDF / Word / Excel| C[মার্কডাউন টেক্সট]
     B -->|ইমেজ / স্ক্যান| D[OCR বাংলা/ইংরেজি]
-    C --> E[লাইভ সাইড-বাই-সাইড এডিটর]
+    C --> E[VS Code ডার্ক স্টুডিও]
     D --> E
-    E --> F[এক্সপোর্ট: MD / HTML / PDF]
+    E --> F[এক্সপোর্ট: Word / PDF / MD / HTML]
 \`\`\`
 
 ---
@@ -148,52 +85,445 @@ graph TD
 | :--- | :---: | :--- |
 | **লাইভ প্রিভিউ** | ✅ সচল | টাইপ করার সাথে সাথে রেন্ডার |
 | **স্ক্রোল সিঙ্ক** | ✅ সচল | উভয় পাশ একসাথে স্ক্রোল হবে |
-| **ছবির লেখা (OCR)** | ✅ সচল | উইন্ডোজ অফলাইন ও এআই ভিশন |
-| **পিডিএফ এক্সপোর্ট** | ✅ সচল | এক ক্লিকে প্রিন্ট ও ডাউনলোড |
+| **মাল্টি-ট্যাব** | ✅ সচল | একাধিক ডকুমেন্টে একসাথে কাজ |
+| **ওয়ার্ড ও পিডিএফ** | ✅ সচল | এক ক্লিকে .docx ও .pdf এক্সপোর্ট |
 
 - [x] ড্র্যাগ & ড্রপ ফাইল কনভার্টার
 - [x] বাংলা ফন্ট টেক্সট শেপিং
 - [x] অফলাইন লোকাল স্টোরেজ ড্রাফট সেভ
-- [ ] ক্লাউড গিটহাব পুশ
+- [x] VS Code ডার্ক মডার্ন ইন্টারফেস
 `;
-    }
 
-    renderMarkdown();
-    updateUndoRedoUI();
-    setupEventListeners();
+  // ==================== Single-Toast Notification Manager ====================
+  function showToast(message, type = 'info', duration = 2500) {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+
+    if (activeToastTimer) {
+      clearTimeout(activeToastTimer);
+      activeToastTimer = null;
+    }
+    container.innerHTML = '';
+
+    const toast = document.createElement('div');
+    toast.className = `toast-message toast-${type}`;
+    const icon = type === 'success' ? '✅' : (type === 'error' ? '❌' : (type === 'warning' ? '⚠️' : 'ℹ️'));
+    toast.innerHTML = `<span style="font-size: 15px;">${icon}</span><span>${escapeHtml(message)}</span>`;
+    container.appendChild(toast);
+
+    activeToastTimer = setTimeout(() => {
+      toast.classList.add('toast-fadeout');
+      setTimeout(() => {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 250);
+    }, duration);
   }
 
-  // ==================== Live Rendering Pipeline ====================
+  // ==================== In-App Confirmation Modal ====================
+  function showConfirmModal(title, message, onConfirm) {
+    const modal = document.getElementById('confirmModal');
+    const titleEl = document.getElementById('confirmTitle');
+    const msgEl = document.getElementById('confirmMessage');
+    const okBtn = document.getElementById('confirmOkBtn');
+    const cancelBtn = document.getElementById('confirmCancelBtn');
+    const closeBtn = document.getElementById('confirmCloseBtn');
+
+    if (!modal) {
+      if (confirm(message)) onConfirm();
+      return;
+    }
+
+    titleEl.textContent = title;
+    msgEl.textContent = message;
+    modal.classList.add('active');
+
+    function cleanup() {
+      modal.classList.remove('active');
+      okBtn.removeEventListener('click', handleOk);
+      cancelBtn.removeEventListener('click', handleCancel);
+      closeBtn.removeEventListener('click', handleCancel);
+    }
+
+    function handleOk() {
+      cleanup();
+      if (typeof onConfirm === 'function') onConfirm();
+    }
+
+    function handleCancel() {
+      cleanup();
+    }
+
+    okBtn.addEventListener('click', handleOk);
+    cancelBtn.addEventListener('click', handleCancel);
+    closeBtn.addEventListener('click', handleCancel);
+  }
+
+  // ==================== Multi-Document Tab System ====================
+  function initTabs() {
+    let savedTabs = null;
+    try {
+      const raw = localStorage.getItem('markitdown_studio_tabs_v2');
+      if (raw) savedTabs = JSON.parse(raw);
+    } catch (e) {
+      console.warn("Error parsing saved tabs:", e);
+    }
+
+    const savedActiveId = localStorage.getItem('markitdown_studio_active_tab_id_v2');
+
+    if (Array.isArray(savedTabs) && savedTabs.length > 0) {
+      tabs = savedTabs;
+    } else {
+      const oldDraft = localStorage.getItem('markitdown_editor_content');
+      const oldTitle = localStorage.getItem('markitdown_studio_title');
+      tabs = [
+        {
+          id: 'tab_' + Date.now(),
+          title: oldTitle || 'Untitled Document 1',
+          content: oldDraft || DEFAULT_WELCOME_MD,
+          undoStack: [],
+          redoStack: []
+        }
+      ];
+    }
+
+    tabs.forEach(t => {
+      if (!Array.isArray(t.undoStack)) t.undoStack = [];
+      if (!Array.isArray(t.redoStack)) t.redoStack = [];
+    });
+
+    const targetTab = tabs.find(t => t.id === savedActiveId) || tabs[0];
+    activeTabId = targetTab.id;
+
+    editor.value = targetTab.content;
+    docTitleInput.value = targetTab.title;
+    if (breadcrumbCurrentDoc) {
+      breadcrumbCurrentDoc.textContent = `${targetTab.title}.md`;
+    }
+
+    renderTabs();
+    updateLineNumbers();
+    updateStatusBar();
+  }
+
+  function renderTabs() {
+    const tabList = document.getElementById('tabList');
+    if (tabList) {
+      tabList.innerHTML = '';
+      tabs.forEach(tab => {
+        const item = document.createElement('div');
+        item.className = `tab-item ${tab.id === activeTabId ? 'active' : ''}`;
+        item.dataset.tabId = tab.id;
+
+        const icon = document.createElement('span');
+        icon.className = 'tab-icon';
+        icon.textContent = '📄';
+        item.appendChild(icon);
+
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'tab-title';
+        titleSpan.textContent = tab.title || 'Untitled Document';
+        item.appendChild(titleSpan);
+
+        const closeSpan = document.createElement('span');
+        closeSpan.className = 'tab-close';
+        closeSpan.innerHTML = '✕';
+        closeSpan.title = 'ট্যাব বন্ধ করুন (Close Tab)';
+        closeSpan.addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeTab(tab.id);
+        });
+        item.appendChild(closeSpan);
+
+        item.addEventListener('click', () => {
+          if (tab.id !== activeTabId) {
+            switchTab(tab.id);
+          }
+        });
+
+        tabList.appendChild(item);
+      });
+    }
+
+    renderSidebarTabs();
+  }
+
+  function renderSidebarTabs() {
+    if (!sidebarTabList) return;
+    sidebarTabList.innerHTML = '';
+
+    tabs.forEach(tab => {
+      const item = document.createElement('div');
+      item.className = `sidebar-tab-item ${tab.id === activeTabId ? 'active' : ''}`;
+      item.innerHTML = `<span>📄</span> <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(tab.title)}</span> <span class="tab-close-icon">✕</span>`;
+
+      item.querySelector('.tab-close-icon').addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeTab(tab.id);
+      });
+
+      item.addEventListener('click', () => {
+        if (tab.id !== activeTabId) {
+          switchTab(tab.id);
+        }
+      });
+
+      sidebarTabList.appendChild(item);
+    });
+  }
+
+  function getNextTabNumber() {
+    let maxNum = 0;
+    tabs.forEach(t => {
+      const match = t.title.match(/Untitled Document\s*(\d+)/i);
+      if (match) {
+        const num = parseInt(match[1]);
+        if (num > maxNum) maxNum = num;
+      }
+    });
+    return maxNum + 1;
+  }
+
+  function createNewTab(title = null, content = '') {
+    const curr = tabs.find(t => t.id === activeTabId);
+    if (curr) {
+      curr.content = editor.value;
+      curr.title = docTitleInput.value.trim() || 'Untitled Document';
+    }
+
+    const tabNum = getNextTabNumber();
+    const finalTitle = title || `Untitled Document ${tabNum}`;
+    const newTab = {
+      id: 'tab_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      title: finalTitle,
+      content: content,
+      undoStack: [],
+      redoStack: []
+    };
+
+    tabs.push(newTab);
+    activeTabId = newTab.id;
+
+    editor.value = newTab.content;
+    docTitleInput.value = newTab.title;
+    if (breadcrumbCurrentDoc) {
+      breadcrumbCurrentDoc.textContent = `${newTab.title}.md`;
+    }
+
+    saveAllTabs();
+    renderTabs();
+    renderMarkdown();
+    updateUndoRedoUI();
+    updateLineNumbers();
+    updateStatusBar();
+    editor.focus();
+    showToast(`📄 নতুন ডকুমেন্ট ট্যাব খোলা হয়েছে: ${finalTitle}`, 'info', 1500);
+  }
+
+  function switchTab(targetId) {
+    if (targetId === activeTabId) return;
+
+    const curr = tabs.find(t => t.id === activeTabId);
+    if (curr) {
+      curr.content = editor.value;
+      curr.title = docTitleInput.value.trim() || 'Untitled Document';
+    }
+
+    const target = tabs.find(t => t.id === targetId);
+    if (!target) return;
+
+    activeTabId = target.id;
+    editor.value = target.content;
+    docTitleInput.value = target.title;
+    if (breadcrumbCurrentDoc) {
+      breadcrumbCurrentDoc.textContent = `${target.title}.md`;
+    }
+
+    saveAllTabs();
+    renderTabs();
+    renderMarkdown();
+    updateUndoRedoUI();
+    updateLineNumbers();
+    updateStatusBar();
+  }
+
+  function closeTab(tabIdToClose) {
+    if (tabs.length === 1) {
+      showConfirmModal("ট্যাব রিসেট", "এটি একমাত্র খোলা ট্যাব। এটি বন্ধ করলে কন্টেন্ট মুছে একটি নতুন খালি ডকুমেন্ট তৈরি হবে। এগিয়ে যেতে চান?", () => {
+        tabs[0].content = '';
+        tabs[0].title = 'Untitled Document 1';
+        tabs[0].undoStack = [];
+        tabs[0].redoStack = [];
+        editor.value = '';
+        docTitleInput.value = 'Untitled Document 1';
+        if (breadcrumbCurrentDoc) breadcrumbCurrentDoc.textContent = 'Untitled Document 1.md';
+        saveAllTabs();
+        renderTabs();
+        renderMarkdown();
+        updateUndoRedoUI();
+        updateLineNumbers();
+        updateStatusBar();
+        showToast("ট্যাব খালি করা হয়েছে", "info", 1500);
+      });
+      return;
+    }
+
+    const idx = tabs.findIndex(t => t.id === tabIdToClose);
+    if (idx === -1) return;
+
+    tabs.splice(idx, 1);
+
+    if (activeTabId === tabIdToClose) {
+      const nextIdx = Math.max(0, idx - 1);
+      const nextTab = tabs[nextIdx];
+      activeTabId = nextTab.id;
+      editor.value = nextTab.content;
+      docTitleInput.value = nextTab.title;
+      if (breadcrumbCurrentDoc) {
+        breadcrumbCurrentDoc.textContent = `${nextTab.title}.md`;
+      }
+    }
+
+    saveAllTabs();
+    renderTabs();
+    renderMarkdown();
+    updateUndoRedoUI();
+    updateLineNumbers();
+    updateStatusBar();
+  }
+
+  function saveAllTabs() {
+    const activeTab = tabs.find(t => t.id === activeTabId);
+    if (activeTab) {
+      activeTab.content = editor.value;
+      activeTab.title = docTitleInput.value.trim() || 'Untitled Document';
+    }
+
+    try {
+      localStorage.setItem('markitdown_studio_tabs_v2', JSON.stringify(tabs));
+      localStorage.setItem('markitdown_studio_active_tab_id_v2', activeTabId);
+      localStorage.setItem('markitdown_editor_content', editor.value);
+      localStorage.setItem('markitdown_studio_title', docTitleInput.value);
+      if (saveStatus) {
+        saveStatus.textContent = 'Saved locally';
+      }
+    } catch (e) {
+      console.warn("Storage save error:", e);
+    }
+  }
+
+  // ==================== Undo & Redo System ====================
+  function getActiveTab() {
+    return tabs.find(t => t.id === activeTabId) || null;
+  }
+
+  function pushHistoryState(oldContent) {
+    const tab = getActiveTab();
+    if (!tab) return;
+    if (oldContent === editor.value) return;
+
+    tab.undoStack.push({
+      content: oldContent,
+      selStart: editor.selectionStart,
+      selEnd: editor.selectionEnd
+    });
+
+    if (tab.undoStack.length > 50) tab.undoStack.shift();
+    tab.redoStack = [];
+    updateUndoRedoUI();
+  }
+
+  function undo() {
+    const tab = getActiveTab();
+    if (!tab || tab.undoStack.length === 0) return;
+
+    const previous = tab.undoStack.pop();
+    tab.redoStack.push({
+      content: editor.value,
+      selStart: editor.selectionStart,
+      selEnd: editor.selectionEnd
+    });
+
+    editor.value = previous.content;
+    editor.setSelectionRange(previous.selStart, previous.selEnd);
+    renderMarkdown();
+    updateUndoRedoUI();
+    updateLineNumbers();
+    updateStatusBar();
+    saveAllTabs();
+  }
+
+  function redo() {
+    const tab = getActiveTab();
+    if (!tab || tab.redoStack.length === 0) return;
+
+    const next = tab.redoStack.pop();
+    tab.undoStack.push({
+      content: editor.value,
+      selStart: editor.selectionStart,
+      selEnd: editor.selectionEnd
+    });
+
+    editor.value = next.content;
+    editor.setSelectionRange(next.selStart, next.selEnd);
+    renderMarkdown();
+    updateUndoRedoUI();
+    updateLineNumbers();
+    updateStatusBar();
+    saveAllTabs();
+  }
+
+  function updateUndoRedoUI() {
+    const tab = getActiveTab();
+    const canUndo = tab && tab.undoStack && tab.undoStack.length > 0;
+    const canRedo = tab && tab.redoStack && tab.redoStack.length > 0;
+
+    ['paneUndoBtn', 'toolUndo', 'menuUndo'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.disabled = !canUndo;
+        btn.style.opacity = canUndo ? '1' : '0.4';
+        btn.style.pointerEvents = canUndo ? 'auto' : 'none';
+      }
+    });
+
+    ['paneRedoBtn', 'toolRedo', 'menuRedo'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.disabled = !canRedo;
+        btn.style.opacity = canRedo ? '1' : '0.4';
+        btn.style.pointerEvents = canRedo ? 'auto' : 'none';
+      }
+    });
+  }
+
+  // ==================== Markdown & Math Rendering ====================
   function renderMarkdown() {
     const rawText = editor.value;
 
-    // Automatic Unicode Conversion for Preview:
-    // Guarantee that preview ALWAYS renders in pure Unicode Bengali even if editor contains legacy ANSI
-    let textToRender = rawText;
-    if (window.BijoyToUnicode && window.BijoyToUnicode.convertMarkdown && window.BijoyToUnicode.isLikelyBijoy(rawText)) {
-      textToRender = window.BijoyToUnicode.convertMarkdown(rawText);
-    }
-
-    // 1. Pre-process LaTeX Math to protect from marked parser
     const mathBlocks = [];
     const inlineMath = [];
 
-    // Block math $$...$$
-    let processed = textToRender.replace(/\$\$([\s\S]+?)\$\$/g, (match, formula) => {
+    // Isolate Math blocks $$...$$
+    let textToRender = rawText.replace(/\$\$([\s\S]+?)\$\$/g, (match, formula) => {
       mathBlocks.push(formula.trim());
       return `@@MATH_BLOCK_${mathBlocks.length - 1}@@`;
     });
 
     // Inline math $...$
-    processed = processed.replace(/\$([^\$\n]+?)\$/g, (match, formula) => {
+    textToRender = textToRender.replace(/\$([^\$\n]+?)\$/g, (match, formula) => {
       inlineMath.push(formula.trim());
       return `@@MATH_INLINE_${inlineMath.length - 1}@@`;
     });
 
-    // 2. Parse Markdown with marked.js
+    // Automatic Unicode Conversion for Preview if Bijoy is detected
+    if (window.BijoyToUnicode && window.BijoyToUnicode.convertMarkdown && window.BijoyToUnicode.isLikelyBijoy(textToRender)) {
+      textToRender = window.BijoyToUnicode.convertMarkdown(textToRender);
+    }
+
+    // Parse Markdown with marked.js
     let html = '';
     if (window.marked) {
-      html = marked.parse(processed, {
+      html = marked.parse(textToRender, {
         gfm: true,
         breaks: true,
       });
@@ -201,7 +531,7 @@ graph TD
       html = `<pre>${escapeHtml(textToRender)}</pre>`;
     }
 
-    // 3. Restore and Render Math with KaTeX
+    // Restore Math blocks
     html = html.replace(/@@MATH_BLOCK_(\d+)@@/g, (match, id) => {
       const formula = mathBlocks[parseInt(id)];
       try {
@@ -220,123 +550,183 @@ graph TD
       }
     });
 
-    // 4. Inject Rendered HTML
     previewContent.innerHTML = html;
-
-    // 5. Render Mermaid Diagrams
     renderMermaidDiagrams();
-
-    // 6. Update Document Statistics
-    updateStats(rawText);
-
-    // 7. Auto-save to LocalStorage
-    saveDraft();
   }
 
   function renderMermaidDiagrams() {
     if (!window.mermaid) return;
-
-    const codeBlocks = previewContent.querySelectorAll('pre code.language-mermaid');
-    codeBlocks.forEach((codeEl, idx) => {
-      const rawDiagram = codeEl.textContent;
-      const preEl = codeEl.parentElement;
-
+    const mermaidNodes = previewContent.querySelectorAll('pre code.language-mermaid');
+    mermaidNodes.forEach((codeNode, idx) => {
+      const preNode = codeNode.parentElement;
+      const rawGraph = codeNode.textContent;
       const container = document.createElement('div');
-      container.className = 'mermaid-diagram';
-      const id = `mermaid-svg-${Date.now()}-${idx}`;
-      container.id = id;
+      container.className = 'mermaid-chart';
+      preNode.parentNode.replaceChild(container, preNode);
 
+      const uniqueId = 'mermaid-' + Date.now() + '-' + idx;
       try {
-        mermaid.render(id + '-render', rawDiagram).then(({ svg }) => {
+        mermaid.render(uniqueId, rawGraph).then(({ svg }) => {
           container.innerHTML = svg;
-          if (preEl.parentNode) {
-            preEl.parentNode.replaceChild(container, preEl);
-          }
         }).catch(err => {
-          console.warn("Mermaid syntax error:", err);
+          container.innerHTML = `<div style="color:#f87171;font-size:12px;">⚠️ ডায়াগ্রাম রেন্ডার ত্রুটি: ${escapeHtml(err.message)}</div>`;
         });
       } catch (e) {
-        console.warn("Mermaid error:", e);
+        container.innerHTML = `<div style="color:#f87171;font-size:12px;">⚠️ ডায়াগ্রাম ত্রুটি</div>`;
       }
     });
   }
 
-  function updateStats(text) {
-    const chars = text.length;
+  // ==================== Line Numbers & Status Bar ====================
+  function updateLineNumbers() {
+    if (!lineNumbers) return;
+    const lines = editor.value.split('\n');
+    const lineCount = lines.length;
+    let html = '';
+    for (let i = 1; i <= lineCount; i++) {
+      html += `<span>${i}</span>`;
+    }
+    lineNumbers.innerHTML = html;
+  }
+
+  function updateStatusBar() {
+    const text = editor.value;
     const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    const chars = text.length;
     const lines = text ? text.split('\n').length : 0;
-    const readMinutes = Math.max(1, Math.ceil(words / 200));
 
-    wordCountEl.textContent = `${words.toLocaleString()} words`;
-    charCountEl.textContent = `${chars.toLocaleString()} chars`;
-    lineCountEl.textContent = `${lines.toLocaleString()} lines`;
-    readTimeEl.textContent = `${readMinutes} min read`;
+    if (sbWordCount) sbWordCount.textContent = `Words: ${words.toLocaleString()}`;
+
+    // Cursor position
+    const pos = editor.selectionStart || 0;
+    const textUpToCursor = text.substring(0, pos);
+    const cursorLines = textUpToCursor.split('\n');
+    const lineNum = cursorLines.length;
+    const colNum = cursorLines[cursorLines.length - 1].length + 1;
+
+    if (sbLineCol) sbLineCol.textContent = `Ln ${lineNum}, Col ${colNum}`;
+
+    // Legacy stat elements for compatibility
+    const wcEl = document.getElementById('wordCount');
+    if (wcEl) wcEl.textContent = `${words} words`;
+    const ccEl = document.getElementById('charCount');
+    if (ccEl) ccEl.textContent = `${chars} chars`;
+    const lcEl = document.getElementById('lineCount');
+    if (lcEl) lcEl.textContent = `${lines} lines`;
   }
 
-  function saveDraft() {
-    localStorage.setItem('markitdown_studio_draft', editor.value);
-    localStorage.setItem('markitdown_studio_title', docTitleInput.value);
-    saveStatusEl.textContent = 'Saved locally';
+  // ==================== Resilient File Download Pipeline ====================
+  async function triggerDownload(content, filename, mimeType) {
+    // 1. If running inside Pywebview Native Window with JS API
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.save_file_dialog) {
+      try {
+        let b64 = '';
+        if (typeof content === 'string') {
+          b64 = btoa(unescape(encodeURIComponent(content)));
+        } else if (content instanceof Blob) {
+          b64 = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result.split(',')[1]);
+            reader.readAsDataURL(content);
+          });
+        }
+        const res = await window.pywebview.api.save_file_dialog(filename, b64);
+        if (res && res.success) {
+          showToast(`💾 ফাইল সফলভাবে সেভ হয়েছে: ${filename}`, 'success');
+          return;
+        } else if (res && res.cancelled) {
+          return;
+        }
+      } catch (e) {
+        console.warn('Pywebview native save fallback to web download:', e);
+      }
+    }
+
+    // 2. Browser Blob Download with safe 30s retention
+    try {
+      const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        if (a.parentNode) a.parentNode.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 30000);
+      showToast(`📥 ${filename} ডাউনলোড শুরু হয়েছে!`, 'success');
+      return;
+    } catch (err) {
+      console.warn('Blob download error, trying server download endpoint:', err);
+    }
+
+    // 3. Server-side Download Fallback
+    try {
+      const resp = await fetch('/api/download-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: typeof content === 'string' ? content : '',
+          filename: filename,
+          mime_type: mimeType
+        })
+      });
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        if (a.parentNode) a.parentNode.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 30000);
+      showToast(`📥 ${filename} ডাউনলোড সম্পন্ন!`, 'success');
+    } catch (e) {
+      showToast('❌ ফাইল ডাউনলোড ব্যর্থ হয়েছে', 'error');
+    }
   }
 
-  function escapeHtml(text) {
-    return text.replace(/[&<>"']/g, m => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
-    }[m]));
-  }
-
-  // ==================== Synchronized Scrolling ====================
-  function setupScrollSync() {
-    editor.addEventListener('scroll', () => {
-      if (isScrolling) return;
-      isScrolling = true;
-      const pct = editor.scrollTop / (editor.scrollHeight - editor.clientHeight || 1);
-      preview.scrollTop = pct * (preview.scrollHeight - preview.clientHeight);
-      setTimeout(() => { isScrolling = false; }, 40);
-    });
-
-    preview.addEventListener('scroll', () => {
-      if (isScrolling) return;
-      isScrolling = true;
-      const pct = preview.scrollTop / (preview.scrollHeight - preview.clientHeight || 1);
-      editor.scrollTop = pct * (editor.scrollHeight - editor.clientHeight);
-      setTimeout(() => { isScrolling = false; }, 40);
-    });
-  }
-
-  // ==================== Toolbar Formatting Tools ====================
-  function insertFormat(prefix, suffix = '', defaultText = 'text') {
-    pushHistoryState(editor.value);
-    const start = editor.selectionStart;
-    const end = editor.selectionEnd;
-    const val = editor.value;
-    const selected = val.substring(start, end) || defaultText;
-
-    const replacement = prefix + selected + suffix;
-    editor.value = val.substring(0, start) + replacement + val.substring(end);
-
-    editor.focus();
-    editor.setSelectionRange(start + prefix.length, start + prefix.length + selected.length);
-    renderMarkdown();
-  }
-
-  function insertBlock(template) {
-    pushHistoryState(editor.value);
-    const start = editor.selectionStart;
-    const val = editor.value;
-    const before = val.substring(0, start);
-    const after = val.substring(start);
-    const newline = before.endsWith('\n') || before === '' ? '' : '\n\n';
-
-    editor.value = before + newline + template + '\n\n' + after;
-    editor.focus();
-    renderMarkdown();
+  function sanitizeFilename(name) {
+    return (name || 'Document').replace(/[\\/:*?"<>|]+/g, '_').trim() || 'Document';
   }
 
   // ==================== Multi-Format Exporters ====================
   function exportMarkdown() {
     const filename = `${sanitizeFilename(docTitleInput.value)}.md`;
-    downloadFile(editor.value, filename, 'text/markdown;charset=utf-8');
+    triggerDownload(editor.value, filename, 'text/markdown;charset=utf-8');
+  }
+
+  async function exportDocx() {
+    const title = docTitleInput.value.trim() || 'Document';
+    const filename = `${sanitizeFilename(title)}.docx`;
+
+    try {
+      const resp = await fetch('/api/export-docx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markdown: editor.value, title: title })
+      });
+
+      if (!resp.ok) {
+        throw new Error('Server returned ' + resp.status);
+      }
+
+      const blob = await resp.blob();
+      await triggerDownload(blob, filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    } catch (err) {
+      console.error('DOCX Export error:', err);
+      showToast('❌ DOCX এক্সপোর্টের জন্য Python ব্যাকএন্ড চালু থাকতে হবে।', 'error', 3500);
+    }
+  }
+
+  function exportTxt() {
+    const filename = `${sanitizeFilename(docTitleInput.value)}.txt`;
+    const text = previewContent.innerText || editor.value;
+    triggerDownload(text, filename, 'text/plain;charset=utf-8');
   }
 
   function exportHtml() {
@@ -350,182 +740,167 @@ graph TD
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap');
     body {
-      font-family: 'Hind Siliguri', 'Kalpurush', 'Nirmala UI', sans-serif;
-      text-rendering: optimizeLegibility;
-      -webkit-font-smoothing: antialiased;
+      font-family: 'Hind Siliguri', 'Segoe UI', system-ui, sans-serif;
       max-width: 860px;
       margin: 40px auto;
-      padding: 0 20px;
-      line-height: 1.7;
-      color: #1e293b;
+      padding: 0 24px;
+      line-height: 1.75;
+      color: #1a1a1a;
+      background: #ffffff;
     }
+    h1, h2, h3 { font-weight: 700; color: #111; }
+    h1 { border-bottom: 2px solid #eaecef; padding-bottom: 8px; }
     table { width: 100%; border-collapse: collapse; margin: 1.5em 0; }
-    th, td { border: 1px solid #cbd5e1; padding: 8px 12px; }
-    th { background: #f1f5f9; }
-    pre { background: #0f172a; color: #f8fafc; padding: 14px; border-radius: 8px; overflow-x: auto; }
-    code { background: #f1f5f9; color: #d946ef; padding: 2px 6px; border-radius: 4px; }
-    blockquote { border-left: 4px solid #3b82f6; padding-left: 14px; color: #64748b; margin: 1em 0; }
-    img { max-width: 100%; border-radius: 8px; }
+    th, td { border: 1px solid #dfe2e5; padding: 8px 14px; text-align: left; }
+    th { background: #f6f8fa; }
+    pre { background: #f6f8fa; padding: 14px; border-radius: 6px; overflow-x: auto; font-family: Consolas, monospace; }
+    code { background: #f0f0f0; padding: 2px 5px; border-radius: 4px; font-family: Consolas, monospace; }
+    blockquote { border-left: 4px solid #0078d4; margin: 0; padding-left: 16px; color: #555; }
   </style>
 </head>
 <body>
-  <div class="preview-content">
-    ${previewContent.innerHTML}
-  </div>
+${previewContent.innerHTML}
 </body>
 </html>`;
-    downloadFile(fullHtml, filename, 'text/html;charset=utf-8');
+    triggerDownload(fullHtml, filename, 'text/html;charset=utf-8');
   }
 
   function exportPdf() {
-    // Uses native browser / webview print-to-pdf
-    window.print();
+    showToast('🖨️ প্রিন্ট / PDF ডায়ালগ খোলা হচ্ছে...', 'info', 1500);
+    setTimeout(() => {
+      window.print();
+    }, 300);
   }
 
-  function downloadFile(content, filename, mimeType) {
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  // ==================== Dedicated Export Modal Controller ====================
+  function openExportModal() {
+    const filenameInput = document.getElementById('exportFilenameInput');
+    if (filenameInput) {
+      filenameInput.value = docTitleInput.value.trim() || 'Untitled Document';
+    }
+    exportModal?.classList.add('active');
   }
 
-  function sanitizeFilename(name) {
-    return (name || 'document').trim().replace(/[/\\?%*:|"<>]/g, '-');
+  function handleExportModalConfirm() {
+    const filenameInput = document.getElementById('exportFilenameInput');
+    if (filenameInput && filenameInput.value.trim()) {
+      docTitleInput.value = filenameInput.value.trim();
+      const activeTab = getActiveTab();
+      if (activeTab) activeTab.title = docTitleInput.value;
+      renderTabs();
+    }
+
+    exportModal?.classList.remove('active');
+
+    switch (selectedExportFormat) {
+      case 'docx':
+        exportDocx();
+        break;
+      case 'md':
+        exportMarkdown();
+        break;
+      case 'pdf':
+        exportPdf();
+        break;
+      case 'txt':
+        exportTxt();
+        break;
+      case 'html':
+        exportHtml();
+        break;
+      default:
+        exportDocx();
+    }
   }
 
-  // ==================== Document Conversion Bridge (MarkItDown) ====================
+  // ==================== File Conversion & Uploads ====================
   async function convertUploadedFile(file) {
-    saveStatusEl.textContent = '⏳ Converting with MarkItDown...';
+    showToast(`⏳ ফাইল লোড হচ্ছে: ${file.name}...`, 'info', 3000);
 
-    // If running in pywebview desktop window
     if (window.pywebview && window.pywebview.api && window.pywebview.api.convert_file_content) {
       try {
         const reader = new FileReader();
-        reader.onload = async function (e) {
+        reader.onload = async (e) => {
           const b64Data = e.target.result.split(',')[1];
-          const res = await window.pywebview.api.convert_file_content(file.name, b64Data);
-          handleConversionResult(file.name, res);
+          const markdown = await window.pywebview.api.convert_file_content(file.name, b64Data);
+          handleConversionResult(file.name, markdown);
         };
         reader.readAsDataURL(file);
         return;
       } catch (err) {
-        console.error("Pywebview conversion error:", err);
+        console.error("Desktop API convert error:", err);
       }
     }
 
-    // Standard HTTP / local backend fallback
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const openaiKey = localStorage.getItem('markitdown_openai_key') || '';
-      const geminiKey = localStorage.getItem('markitdown_gemini_key') || '';
-      const model = localStorage.getItem('markitdown_openai_model') || 'gpt-4o';
-      if (openaiKey) formData.append('openai_key', openaiKey);
-      if (geminiKey) formData.append('gemini_key', geminiKey);
-      if (model) formData.append('openai_model', model);
 
-      const resp = await fetch('/api/convert', {
-        method: 'POST',
-        body: formData,
-      });
+      const openaiKey = localStorage.getItem('markitdown_openai_key');
+      const geminiKey = localStorage.getItem('markitdown_gemini_key');
+      const model = localStorage.getItem('markitdown_openai_model');
 
-      if (resp.ok) {
-        const data = await resp.json();
+      if (openaiKey) formData.append('openai_api_key', openaiKey);
+      if (geminiKey) formData.append('gemini_api_key', geminiKey);
+      if (model) formData.append('model', model);
+
+      const resp = await fetch('/api/convert', { method: 'POST', body: formData });
+      const data = await resp.json();
+
+      if (data.success) {
         handleConversionResult(file.name, data.markdown);
       } else {
-        alert('Conversion failed. Ensure local backend is running.');
+        showToast(`❌ কনভার্সন ব্যর্থ: ${data.error || 'অজানা সমস্যা'}`, 'error', 4000);
       }
     } catch (e) {
-      // Offline fallback: If text file or read as text
-      if (file.name.match(/\.(txt|md|csv|json|html|htm|xml)$/i)) {
-        const text = await file.text();
-        handleConversionResult(file.name, text);
-      } else {
-        alert(`Converting ${file.name} requires MarkItDown backend.\nFile: ${file.name} (${(file.size/1024).toFixed(1)} KB)`);
-      }
-    } finally {
-      saveStatusEl.textContent = 'Saved locally';
+      showToast(`❌ সার্ভার কানেকশন ত্রুটি: Python সার্ভার চালু আছে কি না পরীক্ষা করুন।`, 'error', 4000);
     }
   }
 
-  function handleConversionResult(filename, markdown) {
-    const title = filename.replace(/\.[^/.]+$/, '');
-    docTitleInput.value = title;
-
-    // Guarantee converted content is pure Unicode Bengali
+  function handleConversionResult(originalFilename, markdown) {
     let finalMarkdown = markdown;
     if (window.BijoyToUnicode && window.BijoyToUnicode.convertMarkdown && window.BijoyToUnicode.isLikelyBijoy(finalMarkdown)) {
       finalMarkdown = window.BijoyToUnicode.convertMarkdown(finalMarkdown);
     }
 
-    pushHistoryState(editor.value);
-
-    // Append or replace editor content
-    if (confirm(`Do you want to replace current content with converted '${filename}'?`)) {
-      editor.value = finalMarkdown;
-    } else {
-      editor.value += `\n\n---\n# Converted from: ${filename}\n\n` + finalMarkdown;
-    }
-
-    renderMarkdown();
-    saveDraft();
+    const title = originalFilename.replace(/\.[^/.]+$/, "");
+    createNewTab(title, finalMarkdown);
+    closeAllModals();
+    showToast(`✅ "${originalFilename}" সফলভাবে রূপান্তর হয়েছে!`, 'success', 3000);
   }
 
-  // ==================== OCR Processing ====================
+  // ==================== Image OCR ====================
   async function performImageOcr(file) {
-    saveStatusEl.textContent = '🔍 Running OCR...';
+    showToast('🔍 ছবি থেকে বাংলা ও ইংরেজি টেক্সট এক্সট্রাক্ট করা হচ্ছে...', 'info', 4000);
 
-    // Python Webview Native API (Desktop)
-    if (window.pywebview && window.pywebview.api && window.pywebview.api.ocr_image_content) {
-      try {
-        const reader = new FileReader();
-        reader.onload = async function (e) {
-          const b64Data = e.target.result.split(',')[1];
-          const text = await window.pywebview.api.ocr_image_content(file.name, b64Data);
-          insertOcrText(file.name, text);
-        };
-        reader.readAsDataURL(file);
-        return;
-      } catch (err) {
-        console.error("OCR API error:", err);
-      }
-    }
+    const formData = new FormData();
+    formData.append('image', file);
+    const key = localStorage.getItem('markitdown_openai_key');
+    if (key) formData.append('openai_api_key', key);
 
-    // Web API Fallback
     try {
-      const formData = new FormData();
-      formData.append('image', file);
-      const openaiKey = localStorage.getItem('markitdown_openai_key') || '';
-      const geminiKey = localStorage.getItem('markitdown_gemini_key') || '';
-      const model = localStorage.getItem('markitdown_openai_model') || 'gpt-4o';
-      if (openaiKey) formData.append('openai_key', openaiKey);
-      if (geminiKey) formData.append('gemini_key', geminiKey);
-      if (model) formData.append('openai_model', model);
-
       const resp = await fetch('/api/ocr', { method: 'POST', body: formData });
-      if (resp.ok) {
-        const data = await resp.json();
-        insertOcrText(file.name, data.text);
+      const data = await resp.json();
+
+      if (data.success && data.text) {
+        let extracted = data.text;
+        if (window.BijoyToUnicode && window.BijoyToUnicode.convertMarkdown && window.BijoyToUnicode.isLikelyBijoy(extracted)) {
+          extracted = window.BijoyToUnicode.convertMarkdown(extracted);
+        }
+
+        const title = file.name.replace(/\.[^/.]+$/, "") + " (OCR)";
+        createNewTab(title, extracted);
+        closeAllModals();
+        showToast('✅ ইমেজ থেকে টেক্সট এক্সট্র্যাক্ট সম্পন্ন!', 'success', 3000);
+      } else {
+        showToast(`❌ OCR ব্যর্থ: ${data.error || 'কোনো লেখা পাওয়া যায়নি'}`, 'error', 4000);
       }
     } catch (e) {
-      alert("OCR requires Python backend (WinOCR / AI Vision).");
-    } finally {
-      saveStatusEl.textContent = 'Saved locally';
+      showToast('❌ OCR সার্ভার কানেকশন ত্রুটি', 'error', 4000);
     }
   }
 
-  function insertOcrText(filename, text) {
-    const formatted = `\n\n### 📝 OCR Text (${filename})\n\n${text}\n\n`;
-    insertBlock(formatted);
-    closeAllModals();
-  }
-
-  // ==================== Bengali Conversion Actions ====================
+  // ==================== Bengali ANSI ⇄ Unicode Actions ====================
   function convertAnsiToUnicodeAction() {
     const start = editor.selectionStart;
     const end = editor.selectionEnd;
@@ -534,14 +909,13 @@ graph TD
     const targetText = hasSelection ? rawVal.substring(start, end) : rawVal;
 
     if (!targetText.trim()) {
-      alert("কোনো টেক্সট পাওয়া যায়নি। এডিটরে কিছু টেক্সট লিখুন বা পেস্ট করুন।");
+      showToast("কোনো টেক্সট পাওয়া যায়নি।", "warning");
       return;
     }
 
     pushHistoryState(rawVal);
-    saveStatusEl.textContent = '🔄 Converting ANSI to Unicode...';
 
-    // 1. Direct Client-side In-Memory Conversion (English & Markdown Safe)
+    // Client-side instantaneous conversion without double toasts
     if (window.BijoyToUnicode && window.BijoyToUnicode.convertMarkdown) {
       try {
         const converted = window.BijoyToUnicode.convertMarkdown(targetText);
@@ -552,15 +926,17 @@ graph TD
           editor.value = converted;
         }
         renderMarkdown();
-        saveStatusEl.textContent = '✅ ANSI converted to Unicode!';
-        setTimeout(() => { saveStatusEl.textContent = 'Saved locally'; }, 2000);
+        updateLineNumbers();
+        updateStatusBar();
+        saveAllTabs();
+        showToast('✅ বিজয় ➜ ইউনিকোড রূপান্তর সম্পন্ন!', 'success');
         return;
       } catch (err) {
-        console.warn("Client-side conversion error, attempting backend fallback:", err);
+        console.warn("Client conversion error, trying backend:", err);
       }
     }
 
-    // 2. Fallback to Backend API
+    // Backend fallback
     fetch('/api/convert-ansi', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -576,13 +952,14 @@ graph TD
             editor.value = data.converted;
           }
           renderMarkdown();
-          saveStatusEl.textContent = '✅ ANSI converted to Unicode!';
-          setTimeout(() => { saveStatusEl.textContent = 'Saved locally'; }, 2000);
+          updateLineNumbers();
+          updateStatusBar();
+          saveAllTabs();
+          showToast('✅ বিজয় ➜ ইউনিকোড রূপান্তর সম্পন্ন!', 'success');
         }
       })
       .catch(e => {
-        console.error("ANSI conversion error:", e);
-        saveStatusEl.textContent = 'Saved locally';
+        showToast('❌ রূপান্তরে সমস্যা হয়েছে', 'error');
       });
   }
 
@@ -594,14 +971,12 @@ graph TD
     const targetText = hasSelection ? rawVal.substring(start, end) : rawVal;
 
     if (!targetText.trim()) {
-      alert("কোনো টেক্সট পাওয়া যায়নি। এডিটরে কিছু ইউনিকোড বাংলা টেক্সট লিখুন বা পেস্ট করুন।");
+      showToast("কোনো টেক্সট পাওয়া যায়নি।", "warning");
       return;
     }
 
     pushHistoryState(rawVal);
-    saveStatusEl.textContent = '🔄 Converting Unicode to ANSI (Bijoy)...';
 
-    // 1. Direct Client-side In-Memory Conversion (English & Markdown Safe)
     if (window.BijoyToUnicode && window.BijoyToUnicode.convertUnicodeToBijoyMarkdown) {
       try {
         const converted = window.BijoyToUnicode.convertUnicodeToBijoyMarkdown(targetText);
@@ -612,15 +987,16 @@ graph TD
           editor.value = converted;
         }
         renderMarkdown();
-        saveStatusEl.textContent = '✅ Unicode converted to ANSI (Bijoy)!';
-        setTimeout(() => { saveStatusEl.textContent = 'Saved locally'; }, 2000);
+        updateLineNumbers();
+        updateStatusBar();
+        saveAllTabs();
+        showToast('✅ ইউনিকোড ➜ বিজয় (ANSI) রূপান্তর সম্পন্ন!', 'success');
         return;
       } catch (err) {
-        console.warn("Client-side Unicode to ANSI error, trying backend:", err);
+        console.warn("Client Unicode to ANSI error, trying backend:", err);
       }
     }
 
-    // 2. Fallback to Backend API
     try {
       const resp = await fetch('/api/convert-unicode-to-ansi', {
         method: 'POST',
@@ -636,12 +1012,13 @@ graph TD
           editor.value = data.converted;
         }
         renderMarkdown();
-        saveStatusEl.textContent = '✅ Unicode converted to ANSI (Bijoy)!';
-        setTimeout(() => { saveStatusEl.textContent = 'Saved locally'; }, 2000);
+        updateLineNumbers();
+        updateStatusBar();
+        saveAllTabs();
+        showToast('✅ ইউনিকোড ➜ বিজয় (ANSI) রূপান্তর সম্পন্ন!', 'success');
       }
     } catch (e) {
-      console.error("Unicode to ANSI conversion error:", e);
-      saveStatusEl.textContent = 'Saved locally';
+      showToast('❌ রূপান্তরে সমস্যা হয়েছে', 'error');
     }
   }
 
@@ -649,93 +1026,98 @@ graph TD
   function selectAllAction() {
     editor.focus();
     editor.setSelectionRange(0, editor.value.length);
+    showToast('🔘 সমস্ত টেক্সট সিলেক্ট করা হয়েছে', 'info', 1000);
   }
 
-  async function copyMarkdownAction(btn) {
-    const text = editor.value;
-    try {
-      await navigator.clipboard.writeText(text);
-      saveStatusEl.textContent = '✅ Markdown copied to clipboard!';
-      if (btn) {
-        const orig = btn.textContent;
-        btn.textContent = '✅ Copied!';
-        setTimeout(() => { btn.textContent = orig; }, 1500);
-      }
-      setTimeout(() => { saveStatusEl.textContent = 'Saved locally'; }, 2000);
-    } catch (e) {
-      editor.select();
-      document.execCommand('copy');
-      saveStatusEl.textContent = '✅ Copied!';
-    }
+  function copyMarkdownAction(btn = null) {
+    editor.focus();
+    navigator.clipboard.writeText(editor.value).then(() => {
+      showToast('📋 মূল মার্কডাউন সোর্স কপি সম্পন্ন!', 'success', 1500);
+    }).catch(() => {
+      showToast('❌ ক্লিপবোর্ডে কপি করতে সমস্যা হয়েছে', 'error');
+    });
   }
 
-  async function copyPreviewTextAction(btn) {
+  function copyPreviewTextAction(btn = null) {
     const text = previewContent.innerText;
-    try {
-      await navigator.clipboard.writeText(text);
-      saveStatusEl.textContent = '✅ Preview text copied!';
-      if (btn) {
-        const orig = btn.textContent;
-        btn.textContent = '✅ Copied!';
-        setTimeout(() => { btn.textContent = orig; }, 1500);
-      }
-      setTimeout(() => { saveStatusEl.textContent = 'Saved locally'; }, 2000);
-    } catch (e) {
-      alert("Failed to copy text.");
-    }
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('📋 প্রিভিউ টেক্সট ক্লিপবোর্ডে কপি সম্পন্ন!', 'success', 1500);
+    }).catch(() => {
+      showToast('❌ কপি করতে সমস্যা হয়েছে', 'error');
+    });
   }
 
-  async function copyPreviewHtmlAction(btn) {
+  function copyPreviewHtmlAction(btn = null) {
     const html = previewContent.innerHTML;
-    try {
-      await navigator.clipboard.writeText(html);
-      saveStatusEl.textContent = '✅ Preview HTML copied!';
-      if (btn) {
-        const orig = btn.textContent;
-        btn.textContent = '✅ Copied!';
-        setTimeout(() => { btn.textContent = orig; }, 1500);
-      }
-      setTimeout(() => { saveStatusEl.textContent = 'Saved locally'; }, 2000);
-    } catch (e) {
-      alert("Failed to copy HTML.");
-    }
+    navigator.clipboard.writeText(html).then(() => {
+      showToast('🌐 প্রিভিউ এইচটিএমএল কপি সম্পন্ন!', 'success', 1500);
+    }).catch(() => {
+      showToast('❌ কপি করতে সমস্যা হয়েছে', 'error');
+    });
   }
 
   function clearEditorAction() {
     if (!editor.value.trim()) return;
-    if (confirm("আপনি কি নিশ্চিত যে আপনি এডিটরের সমস্ত লেখা মুছে ফেলতে চান?\n(Are you sure? You can undo this with Ctrl+Z)")) {
+    showConfirmModal("এডিটর ক্লিয়ার", "আপনি কি বর্তমান ডকুমেন্টের সব লেখা মুছে ফেলতে চান?", () => {
       pushHistoryState(editor.value);
       editor.value = '';
       renderMarkdown();
-      saveStatusEl.textContent = '🗑️ Editor cleared. Press Ctrl+Z to undo.';
-      setTimeout(() => { saveStatusEl.textContent = 'Saved locally'; }, 3000);
-    }
+      updateLineNumbers();
+      updateStatusBar();
+      saveAllTabs();
+      showToast('🗑️ সমস্ত টেক্সট মুছে ফেলা হয়েছে (Undo করতে Ctrl+Z চাপুন)', 'info', 2500);
+    });
   }
 
   function refreshPreviewAction() {
-    saveStatusEl.textContent = '🔄 Refreshing preview...';
     renderMarkdown();
-    saveStatusEl.textContent = '✅ Preview refreshed!';
-    setTimeout(() => { saveStatusEl.textContent = 'Saved locally'; }, 1500);
+    showToast('🔄 প্রিভিউ রিফ্রেশ সম্পন্ন!', 'info', 1000);
   }
 
-  function newDocAction() {
-    if (editor.value.trim() && !confirm("নতুন ডকুমেন্ট শুরু করতে চান? বর্তমান ডকুমেন্ট ক্লিয়ার হবে। (Press Ctrl+Z to restore)")) {
-      return;
-    }
-    pushHistoryState(editor.value);
-    docTitleInput.value = 'Untitled Document';
-    editor.value = '';
+  // ==================== Formatting Toolbar Helpers ====================
+  function insertFormatting(prefix, suffix = '', defaultText = '') {
+    editor.focus();
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const val = editor.value;
+
+    pushHistoryState(val);
+
+    const selected = val.substring(start, end) || defaultText;
+    const replacement = prefix + selected + suffix;
+
+    editor.value = val.substring(0, start) + replacement + val.substring(end);
+    const newCursor = start + prefix.length + selected.length;
+    editor.setSelectionRange(newCursor, newCursor);
+
     renderMarkdown();
-    saveStatusEl.textContent = '📄 New document created';
-    setTimeout(() => { saveStatusEl.textContent = 'Saved locally'; }, 2000);
+    updateLineNumbers();
+    updateStatusBar();
+    saveAllTabs();
   }
 
+  function insertLinePrefix(prefix) {
+    editor.focus();
+    const start = editor.selectionStart;
+    const val = editor.value;
+
+    pushHistoryState(val);
+
+    const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+    editor.value = val.substring(0, lineStart) + prefix + val.substring(lineStart);
+    editor.setSelectionRange(start + prefix.length, start + prefix.length);
+
+    renderMarkdown();
+    updateLineNumbers();
+    updateStatusBar();
+    saveAllTabs();
+  }
+
+  // ==================== View Modes & Zoom ====================
   function setViewMode(mode) {
     const leftPane = document.getElementById('editorPane');
     const rightPane = document.getElementById('previewPane');
     const resizer = document.getElementById('resizer');
-    if (!leftPane || !rightPane) return;
 
     if (mode === 'editor') {
       leftPane.style.display = 'flex';
@@ -757,6 +1139,119 @@ graph TD
     renderMarkdown();
   }
 
+  function changeFontSize(delta) {
+    if (delta === 0) {
+      currentFontSize = 13;
+    } else {
+      currentFontSize = Math.min(28, Math.max(10, currentFontSize + delta));
+    }
+    editor.style.fontSize = `${currentFontSize}px`;
+    previewContent.style.fontSize = `${currentFontSize}px`;
+    if (lineNumbers) lineNumbers.style.fontSize = `${currentFontSize}px`;
+    localStorage.setItem('markitdown_studio_font_size', currentFontSize);
+    showToast(`ফন্ট সাইজ: ${currentFontSize}px`, 'info', 1000);
+  }
+
+  function toggleWordWrap() {
+    editor.classList.toggle('no-wrap');
+    const isNoWrap = editor.classList.contains('no-wrap');
+    showToast(isNoWrap ? 'ওয়ার্ড র্র্যাপ বন্ধ' : 'ওয়ার্ড র্র্যাপ চালু', 'info', 1200);
+  }
+
+  // ==================== Find & Replace Actions ====================
+  function openFindReplaceModal() {
+    const findInput = document.getElementById('findInput');
+    const selected = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+    if (selected) {
+      findInput.value = selected;
+    }
+    findReplaceModal?.classList.add('active');
+    findInput?.focus();
+    findInput?.select();
+  }
+
+  function findNextText() {
+    const term = document.getElementById('findInput').value;
+    const statsEl = document.getElementById('findStats');
+    if (!term) return;
+
+    const val = editor.value;
+    const startPos = editor.selectionEnd;
+    let idx = val.indexOf(term, startPos);
+    if (idx === -1) {
+      idx = val.indexOf(term, 0);
+    }
+
+    if (idx !== -1) {
+      editor.focus();
+      editor.setSelectionRange(idx, idx + term.length);
+      statsEl.textContent = `ম্যাচ পাওয়া গেছে (অবস্থান: ${idx})`;
+    } else {
+      statsEl.textContent = `কোনো মিল পাওয়া যায়নি।`;
+    }
+  }
+
+  function replaceCurrentText() {
+    const term = document.getElementById('findInput').value;
+    const replacement = document.getElementById('replaceInput').value;
+    if (!term) return;
+
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const selected = editor.value.substring(start, end);
+
+    if (selected === term) {
+      pushHistoryState(editor.value);
+      editor.value = editor.value.substring(0, start) + replacement + editor.value.substring(end);
+      editor.setSelectionRange(start, start + replacement.length);
+      renderMarkdown();
+      updateLineNumbers();
+      updateStatusBar();
+      findNextText();
+    } else {
+      findNextText();
+    }
+  }
+
+  function replaceAllText() {
+    const term = document.getElementById('findInput').value;
+    const replacement = document.getElementById('replaceInput').value;
+    const statsEl = document.getElementById('findStats');
+    if (!term) return;
+
+    const val = editor.value;
+    const count = val.split(term).length - 1;
+    if (count > 0) {
+      pushHistoryState(editor.value);
+      editor.value = val.split(term).join(replacement);
+      renderMarkdown();
+      updateLineNumbers();
+      updateStatusBar();
+      statsEl.textContent = `মোট ${count}টি মিল প্রতিস্থাপন করা হয়েছে!`;
+      showToast(`মোট ${count}টি প্রতিস্থাপন সম্পন্ন`, 'success');
+    } else {
+      statsEl.textContent = `কোনো মিল পাওয়া যায়নি।`;
+    }
+  }
+
+  // ==================== Document Stats Modal ====================
+  function showDocStatsModal() {
+    const text = editor.value;
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    const chars = text.length;
+    const lines = text ? text.split('\n').length : 0;
+    const sentences = text ? text.split(/[।!?.\n]+/).filter(s => s.trim().length > 0).length : 0;
+    const readingMin = Math.max(1, Math.ceil(words / 200));
+
+    document.getElementById('statWords').textContent = words.toLocaleString();
+    document.getElementById('statChars').textContent = chars.toLocaleString();
+    document.getElementById('statLines').textContent = lines.toLocaleString();
+    document.getElementById('statSentences').textContent = sentences.toLocaleString();
+    document.getElementById('statReadingTime').textContent = `${readingMin} মিনিট`;
+
+    statsModal?.classList.add('active');
+  }
+
   // ==================== Theme & UI Helpers ====================
   function setTheme(theme) {
     document.body.setAttribute('data-theme', theme);
@@ -775,9 +1270,344 @@ graph TD
 
   function closeAllModals() {
     document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+    exportDropdown?.classList.remove('show');
+    document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
   }
 
-  // ==================== Desktop Menu Bar Setup ====================
+  function toggleSidebar() {
+    if (!primarySidebar) return;
+    primarySidebar.classList.toggle('collapsed');
+    const actBtn = document.getElementById('actBarExplorer');
+    if (actBtn) {
+      actBtn.classList.toggle('active', !primarySidebar.classList.contains('collapsed'));
+    }
+  }
+
+  // ==================== Synchronized Scrolling ====================
+  function setupScrollSync() {
+    editor.addEventListener('scroll', () => {
+      // Sync line numbers scroll
+      if (lineNumbers) {
+        lineNumbers.scrollTop = editor.scrollTop;
+      }
+
+      if (isScrolling) return;
+      isScrolling = true;
+      const pct = editor.scrollTop / (editor.scrollHeight - editor.clientHeight || 1);
+      preview.scrollTop = pct * (preview.scrollHeight - preview.clientHeight);
+      setTimeout(() => { isScrolling = false; }, 40);
+    });
+
+    preview.addEventListener('scroll', () => {
+      if (isScrolling) return;
+      isScrolling = true;
+      const pct = preview.scrollTop / (preview.scrollHeight - preview.clientHeight || 1);
+      editor.scrollTop = pct * (editor.scrollHeight - editor.clientHeight);
+      if (lineNumbers) {
+        lineNumbers.scrollTop = editor.scrollTop;
+      }
+      setTimeout(() => { isScrolling = false; }, 40);
+    });
+  }
+
+  // ==================== DropZone Setup Helper ====================
+  function setupDropZone(dropZoneId, inputId, handler) {
+    const dz = document.getElementById(dropZoneId);
+    const fi = document.getElementById(inputId);
+    if (!dz || !fi) return;
+
+    dz.addEventListener('click', () => fi.click());
+    fi.addEventListener('change', () => {
+      if (fi.files && fi.files[0]) handler(fi.files[0]);
+    });
+
+    dz.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dz.classList.add('dragover');
+    });
+    dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+    dz.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dz.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        handler(e.dataTransfer.files[0]);
+      }
+    });
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>"']/g, m => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+    }[m]));
+  }
+
+  // ==================== Event Listeners ====================
+  function setupEventListeners() {
+    // Editor inputs
+    editor.addEventListener('input', () => {
+      renderMarkdown();
+      updateLineNumbers();
+      updateStatusBar();
+      saveAllTabs();
+    });
+
+    editor.addEventListener('keyup', updateStatusBar);
+    editor.addEventListener('click', updateStatusBar);
+    editor.addEventListener('select', updateStatusBar);
+
+    // Tab bar additions
+    document.getElementById('newTabBtn')?.addEventListener('click', () => createNewTab());
+    document.getElementById('sidebarNewDocBtn')?.addEventListener('click', () => createNewTab());
+
+    // Document renaming
+    docTitleInput.addEventListener('input', () => {
+      const activeTab = getActiveTab();
+      if (activeTab) {
+        activeTab.title = docTitleInput.value.trim() || 'Untitled Document';
+        if (breadcrumbCurrentDoc) {
+          breadcrumbCurrentDoc.textContent = `${activeTab.title}.md`;
+        }
+        renderTabs();
+        saveAllTabs();
+      }
+    });
+
+    // Formatting Toolbar Buttons
+    document.getElementById('toolBold')?.addEventListener('click', () => insertFormatting('**', '**', 'bold text'));
+    document.getElementById('toolItalic')?.addEventListener('click', () => insertFormatting('*', '*', 'italic text'));
+    document.getElementById('toolStrike')?.addEventListener('click', () => insertFormatting('~~', '~~', 'strikethrough'));
+    document.getElementById('toolH1')?.addEventListener('click', () => insertLinePrefix('# '));
+    document.getElementById('toolH2')?.addEventListener('click', () => insertLinePrefix('## '));
+    document.getElementById('toolH3')?.addEventListener('click', () => insertLinePrefix('### '));
+    document.getElementById('toolCode')?.addEventListener('click', () => insertFormatting('`', '`', 'code'));
+    document.getElementById('toolCodeBlock')?.addEventListener('click', () => insertFormatting('```\n', '\n```', 'code block'));
+    document.getElementById('toolQuote')?.addEventListener('click', () => insertLinePrefix('> '));
+    document.getElementById('toolUl')?.addEventListener('click', () => insertLinePrefix('- '));
+    document.getElementById('toolOl')?.addEventListener('click', () => insertLinePrefix('1. '));
+    document.getElementById('toolTask')?.addEventListener('click', () => insertLinePrefix('- [ ] '));
+    document.getElementById('toolTable')?.addEventListener('click', () => {
+      insertFormatting('| কলাম ১ | কলাম ২ | কলাম ৩ |\n| :--- | :---: | ---: |\n| তথ্য ১ | তথ্য ২ | তথ্য ৩ |\n');
+    });
+    document.getElementById('toolMath')?.addEventListener('click', () => insertFormatting('$$\n', '\n$$', 'E = mc^2'));
+    document.getElementById('toolMermaid')?.addEventListener('click', () => insertFormatting('```mermaid\ngraph TD\n    A[শুরু] --> B[শেষ]\n```\n'));
+
+    // Bengali conversion
+    document.getElementById('toolAnsiToUnicode')?.addEventListener('click', convertAnsiToUnicodeAction);
+    document.getElementById('toolUnicodeToAnsi')?.addEventListener('click', convertUnicodeToAnsiAction);
+    document.getElementById('menuAnsiToUnicode')?.addEventListener('click', convertAnsiToUnicodeAction);
+    document.getElementById('menuUnicodeToAnsi')?.addEventListener('click', convertUnicodeToAnsiAction);
+    document.getElementById('sbActionAnsi')?.addEventListener('click', convertAnsiToUnicodeAction);
+    document.getElementById('sbActionUnicode')?.addEventListener('click', convertUnicodeToAnsiAction);
+
+    // Toolbar utilities
+    document.getElementById('toolUndo')?.addEventListener('click', undo);
+    document.getElementById('toolRedo')?.addEventListener('click', redo);
+    document.getElementById('toolRefresh')?.addEventListener('click', refreshPreviewAction);
+    document.getElementById('toolSelectAll')?.addEventListener('click', selectAllAction);
+    document.getElementById('toolCopy')?.addEventListener('click', () => copyMarkdownAction());
+    document.getElementById('toolClear')?.addEventListener('click', clearEditorAction);
+
+    // Editor Pane Header Buttons
+    document.getElementById('paneUndoBtn')?.addEventListener('click', undo);
+    document.getElementById('paneRedoBtn')?.addEventListener('click', redo);
+    document.getElementById('paneSelectAllBtn')?.addEventListener('click', selectAllAction);
+    document.getElementById('paneCopyBtn')?.addEventListener('click', () => copyMarkdownAction());
+    document.getElementById('paneClearBtn')?.addEventListener('click', clearEditorAction);
+
+    // Preview Pane Header Buttons
+    document.getElementById('paneRefreshBtn')?.addEventListener('click', refreshPreviewAction);
+    document.getElementById('paneCopyTextBtn')?.addEventListener('click', () => copyPreviewTextAction());
+    document.getElementById('paneCopyHtmlBtn')?.addEventListener('click', () => copyPreviewHtmlAction());
+
+    // Export Dropdown & Modal triggers
+    const exportDropdownBtn = document.getElementById('exportDropdownBtn');
+    exportDropdownBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openExportModal();
+    });
+
+    // Format selection cards in Export Modal
+    document.querySelectorAll('.format-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.format-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        selectedExportFormat = card.dataset.format || 'docx';
+      });
+    });
+
+    document.getElementById('confirmExportBtn')?.addEventListener('click', handleExportModalConfirm);
+
+    // Direct export dropdown items
+    document.getElementById('exportDocxBtn')?.addEventListener('click', exportDocx);
+    document.getElementById('exportMdBtn')?.addEventListener('click', exportMarkdown);
+    document.getElementById('exportPdfBtn')?.addEventListener('click', exportPdf);
+    document.getElementById('exportTxtBtn')?.addEventListener('click', exportTxt);
+    document.getElementById('exportHtmlBtn')?.addEventListener('click', exportHtml);
+
+    // Sidebar quick actions
+    document.getElementById('sbActionWord')?.addEventListener('click', exportDocx);
+    document.getElementById('sbActionMd')?.addEventListener('click', exportMarkdown);
+    document.getElementById('sbActionPdf')?.addEventListener('click', exportPdf);
+    document.getElementById('sbActionImport')?.addEventListener('click', () => importModal?.classList.add('active'));
+    document.getElementById('sbActionOcr')?.addEventListener('click', () => ocrModal?.classList.add('active'));
+
+    // Activity bar buttons
+    document.getElementById('actBarExplorer')?.addEventListener('click', toggleSidebar);
+    document.getElementById('sidebarCollapseBtn')?.addEventListener('click', toggleSidebar);
+    document.getElementById('actBarActions')?.addEventListener('click', openExportModal);
+    document.getElementById('actBarBengali')?.addEventListener('click', convertAnsiToUnicodeAction);
+    document.getElementById('actBarSettings')?.addEventListener('click', () => settingsModal?.classList.add('active'));
+    document.getElementById('actBarHelp')?.addEventListener('click', () => shortcutsModal?.classList.add('active'));
+    document.getElementById('actBarProfile')?.addEventListener('click', () => {
+      showToast('👤 Contributor & Author: Syed Ariful Islam Emon (syedarifulislamemon2010)', 'info', 3000);
+    });
+
+    // Top Header Buttons
+    document.getElementById('importDocBtn')?.addEventListener('click', () => importModal?.classList.add('active'));
+    document.getElementById('ocrImgBtn')?.addEventListener('click', () => ocrModal?.classList.add('active'));
+    document.getElementById('themeToggleBtn')?.addEventListener('click', () => {
+      const current = document.body.getAttribute('data-theme') || 'dark';
+      setTheme(current === 'dark' ? 'light' : 'dark');
+    });
+    document.getElementById('settingsBtn')?.addEventListener('click', () => {
+      document.getElementById('openaiKeyInput').value = localStorage.getItem('markitdown_openai_key') || '';
+      const geminiInput = document.getElementById('geminiKeyInput');
+      if (geminiInput) geminiInput.value = localStorage.getItem('markitdown_gemini_key') || '';
+      document.getElementById('openaiModelSelect').value = localStorage.getItem('markitdown_openai_model') || 'gpt-4o';
+      settingsModal?.classList.add('active');
+    });
+
+    document.getElementById('saveSettingsBtn')?.addEventListener('click', () => {
+      const key = document.getElementById('openaiKeyInput').value.trim();
+      const gemini = document.getElementById('geminiKeyInput').value.trim();
+      const model = document.getElementById('openaiModelSelect').value;
+      localStorage.setItem('markitdown_openai_key', key);
+      localStorage.setItem('markitdown_gemini_key', gemini);
+      localStorage.setItem('markitdown_openai_model', model);
+      closeAllModals();
+      showToast('⚙️ সেটিংস ও API Key সফলভাবে সেভ হয়েছে!', 'success');
+    });
+
+    // Modal close handlers
+    document.querySelectorAll('.modal-close, .modal-cancel').forEach(btn => {
+      btn.addEventListener('click', closeAllModals);
+    });
+
+    // Find & Replace
+    document.getElementById('findNextBtn')?.addEventListener('click', findNextText);
+    document.getElementById('replaceBtn')?.addEventListener('click', replaceCurrentText);
+    document.getElementById('replaceAllBtn')?.addEventListener('click', replaceAllText);
+
+    // Dropzones in Modals
+    setupDropZone('importDropZone', 'importFileInput', convertUploadedFile);
+    setupDropZone('ocrDropZone', 'ocrFileInput', performImageOcr);
+
+    // Global drag & drop
+    window.addEventListener('dragover', (e) => e.preventDefault());
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        if (file.type.startsWith('image/')) {
+          performImageOcr(file);
+        } else {
+          convertUploadedFile(file);
+        }
+      }
+    });
+
+    // Menubar Setup
+    setupMenuBar();
+
+    // Resizer Divider
+    const resizer = document.getElementById('resizer');
+    const leftPane = document.getElementById('editorPane');
+    let isResizing = false;
+
+    resizer?.addEventListener('mousedown', () => {
+      isResizing = true;
+      resizer.classList.add('dragging');
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isResizing) return;
+      const containerRect = document.querySelector('.workspace').getBoundingClientRect();
+      const offset = e.clientX - containerRect.left;
+      const minWidth = 260;
+      const maxWidth = containerRect.width - minWidth;
+      if (offset > minWidth && offset < maxWidth) {
+        const pct = (offset / containerRect.width) * 100;
+        leftPane.style.flex = `0 0 ${pct}%`;
+        document.getElementById('previewPane').style.flex = `0 0 ${100 - pct}%`;
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isResizing) {
+        isResizing = false;
+        resizer?.classList.remove('dragging');
+      }
+    });
+
+    // Keyboard Shortcuts
+    window.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'n' || e.key === 'N') {
+          e.preventDefault();
+          createNewTab();
+        } else if (e.key === 'w' || e.key === 'W') {
+          e.preventDefault();
+          closeTab(activeTabId);
+        } else if (e.key === 'o' || e.key === 'O') {
+          e.preventDefault();
+          importModal?.classList.add('active');
+        } else if (e.key === 's' || e.key === 'S') {
+          e.preventDefault();
+          exportMarkdown();
+        } else if (e.key === 'p' || e.key === 'P') {
+          e.preventDefault();
+          exportPdf();
+        } else if (e.key === 'z' || e.key === 'Z') {
+          if (e.shiftKey) {
+            e.preventDefault();
+            redo();
+          } else {
+            e.preventDefault();
+            undo();
+          }
+        } else if (e.key === 'y' || e.key === 'Y') {
+          e.preventDefault();
+          redo();
+        } else if (e.key === 'f' || e.key === 'F') {
+          e.preventDefault();
+          openFindReplaceModal();
+        } else if (e.key === 'b' || e.key === 'B') {
+          e.preventDefault();
+          insertFormatting('**', '**', 'bold text');
+        } else if (e.key === 'i' || e.key === 'I') {
+          e.preventDefault();
+          insertFormatting('*', '*', 'italic text');
+        } else if (e.key === '=' || e.key === '+') {
+          e.preventDefault();
+          changeFontSize(2);
+        } else if (e.key === '-' || e.key === '_') {
+          e.preventDefault();
+          changeFontSize(-2);
+        } else if (e.key === '0') {
+          e.preventDefault();
+          changeFontSize(0);
+        }
+      } else if (e.key === 'F5') {
+        e.preventDefault();
+        refreshPreviewAction();
+      }
+    });
+
+    setupScrollSync();
+  }
+
+  // ==================== Menubar Controller ====================
   function setupMenuBar() {
     const menuItems = document.querySelectorAll('.menu-item');
     let isAnyMenuOpen = false;
@@ -810,33 +1640,30 @@ graph TD
       });
     });
 
-    // Close menus when clicking outside
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.menubar')) {
         closeAllMenus();
       }
     });
 
-    // Close menu when a dropdown item is clicked
     document.querySelectorAll('.menu-dropdown .dropdown-item').forEach(btn => {
-      btn.addEventListener('click', () => {
-        closeAllMenus();
-      });
+      btn.addEventListener('click', () => closeAllMenus());
     });
 
-    // File Menu Actions
-    document.getElementById('menuNewDoc')?.addEventListener('click', newDocAction);
-    document.getElementById('menuImportDoc')?.addEventListener('click', () => importModal.classList.add('active'));
+    // File Menu bindings
+    document.getElementById('menuNewDoc')?.addEventListener('click', () => createNewTab());
+    document.getElementById('menuCloseTab')?.addEventListener('click', () => closeTab(activeTabId));
+    document.getElementById('menuImportDoc')?.addEventListener('click', () => importModal?.classList.add('active'));
+    document.getElementById('menuSaveDocx')?.addEventListener('click', exportDocx);
     document.getElementById('menuSaveMd')?.addEventListener('click', exportMarkdown);
+    document.getElementById('menuSaveTxt')?.addEventListener('click', exportTxt);
     document.getElementById('menuSaveHtml')?.addEventListener('click', exportHtml);
     document.getElementById('menuPrintPdf')?.addEventListener('click', exportPdf);
     document.getElementById('menuReload')?.addEventListener('click', () => {
-      if (confirm("পৃষ্ঠাটি রিলোড করতে চান? কোনো অসংরক্ষিত ড্রাফট থাকলে তা মুছে যেতে পারে।")) {
-        location.reload();
-      }
+      showConfirmModal("রিলোড", "পৃষ্ঠাটি রিলোড করতে চান? ড্রাফট সংরক্ষিত থাকবে।", () => location.reload());
     });
 
-    // Edit Menu Actions
+    // Edit Menu bindings
     document.getElementById('menuUndo')?.addEventListener('click', undo);
     document.getElementById('menuRedo')?.addEventListener('click', redo);
     document.getElementById('menuCut')?.addEventListener('click', () => {
@@ -845,18 +1672,40 @@ graph TD
       const end = editor.selectionEnd;
       if (start !== end) {
         pushHistoryState(editor.value);
-        const textToCut = editor.value.substring(start, end);
-        navigator.clipboard.writeText(textToCut).catch(() => {});
+        navigator.clipboard.writeText(editor.value.substring(start, end)).catch(() => {});
         editor.value = editor.value.substring(0, start) + editor.value.substring(end);
         editor.setSelectionRange(start, start);
         renderMarkdown();
+        updateLineNumbers();
+        updateStatusBar();
+        showToast('✂️ কাট সম্পন্ন', 'info', 1000);
       }
     });
     document.getElementById('menuCopy')?.addEventListener('click', () => copyMarkdownAction());
+    document.getElementById('menuPaste')?.addEventListener('click', async () => {
+      editor.focus();
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          pushHistoryState(editor.value);
+          const start = editor.selectionStart;
+          const end = editor.selectionEnd;
+          editor.value = editor.value.substring(0, start) + text + editor.value.substring(end);
+          editor.setSelectionRange(start + text.length, start + text.length);
+          renderMarkdown();
+          updateLineNumbers();
+          updateStatusBar();
+          showToast('📥 পেস্ট সম্পন্ন', 'info', 1000);
+        }
+      } catch (err) {
+        showToast('ক্লিপবোর্ড এক্সেস করার অনুমতি দিন', 'warning');
+      }
+    });
     document.getElementById('menuSelectAll')?.addEventListener('click', selectAllAction);
+    document.getElementById('menuFindReplace')?.addEventListener('click', openFindReplaceModal);
     document.getElementById('menuClear')?.addEventListener('click', clearEditorAction);
 
-    // View Menu Actions
+    // View Menu bindings
     document.getElementById('menuRefreshPreview')?.addEventListener('click', refreshPreviewAction);
     document.getElementById('menuToggleTheme')?.addEventListener('click', () => {
       const current = document.body.getAttribute('data-theme') || 'dark';
@@ -865,308 +1714,55 @@ graph TD
     document.getElementById('menuViewBoth')?.addEventListener('click', () => setViewMode('both'));
     document.getElementById('menuViewEditorOnly')?.addEventListener('click', () => setViewMode('editor'));
     document.getElementById('menuViewPreviewOnly')?.addEventListener('click', () => setViewMode('preview'));
+    document.getElementById('menuFontSizeIncrease')?.addEventListener('click', () => changeFontSize(2));
+    document.getElementById('menuFontSizeDecrease')?.addEventListener('click', () => changeFontSize(-2));
+    document.getElementById('menuFontSizeReset')?.addEventListener('click', () => changeFontSize(0));
+    document.getElementById('menuToggleWordWrap')?.addEventListener('click', toggleWordWrap);
 
-    // Tools & Bengali Menu Actions
-    document.getElementById('menuAnsiToUnicode')?.addEventListener('click', convertAnsiToUnicodeAction);
-    document.getElementById('menuUnicodeToAnsi')?.addEventListener('click', convertUnicodeToAnsiAction);
-    document.getElementById('menuOcr')?.addEventListener('click', () => ocrModal.classList.add('active'));
+    // Tools Menu bindings
+    document.getElementById('menuOcr')?.addEventListener('click', () => ocrModal?.classList.add('active'));
     document.getElementById('menuCopyPreviewText')?.addEventListener('click', () => copyPreviewTextAction());
     document.getElementById('menuCopyHtml')?.addEventListener('click', () => copyPreviewHtmlAction());
+    document.getElementById('menuDocStats')?.addEventListener('click', showDocStatsModal);
 
-    // Settings & Help Actions
-    document.getElementById('menuOpenSettings')?.addEventListener('click', () => {
-      document.getElementById('openaiKeyInput').value = localStorage.getItem('markitdown_openai_key') || '';
-      const geminiInput = document.getElementById('geminiKeyInput');
-      if (geminiInput) geminiInput.value = localStorage.getItem('markitdown_gemini_key') || '';
-      document.getElementById('openaiModelSelect').value = localStorage.getItem('markitdown_openai_model') || 'gpt-4o';
-      settingsModal.classList.add('active');
+    // Settings & Help Menu bindings
+    document.getElementById('menuOpenSettings')?.addEventListener('click', () => settingsModal?.classList.add('active'));
+    document.getElementById('menuShortcuts')?.addEventListener('click', () => shortcutsModal?.classList.add('active'));
+    document.getElementById('menuSampleDoc')?.addEventListener('click', () => {
+      showConfirmModal("নমুনা লোড", "নমুনা ডকুমেন্ট নতুন ট্যাবে খুলতে চান?", () => {
+        createNewTab("Sample Document", DEFAULT_WELCOME_MD);
+      });
     });
-    document.getElementById('menuShortcuts')?.addEventListener('click', () => shortcutsModal.classList.add('active'));
+    document.getElementById('menuAbout')?.addEventListener('click', () => aboutModal?.classList.add('active'));
   }
 
-  // ==================== Event Listeners Setup ====================
-  function setupEventListeners() {
-    // Setup Desktop Menu Bar
-    setupMenuBar();
+  // ==================== Initialization ====================
+  function init() {
+    const savedTheme = localStorage.getItem('markitdown_studio_theme') || 'dark';
+    setTheme(savedTheme);
 
-    // Editor Input Listener (Debounced Rendering & History)
-    editor.addEventListener('input', () => {
-      clearTimeout(historyDebounceTimeout);
-      historyDebounceTimeout = setTimeout(() => {
-        pushHistoryState(editor.value);
-      }, 1000);
+    const savedFontSize = parseInt(localStorage.getItem('markitdown_studio_font_size') || '13', 10);
+    if (!isNaN(savedFontSize) && savedFontSize >= 10 && savedFontSize <= 28) {
+      currentFontSize = savedFontSize;
+      editor.style.fontSize = `${currentFontSize}px`;
+      previewContent.style.fontSize = `${currentFontSize}px`;
+      if (lineNumbers) lineNumbers.style.fontSize = `${currentFontSize}px`;
+    }
 
-      clearTimeout(renderTimeout);
-      saveStatusEl.textContent = 'Saving...';
-      renderTimeout = setTimeout(renderMarkdown, 180);
-    });
+    if (window.mermaid) {
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: savedTheme === 'light' ? 'default' : 'dark',
+        securityLevel: 'loose',
+      });
+    }
 
-    // Automatic ANSI / Bijoy detection and instant conversion on Paste
-    editor.addEventListener('paste', (e) => {
-      const clipboardData = e.clipboardData || window.clipboardData;
-      if (!clipboardData) return;
-      const pastedText = clipboardData.getData('text');
-      if (window.BijoyToUnicode && window.BijoyToUnicode.isLikelyBijoy && window.BijoyToUnicode.isLikelyBijoy(pastedText)) {
-        e.preventDefault();
-        pushHistoryState(editor.value);
-        const converted = window.BijoyToUnicode.convertMarkdown(pastedText);
-        const start = editor.selectionStart;
-        const end = editor.selectionEnd;
-        const val = editor.value;
-        editor.value = val.substring(0, start) + converted + val.substring(end);
-        editor.setSelectionRange(start + converted.length, start + converted.length);
-        renderMarkdown();
-        saveStatusEl.textContent = '✨ Auto-converted Bijoy to Unicode!';
-        setTimeout(() => { saveStatusEl.textContent = 'Saved locally'; }, 2500);
-      }
-    });
-
-    // Keyboard Shortcuts (Ctrl+Z, Ctrl+Y, Ctrl+Shift+Z, Ctrl+B, Ctrl+I, Ctrl+S, Ctrl+O, Ctrl+N, Ctrl+P, F5, Tab)
-    editor.addEventListener('keydown', (e) => {
-      if (e.ctrlKey || e.metaKey) {
-        if (e.key === 'z' || e.key === 'Z') {
-          e.preventDefault();
-          if (e.shiftKey) {
-            redo();
-          } else {
-            undo();
-          }
-          return;
-        }
-        if (e.key === 'y' || e.key === 'Y') {
-          e.preventDefault();
-          redo();
-          return;
-        }
-        if (e.key === 'b' || e.key === 'B') {
-          e.preventDefault();
-          insertFormat('**', '**', 'bold text');
-          return;
-        }
-        if (e.key === 'i' || e.key === 'I') {
-          e.preventDefault();
-          insertFormat('*', '*', 'italic text');
-          return;
-        }
-        if (e.key === 's' || e.key === 'S') {
-          e.preventDefault();
-          exportMarkdown();
-          return;
-        }
-        if (e.key === 'o' || e.key === 'O') {
-          e.preventDefault();
-          importModal.classList.add('active');
-          return;
-        }
-        if (e.key === 'n' || e.key === 'N') {
-          e.preventDefault();
-          newDocAction();
-          return;
-        }
-        if (e.key === 'p' || e.key === 'P') {
-          e.preventDefault();
-          exportPdf();
-          return;
-        }
-      } else if (e.key === 'Tab') {
-        e.preventDefault();
-        insertFormat('  ', '', '');
-      } else if (e.key === 'F5') {
-        if (!e.ctrlKey) {
-          e.preventDefault();
-          refreshPreviewAction();
-        }
-      }
-    });
-
-    // Title Input
-    docTitleInput.addEventListener('input', () => {
-      localStorage.setItem('markitdown_studio_title', docTitleInput.value);
-    });
-
-    // Setup Sync Scrolling
-    setupScrollSync();
-
-    // Theme Toggle
-    document.getElementById('themeToggleBtn')?.addEventListener('click', () => {
-      const current = document.body.getAttribute('data-theme') || 'dark';
-      setTheme(current === 'dark' ? 'light' : 'dark');
-    });
-
-    // Toolbar Formatting Buttons
-    document.getElementById('toolBold')?.addEventListener('click', () => insertFormat('**', '**', 'bold text'));
-    document.getElementById('toolItalic')?.addEventListener('click', () => insertFormat('*', '*', 'italic text'));
-    document.getElementById('toolStrike')?.addEventListener('click', () => insertFormat('~~', '~~', 'strikethrough'));
-    document.getElementById('toolH1')?.addEventListener('click', () => insertFormat('# ', '', 'Heading 1'));
-    document.getElementById('toolH2')?.addEventListener('click', () => insertFormat('## ', '', 'Heading 2'));
-    document.getElementById('toolH3')?.addEventListener('click', () => insertFormat('### ', '', 'Heading 3'));
-    document.getElementById('toolCode')?.addEventListener('click', () => insertFormat('`', '`', 'code'));
-    document.getElementById('toolCodeBlock')?.addEventListener('click', () => insertBlock('```python\n# Your code here\nprint("Hello")\n```'));
-    document.getElementById('toolQuote')?.addEventListener('click', () => insertFormat('> ', '', 'Quote'));
-    document.getElementById('toolUl')?.addEventListener('click', () => insertFormat('- ', '', 'List item'));
-    document.getElementById('toolOl')?.addEventListener('click', () => insertFormat('1. ', '', 'Numbered item'));
-    document.getElementById('toolTask')?.addEventListener('click', () => insertFormat('- [ ] ', '', 'Task item'));
-    document.getElementById('toolTable')?.addEventListener('click', () => {
-      insertBlock('| কলাম ১ | কলাম ২ | কলাম ৩ |\n| :--- | :--- | :--- |\n| ডেটা ১ | ডেটা ২ | ডেটা ৩ |\n| তথ্য ৪ | তথ্য ৫ | তথ্য ৬ |');
-    });
-    document.getElementById('toolMath')?.addEventListener('click', () => {
-      insertBlock('$$\n\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}\n$$');
-    });
-    document.getElementById('toolMermaid')?.addEventListener('click', () => {
-      insertBlock('```mermaid\ngraph LR\n    শুরু[Start] --> প্রক্রিয়া[Process]\n    প্রক্রিয়া --> শেষ[End]\n```');
-    });
-
-    // Toolbar History & Bengali Conversion Buttons
-    document.getElementById('toolUndo')?.addEventListener('click', undo);
-    document.getElementById('toolRedo')?.addEventListener('click', redo);
-    document.getElementById('toolAnsiToUnicode')?.addEventListener('click', convertAnsiToUnicodeAction);
-    document.getElementById('toolUnicodeToAnsi')?.addEventListener('click', convertUnicodeToAnsiAction);
-
-    // Toolbar Quick Utilities
-    document.getElementById('toolRefresh')?.addEventListener('click', refreshPreviewAction);
-    document.getElementById('toolSelectAll')?.addEventListener('click', selectAllAction);
-    const toolCopyBtn = document.getElementById('toolCopy');
-    toolCopyBtn?.addEventListener('click', () => copyMarkdownAction(toolCopyBtn));
-    document.getElementById('toolClear')?.addEventListener('click', clearEditorAction);
-
-    // Editor Pane Header Action Buttons
-    document.getElementById('paneUndoBtn')?.addEventListener('click', undo);
-    document.getElementById('paneRedoBtn')?.addEventListener('click', redo);
-    document.getElementById('paneSelectAllBtn')?.addEventListener('click', selectAllAction);
-    const paneCopyBtn = document.getElementById('paneCopyBtn');
-    paneCopyBtn?.addEventListener('click', () => copyMarkdownAction(paneCopyBtn));
-    document.getElementById('paneClearBtn')?.addEventListener('click', clearEditorAction);
-
-    // Preview Pane Header Action Buttons
-    document.getElementById('paneRefreshBtn')?.addEventListener('click', refreshPreviewAction);
-    const paneCopyTextBtn = document.getElementById('paneCopyTextBtn');
-    paneCopyTextBtn?.addEventListener('click', () => copyPreviewTextAction(paneCopyTextBtn));
-    const paneCopyHtmlBtn = document.getElementById('paneCopyHtmlBtn');
-    paneCopyHtmlBtn?.addEventListener('click', () => copyPreviewHtmlAction(paneCopyHtmlBtn));
-
-    // Export Dropdown
-    const exportBtn = document.getElementById('exportDropdownBtn');
-    exportBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      exportDropdown.classList.toggle('show');
-    });
-
-    window.addEventListener('click', () => {
-      exportDropdown.classList.remove('show');
-    });
-
-    document.getElementById('exportMdBtn')?.addEventListener('click', exportMarkdown);
-    document.getElementById('exportHtmlBtn')?.addEventListener('click', exportHtml);
-    document.getElementById('exportPdfBtn')?.addEventListener('click', exportPdf);
-
-    // Modal Triggers
-    document.getElementById('importDocBtn')?.addEventListener('click', () => importModal.classList.add('active'));
-    document.getElementById('ocrImgBtn')?.addEventListener('click', () => ocrModal.classList.add('active'));
-    document.getElementById('settingsBtn')?.addEventListener('click', () => {
-      document.getElementById('openaiKeyInput').value = localStorage.getItem('markitdown_openai_key') || '';
-      const geminiInput = document.getElementById('geminiKeyInput');
-      if (geminiInput) geminiInput.value = localStorage.getItem('markitdown_gemini_key') || '';
-      document.getElementById('openaiModelSelect').value = localStorage.getItem('markitdown_openai_model') || 'gpt-4o';
-      settingsModal.classList.add('active');
-    });
-
-    document.querySelectorAll('.modal-close, .modal-cancel').forEach(btn => {
-      btn.addEventListener('click', closeAllModals);
-    });
-
-    // Close modals on Escape key
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        closeAllModals();
-        exportDropdown.classList.remove('show');
-      }
-    });
-
-    // File Dropzones in Modals
-    setupDropZone('importDropZone', 'importFileInput', convertUploadedFile);
-    setupDropZone('ocrDropZone', 'ocrFileInput', performImageOcr);
-
-    // Main Window Drag & Drop
-    window.addEventListener('dragover', (e) => e.preventDefault());
-    window.addEventListener('drop', (e) => {
-      e.preventDefault();
-      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        const file = e.dataTransfer.files[0];
-        if (file.type.startsWith('image/')) {
-          performImageOcr(file);
-        } else {
-          convertUploadedFile(file);
-        }
-      }
-    });
-
-    // Resizer logic
-    const resizer = document.getElementById('resizer');
-    const leftPane = document.getElementById('editorPane');
-    let isResizing = false;
-
-    resizer?.addEventListener('mousedown', () => {
-      isResizing = true;
-      resizer.classList.add('dragging');
-    });
-
-    window.addEventListener('mousemove', (e) => {
-      if (!isResizing) return;
-      const containerRect = document.querySelector('.workspace').getBoundingClientRect();
-      const newWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
-      if (newWidth > 15 && newWidth < 85) {
-        leftPane.style.flex = `0 0 ${newWidth}%`;
-      }
-    });
-
-    window.addEventListener('mouseup', () => {
-      isResizing = false;
-      resizer?.classList.remove('dragging');
-    });
-
-    // Settings Save
-    document.getElementById('saveSettingsBtn')?.addEventListener('click', () => {
-      const apiKey = document.getElementById('openaiKeyInput').value.trim();
-      const geminiKey = document.getElementById('geminiKeyInput')?.value.trim() || '';
-      const model = document.getElementById('openaiModelSelect').value;
-      localStorage.setItem('markitdown_openai_key', apiKey);
-      localStorage.setItem('markitdown_gemini_key', geminiKey);
-      localStorage.setItem('markitdown_openai_model', model);
-
-      // Notify Python desktop backend if available
-      if (window.pywebview && window.pywebview.api && window.pywebview.api.update_settings) {
-        window.pywebview.api.update_settings(apiKey, model, geminiKey);
-      }
-      closeAllModals();
-      alert('Settings saved successfully!');
-    });
+    initTabs();
+    renderMarkdown();
+    updateUndoRedoUI();
+    setupEventListeners();
   }
 
-  function setupDropZone(dropZoneId, fileInputId, handler) {
-    const dz = document.getElementById(dropZoneId);
-    const fi = document.getElementById(fileInputId);
-    if (!dz || !fi) return;
-
-    dz.addEventListener('click', () => fi.click());
-    fi.addEventListener('change', () => {
-      if (fi.files && fi.files[0]) handler(fi.files[0]);
-    });
-
-    dz.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dz.classList.add('dragover');
-    });
-    dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
-    dz.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dz.classList.remove('dragover');
-      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-        handler(e.dataTransfer.files[0]);
-      }
-    });
-  }
-
-  // Launch on DOM Ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

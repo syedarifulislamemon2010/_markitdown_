@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MarkItDown Studio - Advanced Markdown Editor & Universal Converter</title>
+  <title>MarkItDown Studio - Universal Markdown Editor & Converter</title>
   
   <!-- CSS -->
   <link rel="stylesheet" href="css/style.css">
@@ -15,34 +15,133 @@
 </head>
 <body data-theme="dark">
 
-  <!-- ==================== Top Navbar ==================== -->
-  <header class="navbar">
+  <!-- ==================== VS Code Top Title Bar & Menus ==================== -->
+  <header class="navbar" id="topNavbar">
     <div class="nav-left">
-      <div class="logo-badge">
+      <div class="logo-badge" title="MarkItDown Studio by Syed Ariful Islam Emon">
         <div class="logo-icon">M↓</div>
-        <span>MarkItDown</span>
+        <span class="app-name">MarkItDown</span>
       </div>
-      <input type="text" id="docTitle" class="doc-name-input" value="Untitled Document" title="Click to rename document">
+
+      <!-- Desktop Menubar integrated into titlebar -->
+      <nav class="menubar" id="mainMenuBar">
+        <!-- File Menu -->
+        <div class="menu-item" id="menuFile">
+          <button class="menu-trigger">File</button>
+          <div class="menu-dropdown">
+            <button id="menuNewDoc" class="dropdown-item"><span class="menu-icon">📄</span> নতুন ডকুমেন্ট (New Tab) <span class="shortcut">Ctrl+N</span></button>
+            <button id="menuCloseTab" class="dropdown-item"><span class="menu-icon">✕</span> বর্তমান ট্যাব বন্ধ (Close Tab) <span class="shortcut">Ctrl+W</span></button>
+            <button id="menuImportDoc" class="dropdown-item"><span class="menu-icon">📂</span> ডকুমেন্ট ইমপোর্ট (Import) <span class="shortcut">Ctrl+O</span></button>
+            <div class="menu-separator"></div>
+            <button id="menuSaveDocx" class="dropdown-item"><span class="menu-icon">📝</span> এক্সপোর্ট ওয়ার্ড ডকুমেন্ট (.docx)</button>
+            <button id="menuSaveMd" class="dropdown-item"><span class="menu-icon">💾</span> এক্সপোর্ট মার্কডাউন (.md) <span class="shortcut">Ctrl+S</span></button>
+            <button id="menuSaveTxt" class="dropdown-item"><span class="menu-icon">📑</span> এক্সপোর্ট প্লেইন টেক্সট (.txt)</button>
+            <button id="menuSaveHtml" class="dropdown-item"><span class="menu-icon">🌐</span> এক্সপোর্ট এইচটিএমএল (.html)</button>
+            <button id="menuPrintPdf" class="dropdown-item"><span class="menu-icon">🖨️</span> প্রিন্ট / সেভ PDF <span class="shortcut">Ctrl+P</span></button>
+            <div class="menu-separator"></div>
+            <button id="menuReload" class="dropdown-item"><span class="menu-icon">🔄</span> রিলোড উইন্ডো (Reload)</button>
+          </div>
+        </div>
+
+        <!-- Edit Menu -->
+        <div class="menu-item" id="menuEdit">
+          <button class="menu-trigger">Edit</button>
+          <div class="menu-dropdown">
+            <button id="menuUndo" class="dropdown-item"><span class="menu-icon">↩</span> আনডু (Undo) <span class="shortcut">Ctrl+Z</span></button>
+            <button id="menuRedo" class="dropdown-item"><span class="menu-icon">↪</span> রিডু (Redo) <span class="shortcut">Ctrl+Y</span></button>
+            <div class="menu-separator"></div>
+            <button id="menuCut" class="dropdown-item"><span class="menu-icon">✂️</span> কাট (Cut) <span class="shortcut">Ctrl+X</span></button>
+            <button id="menuCopy" class="dropdown-item"><span class="menu-icon">📋</span> মার্কডাউন কপি (Copy) <span class="shortcut">Ctrl+C</span></button>
+            <button id="menuPaste" class="dropdown-item"><span class="menu-icon">📥</span> পেস্ট করুন (Paste) <span class="shortcut">Ctrl+V</span></button>
+            <button id="menuSelectAll" class="dropdown-item"><span class="menu-icon">🔘</span> সব সিলেক্ট (Select All) <span class="shortcut">Ctrl+A</span></button>
+            <button id="menuFindReplace" class="dropdown-item"><span class="menu-icon">🔍</span> খুঁজুন ও প্রতিস্থাপন (Find & Replace) <span class="shortcut">Ctrl+F</span></button>
+            <div class="menu-separator"></div>
+            <button id="menuClear" class="dropdown-item text-danger"><span class="menu-icon">🗑️</span> সব ক্লিয়ার করুন (Clear All)</button>
+          </div>
+        </div>
+
+        <!-- Selection / View Menu -->
+        <div class="menu-item" id="menuView">
+          <button class="menu-trigger">View</button>
+          <div class="menu-dropdown">
+            <button id="menuRefreshPreview" class="dropdown-item"><span class="menu-icon">🔄</span> প্রিভিউ রিফ্রেশ (Refresh) <span class="shortcut">F5</span></button>
+            <button id="menuToggleTheme" class="dropdown-item"><span class="menu-icon">🌓</span> থিম পরিবর্তন (Dark/Light)</button>
+            <div class="menu-separator"></div>
+            <button id="menuViewBoth" class="dropdown-item"><span class="menu-icon">📑</span> স্প্লিট ভিউ (উভয় প্যান)</button>
+            <button id="menuViewEditorOnly" class="dropdown-item"><span class="menu-icon">📝</span> শুধু এডিটর মোড</button>
+            <button id="menuViewPreviewOnly" class="dropdown-item"><span class="menu-icon">👁️</span> শুধু প্রিভিউ মোড</button>
+            <div class="menu-separator"></div>
+            <button id="menuFontSizeIncrease" class="dropdown-item"><span class="menu-icon">🔍+</span> ফন্ট বড় করুন (Zoom In)</button>
+            <button id="menuFontSizeDecrease" class="dropdown-item"><span class="menu-icon">🔍-</span> ফন্ট ছোট করুন (Zoom Out)</button>
+            <button id="menuFontSizeReset" class="dropdown-item"><span class="menu-icon">🔄</span> স্বাভাবিক সাইজ (Reset)</button>
+            <button id="menuToggleWordWrap" class="dropdown-item"><span class="menu-icon">↩</span> ওয়ার্ড র‍্যাপ টগল (Word Wrap)</button>
+          </div>
+        </div>
+
+        <!-- Tools / Bengali Menu -->
+        <div class="menu-item" id="menuTools">
+          <button class="menu-trigger">Tools</button>
+          <div class="menu-dropdown">
+            <button id="menuAnsiToUnicode" class="dropdown-item"><span class="menu-icon">🔄</span> ANSI (বিজয়) ➜ ইউনিকোড রূপান্তর</button>
+            <button id="menuUnicodeToAnsi" class="dropdown-item"><span class="menu-icon">🔁</span> ইউনিকোড ➜ ANSI (বিজয়) রূপান্তর</button>
+            <div class="menu-separator"></div>
+            <button id="menuOcr" class="dropdown-item"><span class="menu-icon">🔍</span> ইমেজ ওসিআর (Extract Text)</button>
+            <button id="menuCopyPreviewText" class="dropdown-item"><span class="menu-icon">📄</span> রেন্ডার করা টেক্সট কপি</button>
+            <button id="menuCopyHtml" class="dropdown-item"><span class="menu-icon">🌐</span> প্রিভিউ এইচটিএমএল কপি</button>
+            <div class="menu-separator"></div>
+            <button id="menuDocStats" class="dropdown-item"><span class="menu-icon">📊</span> ডকুমেন্ট পরিসংখ্যান (Statistics)</button>
+          </div>
+        </div>
+
+        <!-- Settings Menu -->
+        <div class="menu-item" id="menuSettings">
+          <button class="menu-trigger">Settings</button>
+          <div class="menu-dropdown">
+            <button id="menuOpenSettings" class="dropdown-item"><span class="menu-icon">⚙️</span> Preferences & API Keys</button>
+          </div>
+        </div>
+
+        <!-- Help Menu -->
+        <div class="menu-item" id="menuHelp">
+          <button class="menu-trigger">Help</button>
+          <div class="menu-dropdown">
+            <button id="menuShortcuts" class="dropdown-item"><span class="menu-icon">⌨️</span> কীবোর্ড শর্টকাট (Shortcuts)</button>
+            <button id="menuSampleDoc" class="dropdown-item"><span class="menu-icon">📑</span> নমুনা ডকুমেন্ট লোড (Sample)</button>
+            <button id="menuAbout" class="dropdown-item"><span class="menu-icon">ℹ️</span> About MarkItDown Studio</button>
+          </div>
+        </div>
+      </nav>
     </div>
 
+    <!-- Center Search & Document Name Bar (like VS Code command center) -->
+    <div class="nav-center">
+      <div class="title-search-pill">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="docTitle" class="doc-name-input" value="Untitled Document" title="Click to rename active document">
+      </div>
+    </div>
+
+    <!-- Right Header Actions -->
     <div class="nav-right">
       <button id="importDocBtn" class="btn" title="Convert PDF, Word, Excel, PPTX to Markdown">
-        📄 Import Document
+        📂 Import
       </button>
 
       <button id="ocrImgBtn" class="btn" title="Extract Bengali & English text from image">
-        🔍 OCR Image
+        🔍 OCR
       </button>
 
-      <!-- Export Dropdown -->
+      <!-- Export Button & Dropdown -->
       <div class="dropdown">
-        <button id="exportDropdownBtn" class="btn btn-primary">
+        <button id="exportDropdownBtn" class="btn btn-primary" title="Export Document (Word, Markdown, PDF, HTML, Text)">
           💾 Export ▾
         </button>
         <div id="exportDropdown" class="dropdown-content">
+          <div id="exportDocxBtn" class="dropdown-item">📝 Word Document (.docx)</div>
           <div id="exportMdBtn" class="dropdown-item">📄 Markdown (.md)</div>
-          <div id="exportHtmlBtn" class="dropdown-item">🌐 Styled HTML (.html)</div>
           <div id="exportPdfBtn" class="dropdown-item">🖨️ Print to PDF (.pdf)</div>
+          <div id="exportTxtBtn" class="dropdown-item">📑 Plain Text (.txt)</div>
+          <div id="exportHtmlBtn" class="dropdown-item">🌐 Styled HTML (.html)</div>
         </div>
       </div>
 
@@ -56,90 +155,13 @@
     </div>
   </header>
 
-  <!-- ==================== Desktop Menu Bar ==================== -->
-  <nav class="menubar" id="mainMenuBar">
-    <!-- File Menu -->
-    <div class="menu-item" id="menuFile">
-      <button class="menu-trigger">ফাইল (File) ▾</button>
-      <div class="menu-dropdown">
-        <button id="menuNewDoc" class="dropdown-item"><span class="menu-icon">📄</span> নতুন ডকুমেন্ট (New) <span class="shortcut">Ctrl+N</span></button>
-        <button id="menuImportDoc" class="dropdown-item"><span class="menu-icon">📂</span> ডকুমেন্ট ইমপোর্ট (PDF/Word/Excel) <span class="shortcut">Ctrl+O</span></button>
-        <div class="menu-separator"></div>
-        <button id="menuSaveMd" class="dropdown-item"><span class="menu-icon">💾</span> এক্সপোর্ট মার্কডাউন (.md) <span class="shortcut">Ctrl+S</span></button>
-        <button id="menuSaveHtml" class="dropdown-item"><span class="menu-icon">🌐</span> এক্সপোর্ট এইচটিএমএল (.html)</button>
-        <button id="menuPrintPdf" class="dropdown-item"><span class="menu-icon">🖨️</span> প্রিন্ট / সেভ PDF <span class="shortcut">Ctrl+P</span></button>
-        <div class="menu-separator"></div>
-        <button id="menuReload" class="dropdown-item"><span class="menu-icon">🔄</span> রিফ্রেশ / রিলোড (Reload)</button>
-      </div>
-    </div>
-
-    <!-- Edit Menu -->
-    <div class="menu-item" id="menuEdit">
-      <button class="menu-trigger">এডিট (Edit) ▾</button>
-      <div class="menu-dropdown">
-        <button id="menuUndo" class="dropdown-item"><span class="menu-icon">↩</span> আনডু (Undo) <span class="shortcut">Ctrl+Z</span></button>
-        <button id="menuRedo" class="dropdown-item"><span class="menu-icon">↪</span> রিডু (Redo) <span class="shortcut">Ctrl+Y</span></button>
-        <div class="menu-separator"></div>
-        <button id="menuCut" class="dropdown-item"><span class="menu-icon">✂️</span> কাট (Cut) <span class="shortcut">Ctrl+X</span></button>
-        <button id="menuCopy" class="dropdown-item"><span class="menu-icon">📋</span> মার্কডাউন কপি (Copy) <span class="shortcut">Ctrl+C</span></button>
-        <button id="menuSelectAll" class="dropdown-item"><span class="menu-icon">🔘</span> সব সিলেক্ট (Select All) <span class="shortcut">Ctrl+A</span></button>
-        <div class="menu-separator"></div>
-        <button id="menuClear" class="dropdown-item text-danger"><span class="menu-icon">🗑️</span> সব ক্লিয়ার করুন (Clear All)</button>
-      </div>
-    </div>
-
-    <!-- View Menu -->
-    <div class="menu-item" id="menuView">
-      <button class="menu-trigger">ভিউ (View) ▾</button>
-      <div class="menu-dropdown">
-        <button id="menuRefreshPreview" class="dropdown-item"><span class="menu-icon">🔄</span> প্রিভিউ রিফ্রেশ (Refresh Preview) <span class="shortcut">F5</span></button>
-        <button id="menuToggleTheme" class="dropdown-item"><span class="menu-icon">🌓</span> থিম পরিবর্তন (Dark/Light)</button>
-        <div class="menu-separator"></div>
-        <button id="menuViewBoth" class="dropdown-item"><span class="menu-icon">📑</span> স্প্লিট ভিউ (উভয় প্যান)</button>
-        <button id="menuViewEditorOnly" class="dropdown-item"><span class="menu-icon">📝</span> শুধু এডিটর মোড</button>
-        <button id="menuViewPreviewOnly" class="dropdown-item"><span class="menu-icon">👁️</span> শুধু প্রিভিউ মোড</button>
-      </div>
-    </div>
-
-    <!-- Tools / Bengali Menu -->
-    <div class="menu-item" id="menuTools">
-      <button class="menu-trigger">টুলস ও বাংলা (Tools) ▾</button>
-      <div class="menu-dropdown">
-        <button id="menuAnsiToUnicode" class="dropdown-item"><span class="menu-icon">🔄</span> ANSI (বিজয়) ➜ ইউনিকোড রূপান্তর</button>
-        <button id="menuUnicodeToAnsi" class="dropdown-item"><span class="menu-icon">🔁</span> ইউনিকোড ➜ ANSI (বিজয়) রূপান্তর</button>
-        <div class="menu-separator"></div>
-        <button id="menuOcr" class="dropdown-item"><span class="menu-icon">🔍</span> ইমেজ ওসিআর (Extract Text)</button>
-        <button id="menuCopyPreviewText" class="dropdown-item"><span class="menu-icon">📄</span> রেন্ডার করা টেক্সট কপি</button>
-        <button id="menuCopyHtml" class="dropdown-item"><span class="menu-icon">🌐</span> প্রিভিউ এইচটিএমএল কপি</button>
-      </div>
-    </div>
-
-    <!-- Settings Menu -->
-    <div class="menu-item" id="menuSettings">
-      <button class="menu-trigger">সেটিংস (Settings) ▾</button>
-      <div class="menu-dropdown">
-        <button id="menuOpenSettings" class="dropdown-item"><span class="menu-icon">⚙️</span> Preferences & API Keys</button>
-      </div>
-    </div>
-
-    <!-- Help Menu -->
-    <div class="menu-item" id="menuHelp">
-      <button class="menu-trigger">সাহায্য (Help) ▾</button>
-      <div class="menu-dropdown">
-        <button id="menuShortcuts" class="dropdown-item"><span class="menu-icon">⌨️</span> কীবোর্ড শর্টকাট (Shortcuts)</button>
-      </div>
-    </div>
-  </nav>
-
-  <!-- ==================== Formatting Toolbar ==================== -->
-  <div class="toolbar">
-    <!-- History Tools -->
+  <!-- ==================== Quick Formatting Toolbar ==================== -->
+  <div class="toolbar" id="formattingToolbar">
     <div class="tool-group">
       <button id="toolUndo" class="tool-btn" title="Undo (Ctrl+Z)">↩</button>
       <button id="toolRedo" class="tool-btn" title="Redo (Ctrl+Y)">↪</button>
     </div>
 
-    <!-- Formatting Tools -->
     <div class="tool-group">
       <button id="toolBold" class="tool-btn" title="Bold (Ctrl+B)"><b>B</b></button>
       <button id="toolItalic" class="tool-btn" title="Italic (Ctrl+I)"><i>I</i></button>
@@ -162,99 +184,259 @@
       <button id="toolUl" class="tool-btn" title="Bullet List">• List</button>
       <button id="toolOl" class="tool-btn" title="Numbered List">1. List</button>
       <button id="toolTask" class="tool-btn" title="Task List">☑ Task</button>
+      <button id="toolTable" class="tool-btn" title="Table">⊞ Table</button>
     </div>
 
     <div class="tool-group">
-      <button id="toolTable" class="tool-btn" title="Insert Table">📊 Table</button>
-      <button id="toolMath" class="tool-btn" title="LaTeX Math Equation">∑</button>
-      <button id="toolMermaid" class="tool-btn" title="Mermaid Flowchart">🔀 Diagram</button>
+      <button id="toolMath" class="tool-btn" title="LaTeX / KaTeX Math Formula">∑ Math</button>
+      <button id="toolMermaid" class="tool-btn" title="Mermaid Flowchart / Diagram">📊 Diagram</button>
     </div>
 
-    <!-- Bengali Conversion Tools -->
-    <div class="tool-group">
-      <button id="toolAnsiToUnicode" class="tool-btn" style="color: #3b82f6; font-weight: 600;" title="বিজয়/ANSI থেকে ইউনিকোড বাংলায় রূপান্তর করুন">
-        🔄 ANSI ➜ ইউনিকোড
+    <div class="tool-group" style="border-left: 2px solid var(--accent-color); padding-left: 6px;">
+      <button id="toolAnsiToUnicode" class="tool-btn tool-btn-accent" title="বিজয় (ANSI) ফন্টকে আধুনিক ইউনিকোড বাংলায় রূপান্তর">
+        🔄 বিজয় ➜ ইউনিকোড
       </button>
-      <button id="toolUnicodeToAnsi" class="tool-btn" style="color: #10b981; font-weight: 600;" title="ইউনিকোড থেকে বিজয়/ANSI (SutonnyMJ) বাংলায় রূপান্তর করুন">
-        🔁 ইউনিকোড ➜ ANSI
+      <button id="toolUnicodeToAnsi" class="tool-btn tool-btn-accent" title="ইউনিকোড বাংলাকে প্রেস/সুতন্মীএমজে (ANSI) ফন্টে রূপান্তর">
+        🔁 ইউনিকোড ➜ বিজয়
       </button>
     </div>
 
-    <!-- Quick Utilities -->
     <div class="tool-group" style="margin-left: auto;">
-      <button id="toolRefresh" class="tool-btn" title="প্রিভিউ রিফ্রেশ করুন">🔄 Refresh</button>
+      <button id="toolRefresh" class="tool-btn" title="প্রিভিউ রিফ্রেশ করুন (F5)">🔄 Refresh</button>
       <button id="toolSelectAll" class="tool-btn" title="সব টেক্সট সিলেক্ট করুন (Ctrl+A)">🔘 Select All</button>
       <button id="toolCopy" class="tool-btn" title="মার্কডাউন কপি করুন (Ctrl+C)">📋 Copy</button>
       <button id="toolClear" class="tool-btn" style="color: #ef4444;" title="এডিটর খালি করুন (Clear Editor)">🗑️ Clear</button>
     </div>
   </div>
 
-  <!-- ==================== Workspace (Dual-Pane Split) ==================== -->
-  <main class="workspace">
-    <!-- Left Pane: Editor -->
-    <section id="editorPane" class="pane pane-editor">
-      <div class="pane-header">
-        <div class="pane-title">
-          <span>Markdown Source</span>
-          <span style="font-size: 10px; color: var(--text-secondary);">GFM + Math + Mermaid</span>
+  <!-- ==================== Main VS Code Layout Body ==================== -->
+  <div class="ide-body">
+    <!-- Activity Bar (Far Left Strip) -->
+    <aside class="activity-bar" id="activityBar">
+      <div class="activity-top">
+        <button id="actBarExplorer" class="activity-btn active" title="Explorer (Toggle Sidebar)">
+          📁
+        </button>
+        <button id="actBarActions" class="activity-btn" title="Quick Actions & Export">
+          ⚡
+        </button>
+        <button id="actBarBengali" class="activity-btn" title="Bengali Font Tools (ANSI ⇄ Unicode)">
+          🌐
+        </button>
+        <button id="actBarSettings" class="activity-btn" title="Settings & AI Keys">
+          ⚙️
+        </button>
+      </div>
+      <div class="activity-bottom">
+        <div class="user-avatar" id="actBarProfile" title="Syed Ariful Islam Emon (syedarifulislamemon2010)">
+          <span>SE</span>
         </div>
-        <div class="pane-actions">
-          <button id="paneUndoBtn" class="pane-btn" title="Undo (Ctrl+Z)">↩</button>
-          <button id="paneRedoBtn" class="pane-btn" title="Redo (Ctrl+Y)">↪</button>
-          <button id="paneSelectAllBtn" class="pane-btn" title="Select All (Ctrl+A)">Select All</button>
-          <button id="paneCopyBtn" class="pane-btn" title="Copy Markdown to Clipboard">📋 Copy</button>
-          <button id="paneClearBtn" class="pane-btn pane-btn-danger" title="Clear Editor">🗑️ Clear</button>
+        <button id="actBarHelp" class="activity-btn" title="Help & Keyboard Shortcuts">
+          ℹ️
+        </button>
+      </div>
+    </aside>
+
+    <!-- Primary Sidebar (Collapsible Drawer) -->
+    <aside class="primary-sidebar" id="primarySidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-title">EXPLORER</span>
+        <button id="sidebarCollapseBtn" class="sidebar-action-btn" title="Collapse Sidebar">◀</button>
+      </div>
+
+      <div class="sidebar-content">
+        <!-- Section: Open Editors -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-header">
+            <span>▾ OPEN EDITORS</span>
+            <button id="sidebarNewDocBtn" class="sidebar-add-btn" title="New Document (Ctrl+N)">＋</button>
+          </div>
+          <div class="sidebar-tab-list" id="sidebarTabList">
+            <!-- Injected dynamically -->
+          </div>
+        </div>
+
+        <!-- Section: Quick Actions -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-header">
+            <span>▾ QUICK ACTIONS</span>
+          </div>
+          <div class="sidebar-action-list">
+            <div class="sidebar-action-item" id="sbActionWord"><span>📝</span> Export Word (.docx)</div>
+            <div class="sidebar-action-item" id="sbActionMd"><span>📄</span> Export Markdown (.md)</div>
+            <div class="sidebar-action-item" id="sbActionPdf"><span>🖨️</span> Print / Save to PDF</div>
+            <div class="sidebar-action-item" id="sbActionImport"><span>📂</span> Import Any File</div>
+            <div class="sidebar-action-item" id="sbActionOcr"><span>🔍</span> Extract Text (OCR)</div>
+          </div>
+        </div>
+
+        <!-- Section: Bengali Tools -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-header">
+            <span>▾ BENGALI CONVERSION</span>
+          </div>
+          <div class="sidebar-action-list">
+            <div class="sidebar-action-item" id="sbActionAnsi"><span>🔄</span> বিজয় ➜ ইউনিকোড</div>
+            <div class="sidebar-action-item" id="sbActionUnicode"><span>🔁</span> ইউনিকোড ➜ বিজয়</div>
+          </div>
         </div>
       </div>
-      <textarea id="editor" class="editor-textarea" spellcheck="false" placeholder="Type or paste your Markdown here, or drag & drop documents..."></textarea>
-    </section>
+    </aside>
 
-    <!-- Resizer Divider -->
-    <div id="resizer" class="resizer" title="Drag to resize panes"></div>
-
-    <!-- Right Pane: Live Synced Preview -->
-    <section id="previewPane" class="pane pane-preview">
-      <div class="pane-header">
-        <div class="pane-title">
-          <span>Live Rendered Preview</span>
-          <span style="font-size: 10px; color: var(--text-secondary);">Synced Scrolling</span>
+    <!-- Main Workspace Area -->
+    <div class="ide-workspace">
+      <!-- Tabs Strip -->
+      <nav class="tab-bar" id="tabBar">
+        <div class="tab-list" id="tabList">
+          <!-- Tabs injected dynamically by app.js -->
         </div>
-        <div class="pane-actions">
-          <button id="paneRefreshBtn" class="pane-btn" title="Refresh & Re-render Preview">🔄 Refresh</button>
-          <button id="paneCopyTextBtn" class="pane-btn" title="Copy Rendered Text">📋 Copy Text</button>
-          <button id="paneCopyHtmlBtn" class="pane-btn" title="Copy Rendered HTML">🌐 Copy HTML</button>
-        </div>
-      </div>
-      <div id="preview" class="preview-container">
-        <article id="previewContent" class="preview-content"></article>
-      </div>
-    </section>
-  </main>
+        <button id="newTabBtn" class="tab-add-btn" title="নতুন ডকুমেন্ট ট্যাব তৈরি করুন (Ctrl+N)">＋</button>
+      </nav>
 
-  <!-- ==================== Footer Status Strip ==================== -->
-  <footer class="footer-strip">
-    <div class="footer-left">
-      <span class="status-dot"></span>
-      <span id="saveStatus">Saved locally</span>
+      <!-- Breadcrumbs Bar -->
+      <div class="breadcrumb-bar" id="breadcrumbBar">
+        <span class="bc-item">markitdown</span>
+        <span class="bc-separator">&gt;</span>
+        <span class="bc-item">documents</span>
+        <span class="bc-separator">&gt;</span>
+        <span class="bc-item active" id="breadcrumbCurrentDoc">Untitled Document 1.md</span>
+      </div>
+
+      <!-- Workspace Dual-Pane Split -->
+      <main class="workspace">
+        <!-- Left Pane: Editor with Line Numbers -->
+        <section id="editorPane" class="pane pane-editor">
+          <div class="pane-header">
+            <div class="pane-title">
+              <span>Markdown Source</span>
+              <span style="font-size: 10px; color: var(--text-secondary);">GFM + Math + Mermaid</span>
+            </div>
+            <div class="pane-actions">
+              <button id="paneUndoBtn" class="pane-btn" title="Undo (Ctrl+Z)">↩</button>
+              <button id="paneRedoBtn" class="pane-btn" title="Redo (Ctrl+Y)">↪</button>
+              <button id="paneSelectAllBtn" class="pane-btn" title="Select All (Ctrl+A)">Select All</button>
+              <button id="paneCopyBtn" class="pane-btn" title="Copy Markdown to Clipboard">📋 Copy</button>
+              <button id="paneClearBtn" class="pane-btn pane-btn-danger" title="Clear Editor">🗑️ Clear</button>
+            </div>
+          </div>
+          <div class="editor-wrapper">
+            <div id="lineNumbers" class="line-numbers"><span>1</span></div>
+            <textarea id="editor" class="editor-textarea" spellcheck="false" placeholder="Type or paste your Markdown here, or drag & drop documents..."></textarea>
+          </div>
+        </section>
+
+        <!-- Resizer Divider -->
+        <div id="resizer" class="resizer" title="Drag to resize panes"></div>
+
+        <!-- Right Pane: Live Synced Preview -->
+        <section id="previewPane" class="pane pane-preview">
+          <div class="pane-header">
+            <div class="pane-title">
+              <span>Live Rendered Preview</span>
+              <span style="font-size: 10px; color: var(--text-secondary);">Synced Scrolling</span>
+            </div>
+            <div class="pane-actions">
+              <button id="paneRefreshBtn" class="pane-btn" title="Refresh & Re-render Preview (F5)">🔄 Refresh</button>
+              <button id="paneCopyTextBtn" class="pane-btn" title="Copy Rendered Text">📋 Copy Text</button>
+              <button id="paneCopyHtmlBtn" class="pane-btn" title="Copy Rendered HTML">🌐 Copy HTML</button>
+            </div>
+          </div>
+          <div id="preview" class="preview-container">
+            <article id="previewContent" class="preview-content"></article>
+          </div>
+        </section>
+      </main>
     </div>
-    <div class="footer-right">
-      <span id="wordCount">0 words</span>  •  
-      <span id="charCount">0 chars</span>  •  
-      <span id="lineCount">0 lines</span>  •  
-      <span id="readTime">1 min read</span>
+  </div>
+
+  <!-- ==================== VS Code Status Bar ==================== -->
+  <footer class="vscode-status-bar" id="statusBar">
+    <div class="status-left">
+      <span class="status-item branch-item" title="Git Branch"><span class="git-icon"></span> emon*</span>
+      <span class="status-item" title="Synchronize / Connected">🔄</span>
+      <span class="status-item" title="0 Errors, 0 Warnings">⨂ 0  ⚠ 0</span>
+      <span class="status-item" id="saveStatus">Saved locally</span>
+    </div>
+    <div class="status-right">
+      <span class="status-item user-item" id="sbAuthor" title="Contributor & Author">syedarifulislamemon2010</span>
+      <span class="status-item" id="sbLineCol">Ln 1, Col 1</span>
+      <span class="status-item" id="sbWordCount">Words: 0</span>
+      <span class="status-item" id="charCount" style="display:none;">0 chars</span>
+      <span class="status-item" id="lineCount" style="display:none;">0 lines</span>
+      <span class="status-item" id="readTime" style="display:none;">1 min read</span>
+      <span class="status-item" id="wordCount" style="display:none;">0 words</span>
+      <span class="status-item">Spaces: 4</span>
+      <span class="status-item">UTF-8</span>
+      <span class="status-item">LF</span>
+      <span class="status-item highlight">Markdown</span>
     </div>
   </footer>
 
-  <!-- ==================== Modal: Import Document (MarkItDown) ==================== -->
+  <!-- ==================== Dedicated Modal: Export Document ==================== -->
+  <div id="exportModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-header">
+        <div class="modal-title">💾 এক্সপোর্ট ও ডাউনলোড করুন (Export Document)</div>
+        <button class="modal-close btn-icon btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">ডকুমেন্টের নাম (Filename):</label>
+          <input type="text" id="exportFilenameInput" class="form-input" placeholder="Untitled Document">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">ফরম্যাট বেছে নিন (Select Format):</label>
+          <div class="export-format-grid" id="exportFormatGrid">
+            <div class="format-card active" data-format="docx">
+              <div class="format-icon">📝</div>
+              <div class="format-title">Word Document</div>
+              <div class="format-ext">.docx</div>
+            </div>
+            <div class="format-card" data-format="md">
+              <div class="format-icon">📄</div>
+              <div class="format-title">Markdown</div>
+              <div class="format-ext">.md</div>
+            </div>
+            <div class="format-card" data-format="pdf">
+              <div class="format-icon">🖨️</div>
+              <div class="format-title">Print / PDF</div>
+              <div class="format-ext">.pdf</div>
+            </div>
+            <div class="format-card" data-format="txt">
+              <div class="format-icon">📑</div>
+              <div class="format-title">Plain Text</div>
+              <div class="format-ext">.txt</div>
+            </div>
+            <div class="format-card" data-format="html">
+              <div class="format-icon">🌐</div>
+              <div class="format-title">Styled HTML</div>
+              <div class="format-ext">.html</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="exportStatusNotice" class="export-notice">
+          💡 ফরম্যাট সিলেক্ট করে নিচের ডাউনলোড বাটনে ক্লিক করুন। সরাসরি আপনার ড্রাইভে ফাইল সেভ হয়ে যাবে।
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn modal-cancel">বাতিল (Cancel)</button>
+        <button id="confirmExportBtn" class="btn btn-primary" style="padding: 8px 18px;">📥 ডাউনলোড করুন (Download)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Modal: Import Document ==================== -->
   <div id="importModal" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
-        <div class="modal-title">📄 Universal Document Importer (MarkItDown)</div>
+        <div class="modal-title">📄 Universal Document Importer (MarkItDown Studio)</div>
         <button class="modal-close btn-icon btn">✕</button>
       </div>
       <div class="modal-body">
         <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
-          Convert any document to Markdown using Microsoft MarkItDown engine. Supports unlimited file sizes locally with complete privacy.
+          যেকোনো ডকুমেন্টকে স্বয়ংক্রিয়ভাবে পরিচ্ছন্ন মার্কডাউনে রূপান্তর করুন। লোকাল ইঞ্জিনের মাধ্যমে অফলাইনে সম্পূর্ণ নিরাপত্তায় রূপান্তর সম্পন্ন হয়।
         </p>
         <div id="importDropZone" class="drop-zone">
           <div class="drop-zone-icon">📁</div>
@@ -302,13 +484,15 @@
       </div>
       <div class="modal-body">
         <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding: 6px 0;"><b>Ctrl + N</b></td><td style="color: var(--text-secondary);">নতুন ডকুমেন্ট ট্যাব (New Tab)</td></tr>
+          <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding: 6px 0;"><b>Ctrl + W</b></td><td style="color: var(--text-secondary);">বর্তমান ট্যাব বন্ধ (Close Tab)</td></tr>
           <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding: 6px 0;"><b>Ctrl + Z</b></td><td style="color: var(--text-secondary);">আনডু (Undo)</td></tr>
           <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding: 6px 0;"><b>Ctrl + Y</b> / <b>Ctrl + Shift + Z</b></td><td style="color: var(--text-secondary);">রিডু (Redo)</td></tr>
           <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding: 6px 0;"><b>Ctrl + S</b></td><td style="color: var(--text-secondary);">মার্কডাউন ফাইল সেভ / এক্সপোর্ট</td></tr>
+          <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding: 6px 0;"><b>Ctrl + P</b></td><td style="color: var(--text-secondary);">প্রিন্ট / সেভ PDF</td></tr>
+          <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding: 6px 0;"><b>Ctrl + F</b></td><td style="color: var(--text-secondary);">খুঁজুন ও প্রতিস্থাপন (Find & Replace)</td></tr>
           <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding: 6px 0;"><b>Ctrl + A</b></td><td style="color: var(--text-secondary);">সব টেক্সট সিলেক্ট করুন</td></tr>
-          <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding: 6px 0;"><b>Ctrl + B</b></td><td style="color: var(--text-secondary);">বোল্ড (Bold)</td></tr>
-          <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding: 6px 0;"><b>Ctrl + I</b></td><td style="color: var(--text-secondary);">ইটালিক (Italic)</td></tr>
-          <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding: 6px 0;"><b>Tab</b></td><td style="color: var(--text-secondary);">ইনডেন্ট (২ স্পেস)</td></tr>
+          <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding: 6px 0;"><b>F5</b></td><td style="color: var(--text-secondary);">লাইভ প্রিভিউ রিফ্রেশ</td></tr>
         </table>
       </div>
       <div class="modal-footer">
@@ -357,6 +541,99 @@
       </div>
     </div>
   </div>
+
+  <!-- ==================== Modal: In-App Non-Blocking Confirmation ==================== -->
+  <div id="confirmModal" class="modal-overlay">
+    <div class="modal-card modal-small" style="max-width: 420px;">
+      <div class="modal-header">
+        <div id="confirmTitle" class="modal-title">নিশ্চিতকরণ (Confirmation)</div>
+        <button id="confirmCloseBtn" class="modal-close btn-icon btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirmMessage" style="font-size: 14px; margin: 8px 0; line-height: 1.5; color: var(--text-primary);"></p>
+      </div>
+      <div class="modal-footer">
+        <button id="confirmCancelBtn" class="btn">বাতিল (Cancel)</button>
+        <button id="confirmOkBtn" class="btn btn-primary">হ্যাঁ (Confirm)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Modal: Find & Replace ==================== -->
+  <div id="findReplaceModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 460px;">
+      <div class="modal-header">
+        <div class="modal-title">🔍 খুঁজুন ও প্রতিস্থাপন (Find & Replace)</div>
+        <button class="modal-close btn-icon btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">খুঁজুন (Find Text):</label>
+          <input type="text" id="findInput" class="form-input" placeholder="Text to search...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">প্রতিস্থাপন করুন (Replace With):</label>
+          <input type="text" id="replaceInput" class="form-input" placeholder="Replacement text...">
+        </div>
+        <div id="findStats" style="font-size: 12px; color: var(--text-secondary); min-height: 16px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="findNextBtn" class="btn">পরবর্তী (Find Next)</button>
+        <button id="replaceBtn" class="btn">প্রতিস্থাপন (Replace)</button>
+        <button id="replaceAllBtn" class="btn btn-primary">সব প্রতিস্থাপন (Replace All)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Modal: Document Statistics ==================== -->
+  <div id="statsModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 420px;">
+      <div class="modal-header">
+        <div class="modal-title">📊 ডকুমেন্ট পরিসংখ্যান (Document Statistics)</div>
+        <button class="modal-close btn-icon btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding: 8px 0;"><b>শব্দ সংখ্যা (Words):</b></td><td id="statWords" style="text-align: right; color: var(--accent-color); font-weight: 600;">0</td></tr>
+          <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding: 8px 0;"><b>বর্ণ সংখ্যা (Characters):</b></td><td id="statChars" style="text-align: right; color: var(--accent-color); font-weight: 600;">0</td></tr>
+          <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding: 8px 0;"><b>লাইন সংখ্যা (Lines):</b></td><td id="statLines" style="text-align: right; color: var(--accent-color); font-weight: 600;">0</td></tr>
+          <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding: 8px 0;"><b>বাক্য সংখ্যা (Sentences):</b></td><td id="statSentences" style="text-align: right; color: var(--accent-color); font-weight: 600;">0</td></tr>
+          <tr style="border-bottom: 1px solid var(--border-color);"><td style="padding: 8px 0;"><b>পড়ার আনুমানিক সময়:</b></td><td id="statReadingTime" style="text-align: right; color: var(--accent-color); font-weight: 600;">1 min</td></tr>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button class="btn modal-cancel">ঠিক আছে (Close)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Modal: About ==================== -->
+  <div id="aboutModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <div class="modal-title">ℹ️ MarkItDown Studio</div>
+        <button class="modal-close btn-icon btn">✕</button>
+      </div>
+      <div class="modal-body" style="font-size: 13px; line-height: 1.6; color: var(--text-primary);">
+        <p><b>MarkItDown Studio</b> — সর্বাধুনিক বাংলা ও ইংরেজি মার্কডাউন এডিটর, ইউনিভার্সাল কনভার্টার এবং অফলাইন ওসিআর স্যুট।</p>
+        <p style="color: var(--accent-color); font-weight: 600; margin-top: 6px;">নির্মাতা: সৈয়দ আরিফুল ইসলাম ইমন (Syed Ariful Islam Emon)</p>
+        <ul style="margin: 12px 0; padding-left: 20px; color: var(--text-secondary);">
+          <li>মাল্টি-ফরম্যাট ডকুমেন্ট কনভার্সন (PDF, Word, Excel, PPTX, OCR)।</li>
+          <li>শতভাগ নির্ভুল অফলাইন ও লাইভ ইউনিকোড এবং বিজয় উভমুখী রূপান্তর।</li>
+          <li>ক্যাটেক্স (LaTeX / KaTeX) সমীকরণ ও মারমেইড (Mermaid) ডায়াগ্রাম।</li>
+          <li>মাল্টি-ট্যাব এডিটিং এবং অটোমেটিক অফলাইন লোকালস্টোরেজ ড্রাফট প্রটেকশন।</li>
+          <li>ওয়ার্ড (.docx), পিডিএফ (.pdf), প্লেইন টেক্সট (.txt) ও মার্কডাউন (.md) সরাসরি এক্সপোর্ট।</li>
+        </ul>
+        <p style="color: var(--text-secondary); font-size: 11px; margin-top: 10px;">Version 3.0.0 • Developed by Syed Ariful Islam Emon • 100% Offline Capable</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn modal-cancel">ঠিক আছে (Close)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Instant Non-Blocking Toast Container ==================== -->
+  <div id="toastContainer" class="toast-container"></div>
 
   <!-- Main JavaScript Application -->
   <script src="js/bijoy2unicode.js"></script>

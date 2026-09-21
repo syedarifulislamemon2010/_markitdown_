@@ -62,14 +62,34 @@ def main():
     # Attempt to open as native desktop window via pywebview
     try:
         import webview
+        import base64
+
+        class StudioApi:
+            def __init__(self):
+                self.window = None
+
+            def save_file_dialog(self, filename, content_b64):
+                if not self.window:
+                    return {"success": False, "error": "No window"}
+                res = self.window.create_file_dialog(webview.SAVE_DIALOG, save_filename=filename)
+                if res:
+                    target_path = res if isinstance(res, str) else res[0]
+                    with open(target_path, 'wb') as f:
+                        f.write(base64.b64decode(content_b64))
+                    return {"success": True, "path": target_path}
+                return {"success": False, "cancelled": True}
+
+        api = StudioApi()
         window = webview.create_window(
             title="MarkItDown Studio - Universal Markdown Editor",
             url=url,
             width=1280,
             height=850,
             min_size=(980, 680),
-            background_color="#12151c",
+            background_color="#181818",
+            js_api=api,
         )
+        api.window = window
         webview.start()
     except Exception as e:
         print(f"Webview note: {e}. Opening in default system browser instead...")

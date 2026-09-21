@@ -8,7 +8,8 @@ import os
 import sys
 import tempfile
 from pathlib import Path
-from bottle import Bottle, request, response, static_file
+from urllib.parse import quote
+from bottle import Bottle, request, response, static_file, HTTPResponse
 
 # Add project root to sys.path
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
@@ -153,6 +154,51 @@ def api_convert_unicode_to_ansi():
         "success": True,
         "converted": converted,
     }
+
+
+@app.post('/api/export-docx')
+def api_export_docx():
+    """Convert Markdown to Word (.docx) file and trigger download."""
+    data = request.json or {}
+    markdown_text = data.get('markdown', '')
+    title = data.get('title', 'Document')
+    if not markdown_text:
+        markdown_text = request.forms.get('markdown', '')
+    if not title:
+        title = request.forms.get('title', 'Document')
+
+    from core.docx_exporter import markdown_to_docx_bytes
+    docx_bytes = markdown_to_docx_bytes(markdown_text, title)
+
+    ascii_title = "".join(c for c in title if c.isascii() and (c.isalnum() or c in (' ', '-', '_'))).strip() or "Document"
+    encoded_title = quote(f"{title}.docx")
+    headers = {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'Content-Disposition': f'attachment; filename="{ascii_title}.docx"; filename*=UTF-8\'\'{encoded_title}',
+        'Access-Control-Expose-Headers': 'Content-Disposition',
+        'Content-Length': str(len(docx_bytes)),
+    }
+    return HTTPResponse(body=docx_bytes, status=200, headers=headers)
+
+
+@app.post('/api/download-file')
+def api_download_file():
+    """Universal file download endpoint with Content-Disposition for desktop and web."""
+    data = request.json or {}
+    content = data.get('content', '')
+    filename = data.get('filename', 'document.txt')
+    mime_type = data.get('mime_type', 'text/plain; charset=utf-8')
+
+    ascii_filename = "".join(c for c in filename if c.isascii() and (c.isalnum() or c in ('.', ' ', '-', '_'))).strip() or "document.txt"
+    encoded_filename = quote(filename)
+    encoded = content.encode('utf-8')
+    headers = {
+        'Content-Type': mime_type,
+        'Content-Disposition': f'attachment; filename="{ascii_filename}"; filename*=UTF-8\'\'{encoded_filename}',
+        'Access-Control-Expose-Headers': 'Content-Disposition',
+        'Content-Length': str(len(encoded)),
+    }
+    return HTTPResponse(body=encoded, status=200, headers=headers)
 
 
 def run_server(host="127.0.0.1", port=8080):

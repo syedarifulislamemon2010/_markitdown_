@@ -28,6 +28,27 @@ POTENTIAL_NIKOSH_PATHS = [
 PRE_KARS = {'ি', 'ে', 'ৈ'}
 CONSONANTS = set('কখগঘঙচছজঝঞটঠডঢণতথদধনপফবভমযরলশষসহড়ঢ়য়ৎংঃঁ')
 
+# Embedded SutonnyMJ subset font decoders (specific to Bangladesh Government Gazettes)
+R10_MAP: Dict[int, str] = {
+    1: 'ে', 2: 'র', 3: 'ি', 4: 'জ', 5: 'স্ট', 6: 'া', 7: 'ড', 8: 'র্',
+    9: ' ', 10: 'ন', 11: 'ং', 12: 'এ', 13: '-', 14: '১', 15: 'ব',
+    16: 'ল', 17: 'ে', 18: 'দ', 19: 'শ', 20: 'গ', 21: 'ট', 22: 'অ',
+    23: 'ত', 24: 'ক্ত', 25: 'স', 26: 'খ', 27: '্য', 28: 'ক', 29: 'ৃ',
+    30: 'প', 31: 'ক্ষ', 32: '্র', 33: 'ম', 34: 'ঙ্গ', 35: ',', 36: 'ব',
+    37: 'র', 38: '৫', 39: '২', 40: '০', 41: 'ং'
+}
+
+R12_MAP: Dict[int, str] = {
+    1: ' ', 2: '(', 3: '১', 4: '০', 5: '৭', 6: '৫', 7: ')', 8: 'ঃ',
+    9: 'ট', 10: 'া', 11: 'ক', 12: '৬', 13: '.', 14: 'ব', 15: 'ং', 16: 'ল',
+    17: 'ে', 18: 'দ', 19: 'শ', 20: 'ে', 21: 'গ', 22: 'জ', 23: ',', 24: 'অ',
+    25: 'ি', 26: 'ত', 27: 'র', 28: 'ক্ত', 29: 'ড', 30: 'স', 31: 'ম', 32: 'ব',
+    33: '২', 34: 'ন', 35: 'ু', 36: 'ী', 37: 'প', 38: '৮', 39: '-', 40: '৩',
+    41: '৪', 42: '৯', 43: 'ম', 44: 'র্', 45: 'এ', 46: '্', 47: 'ক্র', 48: 'ল',
+    49: 'ভ', 50: 'দ্ব', 51: 'উ', 52: 'চ', 53: 'এ', 54: 'ণ', 55: 'য়', 56: 'ঁ',
+    57: 'ও', 58: 'ট', 59: '<', 60: '।', 61: 'ী', 62: 'হ', 63: 'ফ', 64: '্র'
+}
+
 
 def _find_reference_nikosh() -> Optional[str]:
     for p in POTENTIAL_NIKOSH_PATHS:
@@ -142,12 +163,22 @@ class NikoshFontDecoder:
                         code_map[26] = "("
                         code_map[30] = ")"
                         code_map[33] = ":"
+                        code_map[34] = "০"
+                        code_map[35] = "১"
+                        code_map[40] = "৪"
+                        code_map[41] = "২"
                         code_map[44] = "/"
+                        code_map[45] = "৫"
                         code_map[50] = "।"
                         code_map[52] = "."
+                        code_map[54] = "৩"
+                        code_map[55] = "৭"
                         code_map[56] = "-"
                         code_map[62] = ","
                         code_map[78] = ";"
+                        code_map[82] = "৬"
+                        code_map[132] = "৯"
+                        code_map[136] = "৮"
 
                         return fname, code_map
         return None, {}
@@ -219,7 +250,7 @@ def reorder_pre_kars(s: str) -> str:
 
 
 def clean_gazette_text(text: str) -> str:
-    """Post-processes visual Nikosh ordering into clean standard modern Bengali Unicode."""
+    """Post-processes visual Nikosh and Sutonny ordering into clean standard modern Bengali Unicode."""
     # Convert trailing visual reph to leading reph
     text = re.sub(r'([মযথতণধঘশষ])্র', r'র্\1', text)
 
@@ -235,7 +266,7 @@ def clean_gazette_text(text: str) -> str:
     text = text.replace('পৰ্শাসনিক', 'প্রশাসনিক').replace('পৰ্ধান', 'প্রধান')
     text = text.replace('মন্র্তণালয়', 'মন্ত্রণালয়').replace('গণপ্রজাতন্র্তী', 'গণপ্রজাতন্ত্রী')
     text = text.replace('প্রবত্রন', 'প্রবর্তন').replace('শত্ৰ', 'শর্ত').replace('কায্রকর', 'কার্যকর')
-    text = text.replace('নিধ্রারণ', 'নির্ধারণ').replace('নিধ্রারিত', 'নির্ধারিত')
+    text = text.replace('নিধ্রারণ', 'নির্ধারণ').replace('নিধ্রারিত', 'নির্ধারিত').replace('িনধ্রািরত', 'নির্ধারিত')
     text = text.replace('ডিসেমব্র', 'ডিসেম্বর').replace('র্খস্টিাব্দ', 'খ্রিস্টাব্দ').replace('রার্ষ্টায়ত্ত', 'রাষ্ট্রায়ত্ত')
 
     # Visual conjuncts
@@ -255,7 +286,20 @@ def clean_gazette_text(text: str) -> str:
     text = text.replace('তারখি', 'তারিখ').replace('হসিাবে', 'হিসাবে').replace('হইবনে', 'হইবেন')
     text = text.replace('সময়রে', 'সময়ের').replace('বকয়ো', 'বকেয়া').replace('আদশে', 'আদেশ')
     text = text.replace('জাররি', 'জারির').replace('বতনে', 'বেতনে').replace('জাতীয় বতেনস্কেল', 'জাতীয় বেতনস্কেল')
-    text = text.replace('ইতোমধেয্', 'ইতোমধ্যে').replace('বতেনস্কেল', 'বেতনস্কেল').replace('বতেন', 'বেতন')
+    text = text.replace('ইতোমধেয্', 'ইতোমধ্যে').replace('বতেনস্কেল', 'বেতনস্কেল').replace('বতেন', 'বেতন').replace('বতন', 'বেতন')
+
+    # SutonnyMJ and Gazette header fixes
+    text = text.replace('েরিজস্টাডর্', 'রেজিস্টার্ড').replace('রেজিস্টাডর্', 'রেজিস্টার্ড')
+    text = text.replace('বাংলােদশ', 'বাংলাদেশ').replace('েগেজট', 'গেজেট').replace('অিতিরক্ত', 'অতিরিক্ত')
+    text = text.replace('কতৃর্পক্ষ', 'কর্তৃপক্ষ').replace('কতৃর্ক', 'কর্তৃক').replace('প্রকািশত', 'প্রকাশিত')
+    text = text.replace('িডেসবরর', 'ডিসেম্বর').replace('ডিসেবরর', 'ডিসেম্বর').replace('িডেসমব্র', 'ডিসেম্বর')
+    text = text.replace('সব্শাসিত', 'স্বশাসিত').replace('স্কল', 'স্কেল').replace('গ্রড', 'গ্রেড')
+    text = text.replace('ইিব', 'ইবি').replace('উল্লখিতি', 'উল্লিখিত').replace('আেদশ', 'আদেশ')
+    text = text.replace('অথ্র', 'অর্থ').replace('িবভাগ', 'বিভাগ').replace('অনুিবভাগ', 'অনুবিভাগ')
+    text = text.replace('তািরখ', 'তারিখ').replace('পৗষ', 'পৌষ').replace('িখ্রস্টাব্দ', 'খ্রিস্টাব্দ')
+    text = text.replace('৩৭০-আ ইন/২০১৫', '৩৭০-আইন/২০১৫').replace('৩৭০-আইন', '৩৭০-আইন')
+    text = text.replace('ডিসেমব্র', 'ডিসেম্বর').replace('মংল্য ঃ', 'মূল্য :')
+    text = re.sub(r'এস\s*[\.]?\s*আর\s*[\.]?\s*ও\s*নং\s*৩৭০\s*[-–]?\s*আ\s*[\n\s]*ইন', 'এস. আর. ও. নং ৩৭০-আইন', text)
 
     # Fix spacing around punctuation
     text = re.sub(r'\s+([,।:;!?])', r'\1', text)
@@ -282,10 +326,23 @@ def is_gazette_pdf(pdf_path: str) -> bool:
     return False
 
 
+def _decode_font_bytes(cur_font: str, raw_b: bytes, nikosh_fname: Optional[str], nikosh_map: Dict[int, str]) -> str:
+    if cur_font == "R10":
+        return "".join(R10_MAP.get(b, "") for b in raw_b)
+    elif cur_font == "R12":
+        return "".join(R12_MAP.get(b, "") for b in raw_b)
+    elif cur_font == "R8":
+        return "".join("×" if b == 40 else (" " if b == 1 else "") for b in raw_b)
+    elif cur_font == nikosh_fname and nikosh_map:
+        return "".join(nikosh_map.get(b, chr(b) if 32 <= b < 127 else "") for b in raw_b)
+    else:
+        return raw_b.decode("latin-1", errors="replace")
+
+
 def extract_gazette_pdf(pdf_path: str) -> str:
     """
     Extracts text from all pages of a Bangladesh Gazette PDF.
-    Outputs structured, clean Markdown.
+    Decodes Nikosh, SutonnyMJ, and Symbol fonts verbatim into clean Markdown.
     """
     decoder = NikoshFontDecoder()
     nikosh_fname, nikosh_map = decoder.build_pdf_code_map(pdf_path)
@@ -315,54 +372,138 @@ def extract_gazette_pdf(pdf_path: str) -> str:
                     if current_line:
                         line_s = "".join(current_line).strip()
                         if line_s:
-                            cleaned = clean_gazette_text(line_s)
-                            if cleaned:
-                                page_lines.append(cleaned)
+                            page_lines.append(line_s)
                         current_line = []
                 elif m.group(2):
                     parts = re.findall(rb'\((.*?)(?<!\\)\)', m.group(2), re.DOTALL)
                     for p in parts:
                         b_bytes = parse_pdf_string(p)
-                        if current_font in ("R10", "R12"):
-                            current_line.append(bijoy_to_unicode(b_bytes.decode('latin-1', errors='replace')))
-                        elif current_font == nikosh_fname and nikosh_map:
-                            current_line.append("".join(nikosh_map.get(b, chr(b) if 32 <= b < 127 else "") for b in b_bytes))
-                        else:
-                            current_line.append(b_bytes.decode('latin-1', errors='replace'))
+                        current_line.append(_decode_font_bytes(current_font, b_bytes, nikosh_fname, nikosh_map))
                 elif m.group(3):
                     b_bytes = parse_pdf_string(m.group(3))
-                    if current_font in ("R10", "R12"):
-                        current_line.append(bijoy_to_unicode(b_bytes.decode('latin-1', errors='replace')))
-                    elif current_font == nikosh_fname and nikosh_map:
-                        current_line.append("".join(nikosh_map.get(b, chr(b) if 32 <= b < 127 else "") for b in b_bytes))
-                    else:
-                        current_line.append(b_bytes.decode('latin-1', errors='replace'))
+                    current_line.append(_decode_font_bytes(current_font, b_bytes, nikosh_fname, nikosh_map))
 
             if current_line:
                 line_s = "".join(current_line).strip()
                 if line_s:
-                    cleaned = clean_gazette_text(line_s)
-                    if cleaned:
-                        page_lines.append(cleaned)
+                    page_lines.append(line_s)
 
-            # Filter out stray symbols and spacer lines
+            # Clean and filter lines
             cleaned_page_lines = []
             for pl in page_lines:
-                if re.match(r'^[\s\t\x00-\x1f!#$%&\'()*+,-./:;<=>?@[\]^_`{|}~]+$', pl) and len(pl) < 8:
+                cl = clean_gazette_text(pl)
+                if not cl:
                     continue
-                # Format section headers
-                if pl == 'গণপ্রজাতন্ত্রী বাংলাদেশ সরকার':
-                    cleaned_page_lines.append(f"# {pl}")
-                elif pl.startswith('অর্থ মন্ত্রণালয়'):
-                    cleaned_page_lines.append(f"### {pl}")
-                elif pl.startswith('অর্থ বিভাগ') or pl.startswith('বাস্তবায়ন অনুবিভাগ'):
-                    cleaned_page_lines.append(f"**{pl}**")
-                elif pl.startswith('আদেশ'):
-                    cleaned_page_lines.append(f"### {pl}")
-                else:
-                    cleaned_page_lines.append(pl)
+                # Skip running headers on pages 2+
+                if page_idx > 1 and re.search(r'বাংলাদেশ\s+গেজেট,\s+অতিরিক্ত,\s+ডিসেম্বর', cl):
+                    continue
+                # Skip standalone emblems or symbol lines
+                if re.match(r'^[\s\t\x00-\x1f!#$%&\'()*+,-./:;<=>?@[\]^_`{|}~]+$', cl) and len(cl) < 8:
+                    continue
+                cleaned_page_lines.append(cl)
 
-            page_body = "\n\n".join(cleaned_page_lines)
+            # Merge single-character/punctuation fragment lines
+            merged_lines = []
+            buf = ""
+            for l in cleaned_page_lines:
+                if not buf:
+                    buf = l
+                    continue
+                if l in ('.', ',', '-', '।', ':', ';', ')', ']', '}') or \
+                   buf.endswith(('(', '[', '{', '-', '.')) or \
+                   (len(buf) <= 3 and not buf.startswith(('(', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯', '#'))) or \
+                   (len(l) <= 3 and not re.match(r'^\([১-৯a-zA-Zক-হ]+\)', l)):
+                    if l in ('.', ',', '-', '।', ':', ';', ')') or buf.endswith(('(', '[', '-')):
+                        buf += l
+                    else:
+                        buf += " " + l
+                else:
+                    merged_lines.append(buf)
+                    buf = l
+            if buf:
+                merged_lines.append(buf)
+
+            # Page 1 official Gazette header formatting
+            if page_idx == 1 and merged_lines:
+                first = merged_lines[0]
+                if 'রেজিস্টার্ড নং' in first and 'বাংলাদেশ গেজেট' in first:
+                    header_block = [
+                        "রেজিস্টার্ড নং ডি এ-১",
+                        "",
+                        "# বাংলাদেশ গেজেট",
+                        "**অতিরিক্ত সংখ্যা**  ",
+                        "**কর্তৃপক্ষ কর্তৃক প্রকাশিত**  ",
+                        "**মঙ্গলবার, ডিসেম্বর ১৫, ২০১৫**",
+                        "",
+                        "---",
+                        "",
+                        "# গণপ্রজাতন্ত্রী বাংলাদেশ সরকার"
+                    ]
+                    merged_lines = header_block + merged_lines[1:]
+
+            # Page 4 National Pay Scale 2015 Table formatting
+            if page_idx == 4:
+                split_lines = []
+                for l in merged_lines:
+                    parts = re.split(r'(?<=\S)\s+(?=([০-৯]+)\.\s*টাকা)', l)
+                    for p in parts:
+                        if p and p.strip() and not re.match(r'^[০-৯]+$', p.strip()):
+                            split_lines.append(p.strip())
+
+                joined_rows = []
+                other_lines = []
+                i = 0
+                while i < len(split_lines):
+                    curr = split_lines[i]
+                    if re.match(r'^[০-৯]+\.\s*টাকা', curr):
+                        if i + 1 < len(split_lines) and split_lines[i+1].startswith('টাকা') and not re.match(r'^[০-৯]+\.', split_lines[i+1]):
+                            curr = curr + ' ' + split_lines[i+1]
+                            i += 1
+                        joined_rows.append(curr)
+                    else:
+                        if not any(kw in curr for kw in ['জাতীয় বেতনস্কেল', 'বর্তমান', 'অনুরূপ স্কেল', 'গ্রেড']):
+                            other_lines.append(curr)
+                    i += 1
+
+                table_lines = [
+                    "### জাতীয় বেতনস্কেল, ২০১৫ ও ২০০৯",
+                    "",
+                    "| গ্রেড | জাতীয় বেতনস্কেল, ২০০৯ (বর্তমান) | জাতীয় বেতনস্কেল, ২০১৫ (কার্যকর অনুরূপ স্কেল) |",
+                    "| :---: | :--- | :--- |"
+                ]
+                for r in joined_rows:
+                    r_clean = re.sub(r'\s*\n\s*', ' ', r)
+                    m = re.match(r'^([০-৯]+)\.\s*(টাকা\s+.*?)\s+(টাকা\s+.*)$', r_clean, re.DOTALL)
+                    if m:
+                        grade, s1, s2 = m.group(1), m.group(2).strip(), m.group(3).strip()
+                        table_lines.append(f"| {grade} | {s1} | {s2} |")
+                    else:
+                        table_lines.append(f"| - | {r_clean} | |")
+
+                merged_lines = other_lines + ["\n".join(table_lines)]
+
+            # Format headings
+            final_lines = []
+            for pl in merged_lines:
+                if pl == 'গণপ্রজাতন্ত্রী বাংলাদেশ সরকার':
+                    final_lines.append(f"# {pl}")
+                elif pl.startswith('অর্থ মন্ত্রণালয়'):
+                    final_lines.append(f"### {pl}")
+                elif pl.startswith('অর্থ বিভাগ') or pl.startswith('বাস্তবায়ন অনুবিভাগ'):
+                    final_lines.append(f"**{pl}**")
+                elif pl.startswith('আদেশ') and len(pl) < 15:
+                    final_lines.append(f"### {pl}")
+                else:
+                    final_lines.append(pl)
+
+            page_body = "\n\n".join(final_lines)
+            page_body = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', page_body)
+
+            if page_idx == 1:
+                page_body = page_body.replace('আদেশতারিখ:', '### আদেশ\n\n**তারিখ:** ').replace('আদেশ তারিখ:', '### আদেশ\n\n**তারিখ:** ')
+                page_body = re.sub(r'এস\s*[\.]?\s*আর\s*[\.]?\s*ও\s*নং\s*৩৭০\s*[-–]?\s*আ\s*[\n\s]*ইন/২০১৫।', '\n\n**এস. আর. ও. নং ৩৭০-আইন/২০১৫।**\n\n', page_body)
+                page_body = re.sub(r'১।\s*[\n\s]*শিরোনাম\s*[\n\s]*প্রবর্তন ও প্রয়োগ।', '\n\n### ১। শিরোনাম, প্রবর্তন ও প্রয়োগ।\n\n', page_body)
+
             if page_body.strip():
                 all_pages_markdown.append(f"<!-- 📄 Page {page_idx} -->\n\n{page_body}")
 

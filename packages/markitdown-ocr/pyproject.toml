@@ -45,9 +45,9 @@ llm = [
 ]
 
 [project.urls]
-Documentation = "https://github.com/microsoft/markitdown#readme"
-Issues = "https://github.com/microsoft/markitdown/issues"
-Source = "https://github.com/microsoft/markitdown"
+Documentation = "https://github.com/syedarifulislamemon2010/markitdown#readme"
+Issues = "https://github.com/syedarifulislamemon2010/markitdown/issues"
+Source = "https://github.com/syedarifulislamemon2010/markitdown"
 
 [tool.hatch.version]
 path = "src/markitdown_ocr/__about__.py"
