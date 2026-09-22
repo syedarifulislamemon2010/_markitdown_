@@ -1,6 +1,10 @@
 .vscode
 scratch/
 tests/real_docs/
+.studio_config.json
+.env
+.env.*
+.markitdown_desktop_config.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

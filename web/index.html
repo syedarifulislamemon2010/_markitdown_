@@ -565,6 +565,14 @@
         <button class="modal-close btn-icon btn">✕</button>
       </div>
       <div class="modal-body">
+        <!-- Security & Storage Notice Banner -->
+        <div id="browserModeKeyWarning" class="key-warning-banner" style="display: none; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; font-size: 12px; color: #f59e0b;">
+          ⚠️ <b>ব্রাউজার মোড:</b> ব্রাউজার মোডে API কী শুধুমাত্র বর্তমান সেশনের জন্য মেমরিতে সংরক্ষিত থাকবে (localStorage-এ জমা রাখা হয় না)। স্থায়ী ও নিরাপদ Keyring স্টোরেজের জন্য MarkItDown Studio ডেস্কটপ উইন্ডো ব্যবহার করুন।
+        </div>
+        <div id="desktopKeyringNotice" class="key-warning-banner" style="display: none; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; font-size: 12px; color: #10b981;">
+          🔒 <b>OS Keyring সুরক্ষিত:</b> আপনার API কী নিরাপদভাবে আপনার অপারেটিং সিস্টেমের Keyring ভল্টে সংরক্ষিত থাকে।
+        </div>
+
         <!-- Quick Provider Presets -->
         <div class="form-group">
           <label class="form-label" style="font-weight: 600;">⚡ Quick AI Provider Presets:</label>
@@ -590,7 +598,7 @@
         <div class="form-group">
           <label class="form-label">API Key (OpenAI-Compatible / Relay Key):</label>
           <div class="input-with-action">
-            <input type="password" id="openaiKeyInput" class="form-input" placeholder="sk-..." value="sk-zLV3mqL5YGpakPB38NdVcpQKsdnCU9IyBjQR6m0ZdM5Uce60">
+            <input type="password" id="openaiKeyInput" class="form-input" placeholder="sk-..." value="">
             <button type="button" id="toggleApiKeyVisibility" class="btn-input-action" title="Toggle Key Visibility">👁️</button>
           </div>
           <span style="font-size: 11px; color: var(--text-secondary); display: block; margin-top: 4px;">
@@ -644,15 +652,21 @@
 
         <div class="form-group">
           <label class="form-label">Google Gemini API Key (Optional Free Tier):</label>
-          <input type="password" id="geminiKeyInput" class="form-input" placeholder="AIzaSy...">
+          <div class="input-with-action">
+            <input type="password" id="geminiKeyInput" class="form-input" placeholder="AIzaSy...">
+            <button type="button" id="toggleGeminiKeyVisibility" class="btn-input-action" title="Toggle Key Visibility">👁️</button>
+          </div>
           <span style="font-size: 11px; color: var(--text-secondary); display: block; margin-top: 4px;">
             বিনামূল্যে Google AI Studio থেকে কি (Key) নিয়ে স্ক্যান ডকুমেন্ট ও গ্যাজেট OCR করতে পারেন।
           </span>
         </div>
       </div>
-      <div class="modal-footer">
-        <button class="btn modal-cancel">Cancel</button>
-        <button id="saveSettingsBtn" class="btn btn-primary">Save Settings</button>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+        <button type="button" id="clearApiKeysBtn" class="btn" style="color: var(--danger-color); border-color: rgba(239, 68, 68, 0.4);">🗑️ ক্লিয়ার কী (Clear Keys)</button>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn modal-cancel">Cancel</button>
+          <button id="saveSettingsBtn" class="btn btn-primary">Save Settings</button>
+        </div>
       </div>
     </div>
   </div>

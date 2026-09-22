@@ -80,12 +80,14 @@ class DocumentConverter:
         openai_api_key: Optional[str] = None,
         gemini_api_key: Optional[str] = None,
         llm_model: str = "gpt-4o",
+        openai_base_url: Optional[str] = None,
         docintel_endpoint: Optional[str] = None,
     ):
         self.enable_plugins = enable_plugins
         self.openai_api_key = openai_api_key
         self.gemini_api_key = gemini_api_key
         self.llm_model = llm_model
+        self.openai_base_url = openai_base_url
         self.docintel_endpoint = docintel_endpoint
         self._init_engine()
 
@@ -95,11 +97,15 @@ class DocumentConverter:
             "enable_plugins": self.enable_plugins,
         }
 
-        # Optional OpenAI LLM for OCR/Vision
+        # Optional OpenAI / Compatible Relay LLM for OCR/Vision
         if self.openai_api_key:
             try:
                 from openai import OpenAI
-                kwargs["llm_client"] = OpenAI(api_key=self.openai_api_key)
+                effective_base_url = (self.openai_base_url or os.environ.get("OPENAI_BASE_URL") or "").strip()
+                client_kwargs = {"api_key": self.openai_api_key}
+                if effective_base_url:
+                    client_kwargs["base_url"] = effective_base_url.rstrip("/") + "/"
+                kwargs["llm_client"] = OpenAI(**client_kwargs)
                 kwargs["llm_model"] = self.llm_model
             except ImportError:
                 pass
@@ -116,6 +122,7 @@ class DocumentConverter:
         openai_api_key: Optional[str] = None,
         gemini_api_key: Optional[str] = None,
         llm_model: Optional[str] = None,
+        openai_base_url: Optional[str] = None,
         docintel_endpoint: Optional[str] = None,
     ):
         """Update runtime configuration and re-initialize MarkItDown."""
@@ -127,6 +134,8 @@ class DocumentConverter:
             self.gemini_api_key = gemini_api_key
         if llm_model is not None:
             self.llm_model = llm_model
+        if openai_base_url is not None:
+            self.openai_base_url = openai_base_url
         if docintel_endpoint is not None:
             self.docintel_endpoint = docintel_endpoint
         self._init_engine()
@@ -195,6 +204,7 @@ class DocumentConverter:
                         p,
                         openai_api_key=self.openai_api_key,
                         openai_model=self.llm_model,
+                        openai_base_url=self.openai_base_url,
                     )
                     if ocr_text and "No readable text detected" not in ocr_text:
                         markdown_content = f"{markdown_content}\n\n### 📝 Extracted Image Text (OCR):\n\n{ocr_text}\n"
@@ -219,7 +229,7 @@ class DocumentConverter:
 
                 if is_scanned_or_cid:
                     has_vision_api = bool(
-                        (self.openai_api_key and self.openai_api_key.strip().startswith("sk-")) or
+                        (self.openai_api_key and self.openai_api_key.strip()) or
                         (self.gemini_api_key and self.gemini_api_key.strip())
                     )
 
@@ -231,6 +241,7 @@ class DocumentConverter:
                                 openai_api_key=self.openai_api_key,
                                 gemini_api_key=self.gemini_api_key,
                                 openai_model=self.llm_model,
+                                openai_base_url=self.openai_base_url,
                             )
                             if ocr_result and "⚠️" not in ocr_result:
                                 markdown_content = ocr_result

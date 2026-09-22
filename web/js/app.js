@@ -2513,16 +2513,32 @@ ${previewContent.innerHTML}
       const current = document.body.getAttribute('data-theme') || 'dark';
       setTheme(current === 'dark' ? 'light' : 'dark');
     });
-    const defaultHcnsecKey = 'sk-zLV3mqL5YGpakPB38NdVcpQKsdnCU9IyBjQR6m0ZdM5Uce60';
     const defaultHcnsecUrl = 'https://api.hcnsec.cn/v1';
     const defaultModel = 'auto';
 
-    if (!localStorage.getItem('markitdown_openai_key')) {
-      localStorage.setItem('markitdown_openai_key', defaultHcnsecKey);
+    if (!localStorage.getItem('markitdown_openai_base_url')) {
       localStorage.setItem('markitdown_openai_base_url', defaultHcnsecUrl);
       localStorage.setItem('markitdown_openai_model', defaultModel);
       localStorage.setItem('markitdown_provider', 'hcnsec');
     }
+
+    async function loadInitialSettings() {
+      try {
+        const sResp = await fetch('/api/settings');
+        if (sResp.ok) {
+          const sData = await sResp.json();
+          if (sData.success && sData.config) {
+            const c = sData.config;
+            if (c.openai_key) localStorage.setItem('markitdown_openai_key', c.openai_key);
+            if (c.openai_base_url) localStorage.setItem('markitdown_openai_base_url', c.openai_base_url);
+            if (c.openai_model) localStorage.setItem('markitdown_openai_model', c.openai_model);
+            if (c.gemini_key) localStorage.setItem('markitdown_gemini_key', c.gemini_key);
+            if (c.provider) localStorage.setItem('markitdown_provider', c.provider);
+          }
+        }
+      } catch (e) {}
+    }
+    loadInitialSettings();
 
     // Settings Modal Open
     document.getElementById('settingsBtn')?.addEventListener('click', async () => {

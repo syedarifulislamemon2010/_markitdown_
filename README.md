@@ -25,7 +25,18 @@ With specialized support for bilingual documents, MarkItDown Studio includes bui
 
 ## ✨ Key Features
 
-- **📄 Universal Document Conversion**: Convert PDF, DOCX, XLSX, PPTX, and Images (with offline OCR) directly into formatted Markdown tables, headings, and lists.
+- **📄 Universal Document Conversion**: Convert PDF, DOCX, XLSX, PPTX, and Images (with offline & AI OCR) directly into formatted Markdown tables, headings, and lists.
+- **🤖 Universal AI & Custom Relay Engine**:
+  - Connect to any OpenAI-compatible API relay (**HCNSEC AI Relay**, **OpenRouter**, **DeepSeek**, **Local Ollama / LM Studio**, or official **OpenAI**).
+  - Configurable **API Base URL**, **API Key**, and **Custom Model Selector**.
+  - **⚡ Live Connection Tester**: 1-click roundtrip ping measurement (latency in ms) and automated model list retrieval.
+  - **Google Gemini API** native integration for free-tier high-speed OCR.
+- **✨ In-Editor AI Studio Assistant**:
+  - ✍️ **AI Polish & Proofread**: Grammar and prose enhancement in Bengali & English while preserving Markdown tags.
+  - 📝 **Executive Document Summary**: Instant structured summaries with bullet points and bold takeaways.
+  - 🌐 **Bilingual Translation (EN ⇄ BN)**: Faithful Bengali to English and English to Bengali conversion.
+  - ⊞ **Markdown Table Generator**: Turn unstructured text or lists into aligned GFM tables.
+  - 💡 **Concept Explainer**: Explains technical logic, formulas, or code snippets with clear explanations.
 - **🔤 Native Bengali Typography & NLP**:
   - Pre-configured **Kalpurush** (Unicode) and **Kalpurush ANSI** (Bijoy) fonts.
   - One-click **Bijoy ⇄ Unicode** conversion that preserves English terms, citations, and formulas.
@@ -40,13 +51,13 @@ With specialized support for bilingual documents, MarkItDown Studio includes bui
   - Mathematical typesetting via **KaTeX** (`$$` display and `$` inline math).
   - Flowcharts and diagrams via **Mermaid.js**.
   - Interactive **GUI Table Assistant** to insert and format tables effortlessly.
-- **🖥️ Presentation / Slideshow Mode**: Turn any Markdown document into an interactive presentation.
+- **🖥️ Presentation / Slideshow Mode**: Turn any Markdown document into an interactive presentation (`F10`).
 - **💾 Multi-Format Export**:
-  - **Microsoft Word (`.docx`)**: Native Word tables, embedded images, and math formulas.
-  - **Print / PDF (`.pdf`)**: Direct headless PDF export or calibrated print dialog.
+  - **Direct PDF Export (`.pdf`)**: Headless Chrome/Edge engine for pixel-perfect Bengali and English documents.
+  - **Microsoft Word (`.docx`)**: Native Word tables, embedded Base64 images, and math typography.
   - **Standalone HTML (`.html`)**: Complete self-contained file with bundled CSS and math fonts.
   - **Markdown (`.md`)** & **Plain Text (`.txt`)**.
-- **🔒 100% Offline & Private**: Everything runs locally on your computer with zero external network dependencies.
+- **🔒 100% Offline Capable & Private**: Everything runs locally on your computer with zero forced cloud dependencies.
 
 ---
 

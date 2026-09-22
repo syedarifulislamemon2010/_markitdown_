@@ -33,22 +33,28 @@ def extract_text_from_image(
     openai_api_key: Optional[str] = None,
     gemini_api_key: Optional[str] = None,
     openai_model: str = "gpt-4o",
+    openai_base_url: Optional[str] = None,
     language: str = "auto",
 ) -> str:
     """
     Extract text (Bengali & English) from an image.
     Supports:
-    1. OpenAI Vision (GPT-4o)
+    1. OpenAI Vision & Custom Relay (GPT-4o, DeepSeek, HCNSEC, etc.)
     2. Google Gemini Vision (Gemini 1.5 Flash / 2.0 Flash)
     3. Windows Native Media OCR (Offline, Windows 10/11)
     4. Tesseract OCR (Fallback)
     """
-    # 1. AI Vision OCR via OpenAI
-    if openai_api_key and openai_api_key.strip().startswith("sk-"):
+    # 1. AI Vision OCR via OpenAI or Compatible Relay
+    if openai_api_key and openai_api_key.strip():
         try:
-            return _ocr_via_openai(image_input, openai_api_key, openai_model)
+            return _ocr_via_openai(
+                image_input,
+                api_key=openai_api_key,
+                model=openai_model,
+                base_url=openai_base_url,
+            )
         except Exception as e:
-            print(f"OpenAI OCR error: {e}. Falling back...")
+            print(f"OpenAI / Custom Relay OCR error: {e}. Falling back...")
 
     # 2. AI Vision OCR via Google Gemini
     if gemini_api_key and gemini_api_key.strip():
@@ -96,6 +102,8 @@ def _ocr_via_openai(
     image_input: Union[str, Path, Image.Image],
     api_key: str,
     model: str = "gpt-4o",
+    base_url: Optional[str] = None,
+    timeout: float = 60.0,
 ) -> str:
     import io
     from openai import OpenAI
@@ -108,7 +116,12 @@ def _ocr_via_openai(
     b64_str = base64.b64encode(buf.getvalue()).decode("utf-8")
     mime = "image/png" if fmt == "PNG" else "image/jpeg"
 
-    client = OpenAI(api_key=api_key)
+    effective_base_url = (base_url or os.environ.get("OPENAI_BASE_URL") or "").strip()
+    client_kwargs = {"api_key": api_key, "timeout": timeout}
+    if effective_base_url:
+        client_kwargs["base_url"] = effective_base_url.rstrip("/") + "/"
+    client = OpenAI(**client_kwargs)
+
     prompt = (
         "Extract and transcribe ALL text from this image verbatim. "
         "Pay special attention to Bengali (বাংলা) and English characters, formatting, tables, "
@@ -159,7 +172,7 @@ def _ocr_via_gemini(
         "Do not include conversational preamble or markdown code fences."
     )
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     payload = {
         "contents": [{
             "parts": [
@@ -169,10 +182,15 @@ def _ocr_via_gemini(
         }]
     }
 
+    headers = {
+        "Content-Type": "application/json",
+        "x-goog-api-key": api_key,
+    }
+
     req = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers=headers,
         method="POST"
     )
 
@@ -191,6 +209,7 @@ def extract_text_from_pdf_pages(
     openai_api_key: Optional[str] = None,
     gemini_api_key: Optional[str] = None,
     openai_model: str = "gpt-4o",
+    openai_base_url: Optional[str] = None,
     max_pages: int = 15,
 ) -> str:
     """
@@ -216,6 +235,7 @@ def extract_text_from_pdf_pages(
             openai_api_key=openai_api_key,
             gemini_api_key=gemini_api_key,
             openai_model=openai_model,
+            openai_base_url=openai_base_url,
         )
         page_markdowns.append(f"<!-- 📄 Page {i+1} of {total_pages} -->\n\n{text}")
 

@@ -21,6 +21,70 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from desktop.server import run_server
 
+SERVICE_NAME = "MarkItDownStudio"
+
+
+def secure_get_key(service: str) -> str:
+    """Retrieve an API key from OS keyring with local secure fallback."""
+    try:
+        import keyring
+        val = keyring.get_password(SERVICE_NAME, service)
+        if val:
+            return val
+    except Exception:
+        pass
+
+    store_file = Path.home() / ".markitdown" / "credentials.json"
+    if store_file.exists():
+        try:
+            import json
+            data = json.loads(store_file.read_text(encoding="utf-8"))
+            return data.get(service, "")
+        except Exception:
+            pass
+    return ""
+
+
+def secure_set_key(service: str, key: str) -> bool:
+    """Store an API key in OS keyring with local secure fallback."""
+    try:
+        import keyring
+        keyring.set_password(SERVICE_NAME, service, key)
+    except Exception:
+        pass
+
+    store_dir = Path.home() / ".markitdown"
+    store_dir.mkdir(parents=True, exist_ok=True)
+    store_file = store_dir / "credentials.json"
+    data = {}
+    if store_file.exists():
+        try:
+            import json
+            data = json.loads(store_file.read_text(encoding="utf-8"))
+        except Exception:
+            data = {}
+    data[service] = key
+    import json
+    store_file.write_text(json.dumps(data), encoding="utf-8")
+    return True
+
+
+def secure_clear_keys() -> bool:
+    """Clear all stored API keys from OS keyring and local store."""
+    for service in ("openai", "gemini"):
+        try:
+            import keyring
+            keyring.delete_password(SERVICE_NAME, service)
+        except Exception:
+            pass
+    store_file = Path.home() / ".markitdown" / "credentials.json"
+    if store_file.exists():
+        try:
+            store_file.unlink()
+        except Exception:
+            pass
+    return True
+
 
 def find_free_port(start_port=8080):
     """Find an available port starting from start_port using SO_REUSEADDR."""
@@ -98,6 +162,15 @@ def main():
 
             def get_session_token(self):
                 return self.session_token
+
+            def get_api_key(self, service):
+                return secure_get_key(service)
+
+            def set_api_key(self, service, key):
+                return secure_set_key(service, key)
+
+            def clear_api_keys(self):
+                return secure_clear_keys()
 
             def save_file_dialog(self, filename, content_b64):
                 if not self.window:

@@ -8,6 +8,10 @@ import io
 import os
 import sys
 import tempfile
+import json
+import time
+import urllib.request
+import urllib.error
 from pathlib import Path
 from urllib.parse import quote
 from bottle import Bottle, request, response, static_file, HTTPResponse
@@ -17,6 +21,45 @@ PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+# Configuration persistence (stores non-sensitive UI preferences only; credentials never stored in repo)
+CONFIG_FILE = PROJECT_ROOT / ".studio_config.json"
+DEFAULT_CONFIG = {
+    "provider": os.environ.get("STUDIO_AI_PROVIDER", "hcnsec"),
+    "openai_base_url": os.environ.get("OPENAI_BASE_URL", "https://api.hcnsec.cn/v1"),
+    "openai_model": os.environ.get("OPENAI_MODEL", "auto"),
+}
+
+
+def get_studio_config():
+    """Load non-sensitive configuration with default fallbacks."""
+    cfg = dict(DEFAULT_CONFIG)
+    if CONFIG_FILE.exists():
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+                # Ensure secret keys are never loaded from repo config
+                for secret in ("openai_key", "gemini_key", "api_key"):
+                    saved.pop(secret, None)
+                cfg.update(saved)
+        except Exception:
+            pass
+    return cfg
+
+
+def save_studio_config(data: dict):
+    """Save non-sensitive studio configuration to disk (never stores API keys in repo root)."""
+    cfg = get_studio_config()
+    # Strip any secret keys to ensure credentials are never written to repository root
+    sanitized = {k: v for k, v in data.items() if k not in ("openai_key", "gemini_key", "api_key")}
+    cfg.update(sanitized)
+    try:
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"Error saving studio config: {e}")
+    return cfg
+
+
 _converter_instance = None
 _batch_progress = {}
 
@@ -24,7 +67,13 @@ def get_converter():
     global _converter_instance
     if _converter_instance is None:
         from core.converter import DocumentConverter
-        _converter_instance = DocumentConverter()
+        cfg = get_studio_config()
+        _converter_instance = DocumentConverter(
+            openai_api_key=cfg.get("openai_key") or None,
+            openai_base_url=cfg.get("openai_base_url") or None,
+            gemini_api_key=cfg.get("gemini_key") or None,
+            llm_model=cfg.get("openai_model") or "auto",
+        )
     return _converter_instance
 
 import bottle
@@ -116,6 +165,232 @@ def api_health():
     return '{"status": "ok", "version": "3.2.0"}'
 
 
+@app.get('/api/settings')
+def api_get_settings():
+    """Retrieve persisted AI and Studio settings."""
+    cfg = get_studio_config()
+    return {"success": True, "config": cfg}
+
+
+@app.post('/api/settings')
+def api_save_settings():
+    """Save AI and Studio settings persistently."""
+    data = request.json or {}
+    if not data:
+        data = {k: request.forms.get(k) for k in ('provider', 'openai_key', 'openai_base_url', 'openai_model', 'gemini_key') if request.forms.get(k) is not None}
+    saved = save_studio_config(data)
+    # Also update active converter instance
+    conv = get_converter()
+    conv.update_config(
+        openai_api_key=data.get("openai_key") or os.environ.get("OPENAI_API_KEY"),
+        openai_base_url=saved.get("openai_base_url") or None,
+        gemini_api_key=data.get("gemini_key") or os.environ.get("GEMINI_API_KEY"),
+        llm_model=saved.get("openai_model", "auto"),
+    )
+    return {"success": True, "config": saved, "message": "Settings saved successfully."}
+
+
+@app.post('/api/test-ai-connection')
+def api_test_ai_connection():
+    """Test connectivity to any OpenAI-compatible relay or Gemini API with latency measurement."""
+    data = request.json or {}
+    cfg = get_studio_config()
+
+    provider = data.get('provider') or request.forms.get('provider') or cfg.get('provider', 'hcnsec')
+    api_key = data.get('api_key') or request.forms.get('api_key') or (cfg.get('openai_key') if provider != 'gemini' else cfg.get('gemini_key'))
+    base_url = (data.get('base_url') or request.forms.get('base_url') or cfg.get('openai_base_url') or 'https://api.openai.com/v1').strip()
+    model = (data.get('model') or request.forms.get('model') or cfg.get('openai_model') or 'auto').strip()
+
+    if not api_key:
+        return {"success": False, "error": "API Key is required to test connection."}
+
+    start_time = time.perf_counter()
+
+    if provider == 'gemini':
+        # Probe Gemini models endpoint via x-goog-api-key header (never in URL)
+        url = "https://generativelanguage.googleapis.com/v1beta/models"
+        headers = {
+            "x-goog-api-key": api_key,
+            "User-Agent": "MarkItDownStudio/3.2",
+        }
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=12) as resp:  # nosec B310
+                raw = json.loads(resp.read().decode('utf-8'))
+                latency_ms = int((time.perf_counter() - start_time) * 1000)
+                models = [m['name'].replace('models/', '') for m in raw.get('models', []) if 'generateContent' in m.get('supportedGenerationMethods', [])]
+                return {
+                    "success": True,
+                    "latency_ms": latency_ms,
+                    "models": models[:30],
+                    "message": f"Connected to Google Gemini ({latency_ms}ms)! {len(models)} models available."
+                }
+        except Exception as e:
+            return {"success": False, "error": f"Gemini connection failed: {str(e)}"}
+
+    # OpenAI-compatible / Custom Relay (HCNSEC, DeepSeek, OpenRouter, Ollama, etc.)
+    models_url = f"{base_url.rstrip('/')}/models"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "User-Agent": "MarkItDownStudio/3.2"
+    }
+
+    try:
+        req = urllib.request.Request(models_url, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
+            raw = json.loads(resp.read().decode('utf-8'))
+            latency_ms = int((time.perf_counter() - start_time) * 1000)
+            models_data = raw.get('data', [])
+            model_ids = [m['id'] for m in models_data if isinstance(m, dict) and 'id' in m]
+            if not model_ids and isinstance(raw, list):
+                model_ids = [m.get('id') or m.get('name') for m in raw if isinstance(m, dict)]
+
+            return {
+                "success": True,
+                "latency_ms": latency_ms,
+                "models": model_ids if model_ids else [model],
+                "message": f"Connected ({latency_ms}ms)! {len(model_ids)} models detected."
+            }
+    except Exception:
+        # If /models endpoint is restricted or not implemented by minimal relay, fallback to minimal chat completion probe
+        chat_url = f"{base_url.rstrip('/')}/chat/completions"
+        probe_payload = json.dumps({
+            "model": model,
+            "messages": [{"role": "user", "content": "ping"}],
+            "max_tokens": 2
+        }).encode('utf-8')
+        try:
+            req_chat = urllib.request.Request(
+                chat_url,
+                data=probe_payload,
+                headers={**headers, "Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req_chat, timeout=12) as resp:  # nosec B310
+                latency_ms = int((time.perf_counter() - start_time) * 1000)
+                return {
+                    "success": True,
+                    "latency_ms": latency_ms,
+                    "models": [model],
+                    "message": f"Connected ({latency_ms}ms)! Ready to process with model '{model}'."
+                }
+        except Exception as probe_err:
+            err_msg = str(probe_err)
+            if hasattr(probe_err, 'read'):
+                try:
+                    err_body = json.loads(probe_err.read().decode('utf-8'))
+                    err_msg = err_body.get('error', {}).get('message', err_msg)
+                except Exception:
+                    pass
+            return {
+                "success": False,
+                "error": f"Connection failed: {err_msg}"
+            }
+
+
+@app.post('/api/ai-action')
+def api_ai_action():
+    """Perform AI actions (Polish, Summarize, Translate BN/EN, Markdown Table, Explain) using connected LLM."""
+    data = {}
+    try:
+        data = request.json or {}
+    except Exception:
+        pass
+    if not data:
+        try:
+            raw = request.body.read().decode('utf-8')
+            if raw:
+                data = json.loads(raw)
+        except Exception:
+            pass
+
+    action = data.get('action') or request.forms.get('action') or 'polish'
+    text = data.get('text') or request.forms.get('text') or ''
+    custom_prompt = data.get('custom_prompt') or request.forms.get('custom_prompt') or ''
+
+    if not text.strip():
+        response.status = 400
+        return {"success": False, "error": "No text provided for AI processing."}
+
+    cfg = get_studio_config()
+    api_key = data.get('api_key') or request.forms.get('api_key') or cfg.get('openai_key')
+    base_url = (data.get('base_url') or request.forms.get('base_url') or cfg.get('openai_base_url') or 'https://api.openai.com/v1').strip()
+    model = (data.get('model') or request.forms.get('model') or cfg.get('openai_model') or 'auto').strip()
+
+    if not api_key:
+        response.status = 400
+        return {"success": False, "error": "No API Key configured. Please configure your API key in Studio Settings."}
+
+    system_prompts = {
+        "polish": (
+            "You are an expert bilingual proofreader and editor for Bengali and English text. "
+            "Improve and polish the provided Markdown text for clarity, grammar, and natural flow. "
+            "Preserve all Markdown formatting, links, tables, code fences, and math formulas exactly as they are. "
+            "Output ONLY the improved Markdown text without conversational remarks."
+        ),
+        "summarize": (
+            "You are an executive document analyst. Create a clear, high-impact summary of the provided text. "
+            "Include key takeaways as structured Markdown bullet points and bold highlights. "
+            "Match the language of the source document (Bengali or English). Output strictly as Markdown."
+        ),
+        "translate_bn_en": (
+            "You are a master bilingual translator specializing in English and Bengali (বাংলা). "
+            "If the source text is predominantly Bengali, translate it into natural, idiomatic English. "
+            "If it is English, translate it into standard, modern Bengali Unicode (বাংলিশ বা অবান্তর অক্ষরহীন)। "
+            "Preserve all Markdown layout, code blocks, tables, and math syntax verbatim. Output ONLY the translated Markdown."
+        ),
+        "table": (
+            "Convert the provided unstructured data, list, or prose into a clean, well-aligned "
+            "GitHub-Flavored Markdown table with appropriate column headers. Output ONLY the table."
+        ),
+        "explain": (
+            "Explain the technical concepts, complex formulas, or logic in the provided text in simple, "
+            "easy-to-understand terms with bullet points in clean Markdown."
+        )
+    }
+
+    instruction = system_prompts.get(action, custom_prompt or system_prompts["polish"])
+
+    chat_url = f"{base_url.rstrip('/')}/chat/completions"
+    payload = json.dumps({
+        "model": model,
+        "messages": [
+            {"role": "system", "content": instruction},
+            {"role": "user", "content": text}
+        ],
+        "temperature": 0.3
+    }).encode('utf-8')
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "User-Agent": "MarkItDownStudio/3.2"
+    }
+
+    try:
+        req = urllib.request.Request(chat_url, data=payload, headers=headers)
+        with urllib.request.urlopen(req, timeout=45) as resp:  # nosec B310
+            res_data = json.loads(resp.read().decode('utf-8'))
+            choices = res_data.get('choices', [])
+            if not choices:
+                return {"success": False, "error": "No response generated by AI model."}
+            result_text = choices[0].get('message', {}).get('content', '').strip()
+            return {
+                "success": True,
+                "action": action,
+                "result": result_text,
+                "model": model
+            }
+    except Exception as e:
+        err_msg = str(e)
+        if hasattr(e, 'read'):
+            try:
+                err_body = json.loads(e.read().decode('utf-8'))
+                err_msg = err_body.get('error', {}).get('message', err_msg)
+            except Exception:
+                pass
+        return {"success": False, "error": f"AI action failed: {err_msg}"}
+
+
 @app.post('/api/convert')
 def api_convert():
     """Convert uploaded document (PDF, Word, Excel, PPTX, etc.) to Markdown."""
@@ -127,14 +402,17 @@ def api_convert():
     filename = upload.filename
     suffix = Path(filename).suffix
 
-    # Extract optional AI Vision keys from request or environment
-    openai_key = request.forms.get('openai_key') or request.headers.get('X-OpenAI-Key') or os.environ.get('OPENAI_API_KEY')
-    gemini_key = request.forms.get('gemini_key') or request.headers.get('X-Gemini-Key') or os.environ.get('GEMINI_API_KEY')
-    openai_model = request.forms.get('openai_model') or request.headers.get('X-OpenAI-Model') or "gpt-4o"
+    # Extract optional AI Vision keys from request or environment or config
+    cfg = get_studio_config()
+    openai_key = request.forms.get('openai_key') or request.headers.get('X-OpenAI-Key') or os.environ.get('OPENAI_API_KEY') or cfg.get('openai_key')
+    openai_base_url = request.forms.get('openai_base_url') or request.headers.get('X-OpenAI-Base-Url') or os.environ.get('OPENAI_BASE_URL') or cfg.get('openai_base_url')
+    gemini_key = request.forms.get('gemini_key') or request.headers.get('X-Gemini-Key') or os.environ.get('GEMINI_API_KEY') or cfg.get('gemini_key')
+    openai_model = request.forms.get('openai_model') or request.headers.get('X-OpenAI-Model') or cfg.get('openai_model') or "auto"
 
     conv = get_converter()
     conv.update_config(
         openai_api_key=openai_key,
+        openai_base_url=openai_base_url,
         gemini_api_key=gemini_key,
         llm_model=openai_model,
     )
@@ -170,9 +448,11 @@ def api_ocr():
         response.status = 400
         return {"success": False, "error": "No image uploaded"}
 
-    openai_key = request.forms.get('openai_key') or request.headers.get('X-OpenAI-Key') or os.environ.get('OPENAI_API_KEY')
-    gemini_key = request.forms.get('gemini_key') or request.headers.get('X-Gemini-Key') or os.environ.get('GEMINI_API_KEY')
-    openai_model = request.forms.get('openai_model') or request.headers.get('X-OpenAI-Model') or "gpt-4o"
+    cfg = get_studio_config()
+    openai_key = request.forms.get('openai_key') or request.headers.get('X-OpenAI-Key') or os.environ.get('OPENAI_API_KEY') or cfg.get('openai_key')
+    openai_base_url = request.forms.get('openai_base_url') or request.headers.get('X-OpenAI-Base-Url') or os.environ.get('OPENAI_BASE_URL') or cfg.get('openai_base_url')
+    gemini_key = request.forms.get('gemini_key') or request.headers.get('X-Gemini-Key') or os.environ.get('GEMINI_API_KEY') or cfg.get('gemini_key')
+    openai_model = request.forms.get('openai_model') or request.headers.get('X-OpenAI-Model') or cfg.get('openai_model') or "auto"
 
     suffix = Path(upload.filename).suffix
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
@@ -184,6 +464,7 @@ def api_ocr():
         extracted = extract_text_from_image(
             tmp_path,
             openai_api_key=openai_key,
+            openai_base_url=openai_base_url,
             gemini_api_key=gemini_key,
             openai_model=openai_model,
         )
@@ -454,7 +735,19 @@ def api_batch_convert():
                 _batch_progress.pop(old_k, None)
         _batch_progress[batch_id] = {"current": 0, "total": len(files), "done": False}
 
+    cfg = get_studio_config()
+    openai_key = request.forms.get('openai_key') or request.headers.get('X-OpenAI-Key') or os.environ.get('OPENAI_API_KEY') or cfg.get('openai_key')
+    openai_base_url = request.forms.get('openai_base_url') or request.headers.get('X-OpenAI-Base-Url') or os.environ.get('OPENAI_BASE_URL') or cfg.get('openai_base_url')
+    gemini_key = request.forms.get('gemini_key') or request.headers.get('X-Gemini-Key') or os.environ.get('GEMINI_API_KEY') or cfg.get('gemini_key')
+    openai_model = request.forms.get('openai_model') or request.headers.get('X-OpenAI-Model') or cfg.get('openai_model') or "auto"
+
     conv = get_converter()
+    conv.update_config(
+        openai_api_key=openai_key,
+        openai_base_url=openai_base_url,
+        gemini_api_key=gemini_key,
+        llm_model=openai_model,
+    )
     zip_buffer = io.BytesIO()
     converted_count = 0
     errors = []

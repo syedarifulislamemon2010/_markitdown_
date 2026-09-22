@@ -43,6 +43,7 @@ def load_config() -> dict:
         "auto_save": True,
         "output_dir": "",
         "openai_api_key": "",
+        "openai_base_url": "",
         "llm_model": "gpt-4o",
     }
     if CONFIG_FILE.exists():
@@ -103,6 +104,7 @@ class MarkItDownDesktopApp(AppBase):
         # Core engine
         self.converter = DocumentConverter(
             openai_api_key=self.config.get("openai_api_key") or None,
+            openai_base_url=self.config.get("openai_base_url") or None,
             llm_model=self.config.get("llm_model", "gpt-4o"),
         )
 
@@ -784,17 +786,24 @@ class MarkItDownDesktopApp(AppBase):
             font=ctk.CTkFont(size=12, weight="bold"),
         ).pack(padx=12, pady=(10, 4), anchor="w")
 
-        key_lbl = ctk.CTkLabel(ai_frame, text="OpenAI API Key (sk-...):", font=ctk.CTkFont(size=11), text_color="gray")
+        key_lbl = ctk.CTkLabel(ai_frame, text="OpenAI / Relay API Key (sk-...):", font=ctk.CTkFont(size=11), text_color="gray")
         key_lbl.pack(padx=12, anchor="w")
 
         key_entry = ctk.CTkEntry(ai_frame, show="•", placeholder_text="Leave empty for free offline conversion")
         key_entry.insert(0, self.config.get("openai_api_key", ""))
         key_entry.pack(fill="x", padx=12, pady=4)
 
-        model_lbl = ctk.CTkLabel(ai_frame, text="Vision Model:", font=ctk.CTkFont(size=11), text_color="gray")
+        url_lbl = ctk.CTkLabel(ai_frame, text="API Base URL (Optional for Custom Relay/Ollama):", font=ctk.CTkFont(size=11), text_color="gray")
+        url_lbl.pack(padx=12, anchor="w")
+
+        url_entry = ctk.CTkEntry(ai_frame, placeholder_text="https://api.hcnsec.cn/v1 or https://api.openai.com/v1")
+        url_entry.insert(0, self.config.get("openai_base_url", ""))
+        url_entry.pack(fill="x", padx=12, pady=4)
+
+        model_lbl = ctk.CTkLabel(ai_frame, text="Vision / LLM Model:", font=ctk.CTkFont(size=11), text_color="gray")
         model_lbl.pack(padx=12, anchor="w")
 
-        model_combo = ctk.CTkComboBox(ai_frame, values=["gpt-4o", "gpt-4o-mini", "chatgpt-4o-latest"])
+        model_combo = ctk.CTkComboBox(ai_frame, values=["auto", "gpt-4o", "gpt-4o-mini", "DeepSeek-V4-Flash", "qwen3.7-plus"])
         model_combo.set(self.config.get("llm_model", "gpt-4o"))
         model_combo.pack(fill="x", padx=12, pady=(4, 12))
 
@@ -812,6 +821,7 @@ class MarkItDownDesktopApp(AppBase):
             self.config["output_dir"] = dir_entry.get().strip()
             self.config["auto_save"] = auto_save_var.get()
             self.config["openai_api_key"] = key_entry.get().strip()
+            self.config["openai_base_url"] = url_entry.get().strip()
             self.config["llm_model"] = model_combo.get()
             theme_choice = theme_combo.get().lower()
             self.config["appearance_mode"] = theme_choice
@@ -822,6 +832,7 @@ class MarkItDownDesktopApp(AppBase):
             ctk.set_appearance_mode(theme_choice)
             self.converter.update_config(
                 openai_api_key=self.config["openai_api_key"] or None,
+                openai_base_url=self.config["openai_base_url"] or None,
                 llm_model=self.config["llm_model"],
             )
             dialog.destroy()
