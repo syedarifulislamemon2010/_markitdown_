@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "markitdown-studio"
+version = "3.2.0"
+description = "MarkItDown Studio: Universal Markdown Workspace, Document Conversion Engine & Bilingual NLP Suite"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Syed Ariful Islam Emon", email = "syedarifulislamemon201093@gmail.com" }
+]
+
+dependencies = [
+    "bottle==0.13.4",
+    "pywebview==6.2.1",
+    "python-docx==1.2.0",
+    "pdfminer.six==20260107",
+    "fonttools==4.65.0",
+    "requests==2.34.2",
+    "pypdfium2==5.13.0",
+    "Pillow==12.3.0",
+    "openai==3.16.2",
+    "beautifulsoup4==4.15.0",
+    "markdownify==1.2.3",
+    "magika==0.6.2",
+    "charset-normalizer==3.5.1",
+    "defusedxml==0.7.1",
+    "openpyxl==3.1.5",
+    "python-pptx==1.0.2",
+    "mammoth==1.11.0",
+    "pandas==3.0.6",
+    "pydub==0.25.1",
+    "SpeechRecognition==3.17.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "hypothesis>=6.100.0",
+    "ruff>=0.4.0",
+    "bandit>=1.7.8",
+    "pytest-cov>=5.0.0",
+    "pip-audit>=2.7.0",
+    "playwright>=1.40.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["core*", "desktop*"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra --strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501"]
