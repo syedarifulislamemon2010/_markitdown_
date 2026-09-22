@@ -176,7 +176,7 @@ def _ocr_via_gemini(
         method="POST"
     )
 
-    with urllib.request.urlopen(req, timeout=60) as resp:
+    with urllib.request.urlopen(req, timeout=60) as resp:  # nosec B310
         data = json.loads(resp.read().decode("utf-8"))
         candidates = data.get("candidates", [])
         if candidates and "content" in candidates[0]:

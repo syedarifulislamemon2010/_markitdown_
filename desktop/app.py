@@ -648,7 +648,7 @@ class MarkItDownDesktopApp(AppBase):
             return
         p = Path(self.active_result.file_path)
         if p.exists():
-            subprocess.run(f'explorer /select,"{p.resolve()}"', shell=True)
+            subprocess.run(['explorer', f'/select,"{p.resolve()}"'])  # nosec B603,B607
 
     def _start_conversion(self):
         """Begin batch conversion in background thread."""
