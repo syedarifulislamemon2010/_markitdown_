@@ -10,6 +10,7 @@
   
   <!-- Local Vendor Libraries for 100% Offline Functionality (non-blocking) -->
   <script defer src="vendor/marked.min.js"></script>
+  <script defer src="vendor/purify.min.js"></script>
   <script defer src="vendor/katex.min.js"></script>
   <script defer src="vendor/mermaid.min.js"></script>
 </head>
@@ -221,6 +222,51 @@
       <button id="toolSlides" class="tool-btn" title="স্লাইডশো / প্রেজেন্টেশন মোড (F10)">
         📽️ Slides
       </button>
+    </div>
+
+    <div class="tool-group" style="border-left: 2px solid var(--accent-color); padding-left: 6px;">
+      <div class="dropdown-container">
+        <button id="toolAiAssistant" class="tool-btn tool-btn-ai" title="AI Studio Assistant (বাংলা ও ইংরেজি প্রুফরিডিং, সামারি, অনুবাদ)">
+          ✨ AI Assistant ▾
+        </button>
+        <div id="aiAssistantMenu" class="dropdown-menu-pop" style="display: none;">
+          <button class="menu-pop-item" data-action="polish">
+            <span class="pop-icon">✍️</span>
+            <div>
+              <div class="pop-title">AI Polish & Proofread</div>
+              <div class="pop-desc">ব্যাকরণ ও বাক্যরীতি নিখুঁত করুন (BN / EN)</div>
+            </div>
+          </button>
+          <button class="menu-pop-item" data-action="summarize">
+            <span class="pop-icon">📝</span>
+            <div>
+              <div class="pop-title">Summarize Document</div>
+              <div class="pop-desc">গুরুত্বপূর্ণ পয়েন্টসহ সামারি তৈরি</div>
+            </div>
+          </button>
+          <button class="menu-pop-item" data-action="translate_bn_en">
+            <span class="pop-icon">🌐</span>
+            <div>
+              <div class="pop-title">Translate (EN ⇄ BN)</div>
+              <div class="pop-desc">বাংলা ⇄ ইংরেজি সঠিক অনুবাদ</div>
+            </div>
+          </button>
+          <button class="menu-pop-item" data-action="table">
+            <span class="pop-icon">⊞</span>
+            <div>
+              <div class="pop-title">Generate Markdown Table</div>
+              <div class="pop-desc">লিস্ট বা টেক্সট থেকে টেবিল বানান</div>
+            </div>
+          </button>
+          <button class="menu-pop-item" data-action="explain">
+            <span class="pop-icon">💡</span>
+            <div>
+              <div class="pop-title">Explain Concept</div>
+              <div class="pop-desc">কোড বা জটিল বিষয়ের সহজ ব্যাখ্যা</div>
+            </div>
+          </button>
+        </div>
+      </div>
     </div>
 
     <div class="tool-group" style="margin-left: auto;">
@@ -513,36 +559,95 @@
 
   <!-- ==================== Modal: Settings ==================== -->
   <div id="settingsModal" class="modal-overlay">
-    <div class="modal-card">
+    <div class="modal-card modal-card-wide">
       <div class="modal-header">
-        <div class="modal-title">⚙️ Studio Settings & AI Config</div>
+        <div class="modal-title">⚙️ Studio Settings & Universal AI Engine</div>
         <button class="modal-close btn-icon btn">✕</button>
       </div>
       <div class="modal-body">
+        <!-- Quick Provider Presets -->
         <div class="form-group">
-          <label class="form-label">OpenAI API Key (Optional for Vision OCR):</label>
-          <input type="password" id="openaiKeyInput" class="form-input" placeholder="sk-...">
+          <label class="form-label" style="font-weight: 600;">⚡ Quick AI Provider Presets:</label>
+          <div class="provider-preset-chips" id="providerPresetChips">
+            <button type="button" class="preset-chip active" data-provider="hcnsec" data-url="https://api.hcnsec.cn/v1" data-model="auto">
+              ⚡ HCNSEC Relay
+            </button>
+            <button type="button" class="preset-chip" data-provider="openai" data-url="https://api.openai.com/v1" data-model="gpt-4o">
+              🟢 OpenAI Official
+            </button>
+            <button type="button" class="preset-chip" data-provider="openrouter" data-url="https://openrouter.ai/api/v1" data-model="deepseek/deepseek-chat">
+              🌐 OpenRouter
+            </button>
+            <button type="button" class="preset-chip" data-provider="ollama" data-url="http://localhost:11434/v1" data-model="llama3">
+              🦙 Local Ollama
+            </button>
+            <button type="button" class="preset-chip" data-provider="custom" data-url="" data-model="">
+              🛠️ Custom Proxy
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">API Key (OpenAI-Compatible / Relay Key):</label>
+          <div class="input-with-action">
+            <input type="password" id="openaiKeyInput" class="form-input" placeholder="sk-..." value="sk-zLV3mqL5YGpakPB38NdVcpQKsdnCU9IyBjQR6m0ZdM5Uce60">
+            <button type="button" id="toggleApiKeyVisibility" class="btn-input-action" title="Toggle Key Visibility">👁️</button>
+          </div>
           <span style="font-size: 11px; color: var(--text-secondary); display: block; margin-top: 4px;">
-            Leave empty to use free offline OCR.
+            Supports HCNSEC, official OpenAI, OpenRouter, DeepSeek, or any compatible relay.
           </span>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Google Gemini API Key (Free Tier supported):</label>
+          <label class="form-label">API Base URL (Endpoint):</label>
+          <input type="text" id="openaiBaseUrlInput" class="form-input" placeholder="https://api.hcnsec.cn/v1" value="https://api.hcnsec.cn/v1">
+          <span style="font-size: 11px; color: var(--text-secondary); display: block; margin-top: 4px;">
+            Default relay: <code>https://api.hcnsec.cn/v1</code> (Supports OpenAI SDK compatible endpoints).
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Active AI Model:</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="openaiModelInput" class="form-input" list="modelDatalist" placeholder="auto" value="auto">
+            <datalist id="modelDatalist">
+              <option value="auto">auto (Intelligent Relay Routing)</option>
+              <option value="DeepSeek-V4-Flash">DeepSeek-V4-Flash</option>
+              <option value="DeepSeek-V4-Pro">DeepSeek-V4-Pro</option>
+              <option value="DeepSeek-V4.1-Flash">DeepSeek-V4.1-Flash</option>
+              <option value="qwen3.7-plus">qwen3.7-plus</option>
+              <option value="qwen3.8-max">qwen3.8-max</option>
+              <option value="glm-4.5-air">glm-4.5-air</option>
+              <option value="glm-5.3-flash">glm-5.3-flash</option>
+              <option value="MiniMax-M3">MiniMax-M3</option>
+              <option value="gpt-4o">gpt-4o</option>
+              <option value="gpt-4o-mini">gpt-4o-mini</option>
+            </datalist>
+          </div>
+          <span style="font-size: 11px; color: var(--text-secondary); display: block; margin-top: 4px;">
+            Pick a suggested model or type any custom model name available on your endpoint.
+          </span>
+        </div>
+
+        <!-- Live Connection Test & Latency Badge -->
+        <div class="connection-test-row">
+          <button type="button" id="btnTestAiConnection" class="btn btn-secondary">
+            ⚡ Test Connection & Fetch Models
+          </button>
+          <div id="aiConnectionStatus" class="ai-status-badge">
+            <span class="status-dot"></span>
+            <span class="status-text">Click to verify connection & fetch models</span>
+          </div>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 16px 0;">
+
+        <div class="form-group">
+          <label class="form-label">Google Gemini API Key (Optional Free Tier):</label>
           <input type="password" id="geminiKeyInput" class="form-input" placeholder="AIzaSy...">
           <span style="font-size: 11px; color: var(--text-secondary); display: block; margin-top: 4px;">
-            বিনামূল্যে Google AI Studio থেকে কি (Key) নিয়ে বাংলা গেজেট ও স্ক্যান পিডিএফ ১০০% নিখুঁত করতে পারেন।
+            বিনামূল্যে Google AI Studio থেকে কি (Key) নিয়ে স্ক্যান ডকুমেন্ট ও গ্যাজেট OCR করতে পারেন।
           </span>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Vision Model:</label>
-          <select id="openaiModelSelect" class="form-input">
-            <option value="gpt-4o">gpt-4o (OpenAI High Accuracy)</option>
-            <option value="gpt-4o-mini">gpt-4o-mini (OpenAI Faster)</option>
-            <option value="gemini-1.5-flash">Gemini 1.5 Flash (Google Free/Fast)</option>
-            <option value="gemini-2.0-flash">Gemini 2.0 Flash (Google Latest)</option>
-          </select>
         </div>
       </div>
       <div class="modal-footer">

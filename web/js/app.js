@@ -39,6 +39,15 @@
     }
   });
 
+  // ==================== Security: DOMPurify HTML Sanitizer ====================
+  function sanitizeHtml(dirty) {
+    if (!window.DOMPurify) return dirty;
+    return DOMPurify.sanitize(dirty, {
+      USE_PROFILES: { html: true, svg: true, mathMl: true },
+      ADD_ATTR: ['target', 'class', 'style', 'data-line'],
+    });
+  }
+
   // ==================== Global Elements & State ====================
   const editor = document.getElementById('editor');
   const preview = document.getElementById('preview');
@@ -554,8 +563,15 @@ graph TD
     const mathBlocks = [];
     const inlineMath = [];
 
+    let textToRender = rawText;
+
+    // Automatic Unicode Conversion for Preview ONLY if pure Bijoy is detected without existing Unicode
+    if (!(/[\u0980-\u09FF]/.test(textToRender)) && window.BijoyToUnicode && window.BijoyToUnicode.convertMarkdown && window.BijoyToUnicode.isLikelyBijoy(textToRender)) {
+      textToRender = window.BijoyToUnicode.convertMarkdown(textToRender);
+    }
+
     // Isolate Math blocks $$...$$
-    let textToRender = rawText.replace(/\$\$([\s\S]+?)\$\$/g, (match, formula) => {
+    textToRender = textToRender.replace(/\$\$([\s\S]+?)\$\$/g, (match, formula) => {
       mathBlocks.push(formula.trim());
       return `@@MATH_BLOCK_${mathBlocks.length - 1}@@`;
     });
@@ -565,11 +581,6 @@ graph TD
       inlineMath.push(formula.trim());
       return `@@MATH_INLINE_${inlineMath.length - 1}@@`;
     });
-
-    // Automatic Unicode Conversion for Preview ONLY if pure Bijoy is detected without existing Unicode
-    if (!(/[\u0980-\u09FF]/.test(textToRender)) && window.BijoyToUnicode && window.BijoyToUnicode.convertMarkdown && window.BijoyToUnicode.isLikelyBijoy(textToRender)) {
-      textToRender = window.BijoyToUnicode.convertMarkdown(textToRender);
-    }
 
     // Parse Markdown with marked.js
     let html = '';
@@ -594,7 +605,7 @@ graph TD
       return renderKatexCached(formula, false);
     });
 
-    previewContent.innerHTML = html;
+    previewContent.innerHTML = sanitizeHtml(html);
     renderMermaidDiagrams();
     updateOutline();
   }
@@ -665,12 +676,13 @@ graph TD
       return;
     }
 
-    outlineList.innerHTML = headers.map(h => `
+    const outlineHtml = headers.map(h => `
       <div class="sidebar-outline-item" data-line="${h.line}" style="padding-left: ${8 + (h.level - 1) * 10}px;" title="Go to line ${h.line + 1}: ${escapeHtml(h.text)}">
         <span class="outline-icon">H${h.level}</span>
         <span class="outline-text">${escapeHtml(h.text)}</span>
       </div>
     `).join('');
+    outlineList.innerHTML = sanitizeHtml(outlineHtml);
 
     outlineList.querySelectorAll('.sidebar-outline-item').forEach(item => {
       item.addEventListener('click', () => {
@@ -1183,12 +1195,14 @@ ${previewContent.innerHTML}
       formData.append('file', file);
 
       const openaiKey = localStorage.getItem('markitdown_openai_key');
+      const openaiBaseUrl = localStorage.getItem('markitdown_openai_base_url');
       const geminiKey = localStorage.getItem('markitdown_gemini_key');
       const model = localStorage.getItem('markitdown_openai_model');
 
-      if (openaiKey) formData.append('openai_api_key', openaiKey);
-      if (geminiKey) formData.append('gemini_api_key', geminiKey);
-      if (model) formData.append('model', model);
+      if (openaiKey) formData.append('openai_key', openaiKey);
+      if (openaiBaseUrl) formData.append('openai_base_url', openaiBaseUrl);
+      if (geminiKey) formData.append('gemini_key', geminiKey);
+      if (model) formData.append('openai_model', model);
 
       const resp = await fetch('/api/convert', { method: 'POST', body: formData });
       const data = await resp.json();
@@ -1222,7 +1236,13 @@ ${previewContent.innerHTML}
     const formData = new FormData();
     formData.append('image', file);
     const key = localStorage.getItem('markitdown_openai_key');
-    if (key) formData.append('openai_api_key', key);
+    const baseUrl = localStorage.getItem('markitdown_openai_base_url');
+    const geminiKey = localStorage.getItem('markitdown_gemini_key');
+    const model = localStorage.getItem('markitdown_openai_model');
+    if (key) formData.append('openai_key', key);
+    if (baseUrl) formData.append('openai_base_url', baseUrl);
+    if (geminiKey) formData.append('gemini_key', geminiKey);
+    if (model) formData.append('openai_model', model);
 
     try {
       const resp = await fetch('/api/ocr', { method: 'POST', body: formData });
@@ -1613,6 +1633,7 @@ ${previewContent.innerHTML}
       mermaid.initialize({
         startOnLoad: false,
         theme: theme === 'light' ? 'default' : 'dark',
+        securityLevel: 'strict',
       });
       renderMermaidDiagrams();
     }
@@ -2181,7 +2202,7 @@ ${previewContent.innerHTML}
       catch(e) { return m; }
     });
 
-    contentEl.innerHTML = html;
+    contentEl.innerHTML = sanitizeHtml(html);
 
     if (counterEl) {
       counterEl.textContent = `Slide ${currentSlideIndex + 1} / ${presentationSlides.length}`;
@@ -2492,24 +2513,281 @@ ${previewContent.innerHTML}
       const current = document.body.getAttribute('data-theme') || 'dark';
       setTheme(current === 'dark' ? 'light' : 'dark');
     });
-    document.getElementById('settingsBtn')?.addEventListener('click', () => {
-      document.getElementById('openaiKeyInput').value = localStorage.getItem('markitdown_openai_key') || '';
+    const defaultHcnsecKey = 'sk-zLV3mqL5YGpakPB38NdVcpQKsdnCU9IyBjQR6m0ZdM5Uce60';
+    const defaultHcnsecUrl = 'https://api.hcnsec.cn/v1';
+    const defaultModel = 'auto';
+
+    if (!localStorage.getItem('markitdown_openai_key')) {
+      localStorage.setItem('markitdown_openai_key', defaultHcnsecKey);
+      localStorage.setItem('markitdown_openai_base_url', defaultHcnsecUrl);
+      localStorage.setItem('markitdown_openai_model', defaultModel);
+      localStorage.setItem('markitdown_provider', 'hcnsec');
+    }
+
+    // Settings Modal Open
+    document.getElementById('settingsBtn')?.addEventListener('click', async () => {
+      try {
+        const sResp = await fetch('/api/settings');
+        if (sResp.ok) {
+          const sData = await sResp.json();
+          if (sData.success && sData.config) {
+            const c = sData.config;
+            if (c.openai_key) localStorage.setItem('markitdown_openai_key', c.openai_key);
+            if (c.openai_base_url) localStorage.setItem('markitdown_openai_base_url', c.openai_base_url);
+            if (c.openai_model) localStorage.setItem('markitdown_openai_model', c.openai_model);
+            if (c.gemini_key) localStorage.setItem('markitdown_gemini_key', c.gemini_key);
+            if (c.provider) localStorage.setItem('markitdown_provider', c.provider);
+          }
+        }
+      } catch (err) {}
+
+      const key = localStorage.getItem('markitdown_openai_key') || defaultHcnsecKey;
+      const baseUrl = localStorage.getItem('markitdown_openai_base_url') || defaultHcnsecUrl;
+      const model = localStorage.getItem('markitdown_openai_model') || defaultModel;
+      const gemini = localStorage.getItem('markitdown_gemini_key') || '';
+      const provider = localStorage.getItem('markitdown_provider') || 'hcnsec';
+
+      const keyInput = document.getElementById('openaiKeyInput');
+      const urlInput = document.getElementById('openaiBaseUrlInput');
+      const modelInput = document.getElementById('openaiModelInput');
       const geminiInput = document.getElementById('geminiKeyInput');
-      if (geminiInput) geminiInput.value = localStorage.getItem('markitdown_gemini_key') || '';
-      document.getElementById('openaiModelSelect').value = localStorage.getItem('markitdown_openai_model') || 'gpt-4o';
+
+      if (keyInput) keyInput.value = key;
+      if (urlInput) urlInput.value = baseUrl;
+      if (modelInput) modelInput.value = model;
+      if (geminiInput) geminiInput.value = gemini;
+
+      document.querySelectorAll('.preset-chip').forEach(chip => {
+        chip.classList.toggle('active', chip.getAttribute('data-provider') === provider);
+      });
+
       settingsModal?.classList.add('active');
     });
 
-    document.getElementById('saveSettingsBtn')?.addEventListener('click', () => {
-      const key = document.getElementById('openaiKeyInput').value.trim();
-      const gemini = document.getElementById('geminiKeyInput').value.trim();
-      const model = document.getElementById('openaiModelSelect').value;
-      localStorage.setItem('markitdown_openai_key', key);
-      localStorage.setItem('markitdown_gemini_key', gemini);
-      localStorage.setItem('markitdown_openai_model', model);
-      closeAllModals();
-      showToast('⚙️ সেটিংস ও API Key সফলভাবে সেভ হয়েছে!', 'success');
+    // Preset Chips Selection
+    document.querySelectorAll('.preset-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        const url = chip.getAttribute('data-url');
+        const mod = chip.getAttribute('data-model');
+        const urlInput = document.getElementById('openaiBaseUrlInput');
+        const modelInput = document.getElementById('openaiModelInput');
+        if (url !== null && urlInput && url.length > 0) urlInput.value = url;
+        if (mod !== null && modelInput && mod.length > 0) modelInput.value = mod;
+      });
     });
+
+    // Toggle API Key Visibility
+    document.getElementById('toggleApiKeyVisibility')?.addEventListener('click', () => {
+      const keyInput = document.getElementById('openaiKeyInput');
+      const btn = document.getElementById('toggleApiKeyVisibility');
+      if (keyInput) {
+        if (keyInput.type === 'password') {
+          keyInput.type = 'text';
+          if (btn) btn.textContent = '🔒';
+        } else {
+          keyInput.type = 'password';
+          if (btn) btn.textContent = '👁️';
+        }
+      }
+    });
+
+    // Test Connection & Fetch Models
+    document.getElementById('btnTestAiConnection')?.addEventListener('click', async () => {
+      const key = document.getElementById('openaiKeyInput')?.value.trim() || '';
+      const baseUrl = document.getElementById('openaiBaseUrlInput')?.value.trim() || '';
+      const model = document.getElementById('openaiModelInput')?.value.trim() || 'auto';
+      const statusBadge = document.getElementById('aiConnectionStatus');
+      const activeChip = document.querySelector('.preset-chip.active');
+      const provider = activeChip ? activeChip.getAttribute('data-provider') : 'hcnsec';
+
+      if (!key) {
+        showToast('⚠️ অনুগ্রহ করে প্রথমে একটি API Key প্রদান করুন।', 'warning');
+        return;
+      }
+
+      if (statusBadge) {
+        statusBadge.className = 'ai-status-badge loading';
+        const stText = statusBadge.querySelector('.status-text');
+        if (stText) stText.textContent = 'কানেকশন টেস্ট করা হচ্ছে...';
+      }
+
+      try {
+        const resp = await fetch('/api/test-ai-connection', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            api_key: key,
+            base_url: baseUrl,
+            model: model,
+            provider: provider
+          })
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+          if (statusBadge) {
+            statusBadge.className = 'ai-status-badge success';
+            const stText = statusBadge.querySelector('.status-text');
+            if (stText) stText.textContent = `কানেক্টেড (${data.latency_ms}ms) — ${data.models?.length || 0}টি মডেল উপলব্ধ`;
+          }
+          if (data.models && data.models.length > 0) {
+            const dl = document.getElementById('modelDatalist');
+            if (dl) {
+              dl.innerHTML = '';
+              data.models.forEach(mId => {
+                const opt = document.createElement('option');
+                opt.value = mId;
+                dl.appendChild(opt);
+              });
+            }
+          }
+          showToast(`⚡ কানেকশন সফল (${data.latency_ms}ms)!`, 'success');
+        } else {
+          if (statusBadge) {
+            statusBadge.className = 'ai-status-badge error';
+            const stText = statusBadge.querySelector('.status-text');
+            if (stText) stText.textContent = `ব্যর্থ: ${data.error || 'Connection error'}`;
+          }
+          showToast(`❌ কানেকশন ব্যর্থ: ${data.error || 'Connection error'}`, 'error');
+        }
+      } catch (err) {
+        if (statusBadge) {
+          statusBadge.className = 'ai-status-badge error';
+          const stText = statusBadge.querySelector('.status-text');
+          if (stText) stText.textContent = 'সার্ভার রেসপন্স ত্রুটি';
+        }
+        showToast('❌ সার্ভার কানেকশন ত্রুটি', 'error');
+      }
+    });
+
+    // Save Settings
+    document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
+      const key = document.getElementById('openaiKeyInput')?.value.trim() || '';
+      const baseUrl = document.getElementById('openaiBaseUrlInput')?.value.trim() || '';
+      const model = document.getElementById('openaiModelInput')?.value.trim() || 'auto';
+      const gemini = document.getElementById('geminiKeyInput')?.value.trim() || '';
+      const activeChip = document.querySelector('.preset-chip.active');
+      const provider = activeChip ? activeChip.getAttribute('data-provider') : 'custom';
+
+      localStorage.setItem('markitdown_openai_key', key);
+      localStorage.setItem('markitdown_openai_base_url', baseUrl);
+      localStorage.setItem('markitdown_openai_model', model);
+      localStorage.setItem('markitdown_gemini_key', gemini);
+      localStorage.setItem('markitdown_provider', provider);
+
+      try {
+        await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            openai_key: key,
+            openai_base_url: baseUrl,
+            openai_model: model,
+            gemini_key: gemini,
+            provider: provider
+          })
+        });
+      } catch (e) {}
+
+      closeAllModals();
+      showToast('⚙️ সেটিংস ও AI কনফিগারেশন সফলভাবে সংরক্ষিত হয়েছে!', 'success');
+    });
+
+    // ==================== Editor Toolbar AI Assistant ====================
+    const aiBtn = document.getElementById('toolAiAssistant');
+    const aiMenu = document.getElementById('aiAssistantMenu');
+
+    aiBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (aiMenu) {
+        const isShown = aiMenu.style.display === 'flex';
+        aiMenu.style.display = isShown ? 'none' : 'flex';
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (aiMenu && !aiBtn?.contains(e.target) && !aiMenu.contains(e.target)) {
+        aiMenu.style.display = 'none';
+      }
+    });
+
+    aiMenu?.querySelectorAll('.menu-pop-item').forEach(item => {
+      item.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        aiMenu.style.display = 'none';
+        const action = item.getAttribute('data-action');
+        await executeAiAction(action);
+      });
+    });
+
+    async function executeAiAction(action) {
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      const rawVal = editor.value;
+      const hasSelection = start !== end;
+      const targetText = hasSelection ? rawVal.substring(start, end) : rawVal;
+
+      if (!targetText.trim()) {
+        showToast('⚠️ AI প্রসেস করার জন্য কোনো টেক্সট পাওয়া যায়নি!', 'warning');
+        return;
+      }
+
+      const key = localStorage.getItem('markitdown_openai_key') || defaultHcnsecKey;
+      const baseUrl = localStorage.getItem('markitdown_openai_base_url') || defaultHcnsecUrl;
+      const model = localStorage.getItem('markitdown_openai_model') || defaultModel;
+
+      const actionLabels = {
+        polish: 'AI প্রুফরিডিং ও পলিশিং',
+        summarize: 'ডকুমেন্ট সামারাইজেশন',
+        translate_bn_en: 'বাংলা ⇄ ইংরেজি অনুবাদ',
+        table: 'মার্কডাউন টেবিল জেনারেশন',
+        explain: 'সহজ ব্যাখ্যা তৈরি'
+      };
+
+      showToast(`✨ ${actionLabels[action] || action} প্রসেসিং চলছে...`, 'info', 10000);
+
+      try {
+        const resp = await fetch('/api/ai-action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: action,
+            text: targetText,
+            api_key: key,
+            base_url: baseUrl,
+            model: model
+          })
+        });
+        const data = await resp.json();
+
+        if (data.success && data.result) {
+          const generated = data.result;
+          if (hasSelection) {
+            const before = rawVal.substring(0, start);
+            const after = rawVal.substring(end);
+            editor.value = before + generated + after;
+            editor.setSelectionRange(start, start + generated.length);
+          } else {
+            if (action === 'summarize') {
+              editor.value = `> 📋 **Executive Document Summary**\n>\n` +
+                generated.split('\n').map(l => `> ${l}`).join('\n') +
+                `\n\n---\n\n` + rawVal;
+              editor.setSelectionRange(0, 0);
+            } else {
+              editor.value = generated;
+            }
+          }
+          triggerEditorUpdate();
+          showToast(`✅ ${actionLabels[action] || 'AI অ্যাকশন'} সফল হয়েছে!`, 'success', 3000);
+        } else {
+          showToast(`❌ AI ব্যর্থ: ${data.error || 'মডেল রেসপন্স দিতে পারেনি'}`, 'error', 5000);
+        }
+      } catch (err) {
+        showToast(`❌ সার্ভার এরর: ${err.message}`, 'error', 4000);
+      }
+    }
 
     // Modal close handlers
     document.querySelectorAll('.modal-close, .modal-cancel').forEach(btn => {
@@ -2864,7 +3142,7 @@ ${previewContent.innerHTML}
       mermaid.initialize({
         startOnLoad: false,
         theme: savedTheme === 'light' ? 'default' : 'dark',
-        securityLevel: 'loose',
+        securityLevel: 'strict',
       });
     }
 
@@ -2879,6 +3157,10 @@ ${previewContent.innerHTML}
     detectIndentation();
     updateBranchStatus(false);
     setSaveStatus('saved');
+
+    // Expose helpers for testing and external integrations
+    window.renderMarkdown = renderMarkdown;
+    window.sanitizeHtml = sanitizeHtml;
   }
 
   if (document.readyState === 'loading') {

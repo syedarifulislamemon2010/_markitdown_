@@ -555,10 +555,11 @@ window.BijoyToUnicode = (function () {
     // 3. Check for specific Bijoy modifier glyphs that don't appear in normal text
     if (/[†‡ˆ‰Š‹Œ˜™š›œŸ]/.test(text)) return true;
 
-    // 4. Token sampling
-    const tokens = text.split(/\s+/).slice(0, 80);
+    // 4. Token sampling: require a significant ratio of Bijoy tokens (>= 35%) and at least 3 tokens
+    const tokens = text.split(/\s+/).slice(0, 80).filter(Boolean);
+    if (tokens.length === 0) return false;
     const count = tokens.filter(isBijoyToken).length;
-    return count >= 3;
+    return count >= 3 && (count / tokens.length) >= 0.35;
   }
 
   function convert(text, preserveEnglish = true) {
