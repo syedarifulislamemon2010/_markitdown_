@@ -4,6 +4,7 @@ Local Lightweight Backend Server for MarkItDown Studio.
 Serves the web application and exposes endpoints for Document Conversion and Image OCR.
 """
 
+import io
 import os
 import sys
 import tempfile
@@ -17,6 +18,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 _converter_instance = None
+_batch_progress = {}
 
 def get_converter():
     global _converter_instance
@@ -47,18 +49,6 @@ def api_health():
     """Ultra-fast health check endpoint for status bar and connectivity monitoring."""
     response.content_type = 'application/json'
     return '{"status": "ok", "version": "3.2.0"}'
-
-
-@app.route('/<filepath:path>')
-def serve_static(filepath):
-    res = static_file(filepath, root=str(WEB_DIR))
-    # Cache heavy vendor libraries (Mermaid, KaTeX, TTF fonts) for 1 day
-    if filepath.startswith('vendor/') or filepath.endswith('.ttf') or filepath.endswith('.woff2'):
-        res.set_header('Cache-Control', 'public, max-age=86400')
-    else:
-        # Application code (app.js, style.css) must always stay fresh without stale cache
-        res.set_header('Cache-Control', 'no-cache, must-revalidate')
-    return res
 
 
 @app.post('/api/convert')
@@ -376,6 +366,13 @@ def api_export_pdf():
     return HTTPResponse(body=pdf_bytes, status=200, headers=headers)
 
 
+@app.route('/api/batch-progress/<batch_id>')
+def api_batch_progress(batch_id):
+    """Return conversion progress for a running batch."""
+    prog = _batch_progress.get(batch_id, {"current": 0, "total": 0, "done": False})
+    return prog
+
+
 @app.post('/api/batch-convert')
 def api_batch_convert():
     """Convert multiple files to Markdown and download as a single ZIP archive."""
@@ -385,11 +382,23 @@ def api_batch_convert():
         response.status = 400
         return {"success": False, "error": "No files uploaded"}
 
+    batch_id = request.headers.get('X-Batch-Id') or request.forms.get('batch_id')
+    if batch_id:
+        if len(_batch_progress) > 100:
+            for old_k in list(_batch_progress.keys())[:-50]:
+                _batch_progress.pop(old_k, None)
+        _batch_progress[batch_id] = {"current": 0, "total": len(files), "done": False}
+
+    conv = get_converter()
     zip_buffer = io.BytesIO()
     converted_count = 0
+    errors = []
 
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        for upload in files:
+        for i, upload in enumerate(files, 1):
+            if batch_id and batch_id in _batch_progress:
+                _batch_progress[batch_id]["current"] = i
+
             filename = upload.filename
             suffix = Path(filename).suffix
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
@@ -397,19 +406,33 @@ def api_batch_convert():
                 tmp_path = tmp.name
 
             try:
-                res = converter.convert_file(tmp_path)
+                res = conv.convert_file(tmp_path)
                 if res.success and res.markdown:
                     md_name = f"{Path(filename).stem}.md"
                     zip_file.writestr(md_name, res.markdown.encode('utf-8'))
                     converted_count += 1
+                else:
+                    err_msg = res.error_message if hasattr(res, 'error_message') and res.error_message else "Conversion failed"
+                    errors.append(f"{filename}: {err_msg}")
+            except Exception as e:
+                errors.append(f"{filename}: {str(e)}")
             finally:
                 if os.path.exists(tmp_path):
-                    try: os.remove(tmp_path)
-                    except Exception: pass
+                    try:
+                        os.remove(tmp_path)
+                    except Exception:
+                        pass
+
+        if errors and converted_count > 0:
+            zip_file.writestr("_errors.txt", "\n".join(errors).encode('utf-8'))
+
+    if batch_id and batch_id in _batch_progress:
+        _batch_progress[batch_id]["done"] = True
 
     if converted_count == 0:
-        response.status = 500
-        return {"success": False, "error": "No files could be converted successfully"}
+        response.status = 400
+        error_detail = "\n".join(errors) if errors else "No files could be converted successfully"
+        return {"success": False, "error": error_detail}
 
     zip_bytes = zip_buffer.getvalue()
     headers = {
@@ -419,6 +442,18 @@ def api_batch_convert():
         'Content-Length': str(len(zip_bytes)),
     }
     return HTTPResponse(body=zip_bytes, status=200, headers=headers)
+
+
+@app.route('/<filepath:path>')
+def serve_static(filepath):
+    res = static_file(filepath, root=str(WEB_DIR))
+    # Cache heavy vendor libraries (Mermaid, KaTeX, TTF fonts) for 1 day
+    if filepath.startswith('vendor/') or filepath.endswith('.ttf') or filepath.endswith('.woff2'):
+        res.set_header('Cache-Control', 'public, max-age=86400')
+    else:
+        # Application code (app.js, style.css) must always stay fresh without stale cache
+        res.set_header('Cache-Control', 'no-cache, must-revalidate')
+    return res
 
 
 def run_server(host="127.0.0.1", port=8080):

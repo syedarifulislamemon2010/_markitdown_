@@ -2039,28 +2039,50 @@ ${previewContent.innerHTML}
   
   // ==================== Batch Convert Controller ====================
   async function batchConvertFiles(files) {
-    showToast(`⏳ ${files.length}টি ফাইল ব্যাচ কনভার্সন হচ্ছে...`, 'info', 4000);
+    if (!files || files.length === 0) return;
+    const total = files.length;
+    showToast(`⏳ ফাইল কনভার্সন হচ্ছে: 1/${total}...`, 'info', 3000);
+    const batchId = 'batch_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     const formData = new FormData();
-    for (let i = 0; i < files.length; i++) {
+    formData.append('batch_id', batchId);
+    for (let i = 0; i < total; i++) {
       formData.append('files', files[i]);
     }
+
+    const pollTimer = setInterval(async () => {
+      try {
+        const pResp = await fetch(`/api/batch-progress/${batchId}`);
+        if (pResp.ok) {
+          const prog = await pResp.json();
+          if (prog && prog.total > 0 && prog.current > 0) {
+            showToast(`⏳ ফাইল কনভার্সন হচ্ছে: ${prog.current}/${prog.total}...`, 'info', 2000);
+          }
+        }
+      } catch (_) {}
+    }, 400);
 
     try {
       const resp = await fetch('/api/batch-convert', {
         method: 'POST',
+        headers: {
+          'X-Batch-Id': batchId
+        },
         body: formData
       });
+
+      clearInterval(pollTimer);
 
       if (resp.ok) {
         const blob = await resp.blob();
         await triggerDownload(blob, 'markitdown_batch_converted.zip', 'application/zip');
         closeAllModals();
-        showToast(`✅ ${files.length}টি ফাইলের কনভার্সন সম্পন্ন! ZIP ডাউনলোড হয়েছে।`, 'success', 4000);
+        showToast(`✅ ${total}টি ফাইলের কনভার্সন সম্পন্ন! ZIP ডাউনলোড হয়েছে।`, 'success', 4000);
       } else {
         const data = await resp.json();
         showToast(`❌ ব্যাচ কনভার্সন ব্যর্থ: ${data.error || 'অজানা ত্রুটি'}`, 'error', 4000);
       }
     } catch (e) {
+      clearInterval(pollTimer);
       showToast('❌ ব্যাচ কনভার্সন সার্ভার এরর', 'error', 4000);
     }
   }
