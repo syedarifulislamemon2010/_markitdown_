@@ -7,6 +7,38 @@
 (function () {
   'use strict';
 
+  // ==================== Security: Session Token Interceptor ====================
+  const _nativeFetch = window.fetch;
+  window.fetch = function (resource, init) {
+    init = init || {};
+    let url = typeof resource === 'string' ? resource : (resource ? resource.url : '');
+    if (url && (url.startsWith('/api/') || url.includes('/api/')) && !url.endsWith('/api/health')) {
+      const token = window.__STUDIO_TOKEN__;
+      if (token) {
+        if (typeof Request !== 'undefined' && resource instanceof Request) {
+          resource.headers.set('X-Session-Token', token);
+        } else {
+          const headers = new Headers(init.headers || {});
+          if (!headers.has('X-Session-Token')) {
+            headers.set('X-Session-Token', token);
+          }
+          init.headers = headers;
+        }
+      }
+    }
+    return _nativeFetch.call(this, resource, init);
+  };
+
+  // Sync session token from pywebview bridge if available
+  window.addEventListener('pywebviewready', async () => {
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.get_session_token) {
+      try {
+        const tok = await window.pywebview.api.get_session_token();
+        if (tok) window.__STUDIO_TOKEN__ = tok;
+      } catch (_) {}
+    }
+  });
+
   // ==================== Global Elements & State ====================
   const editor = document.getElementById('editor');
   const preview = document.getElementById('preview');

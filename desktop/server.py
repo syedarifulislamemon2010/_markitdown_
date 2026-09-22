@@ -27,21 +27,86 @@ def get_converter():
         _converter_instance = DocumentConverter()
     return _converter_instance
 
+import bottle
+
+MEMFILE_MAX = int(os.environ.get("STUDIO_MEMFILE_MAX", 100 * 1024 * 1024))
+bottle.BaseRequest.MEMFILE_MAX = MEMFILE_MAX
+
 app = Bottle()
 WEB_DIR = PROJECT_ROOT / "web"
 
 
+@app.hook('before_request')
+def security_checks():
+    """Enforce payload size limits and session token validation on API endpoints."""
+    # 1. Enforce payload size limit (MEMFILE_MAX)
+    try:
+        cl = int(request.headers.get('Content-Length') or 0)
+        if cl > bottle.BaseRequest.MEMFILE_MAX:
+            raise HTTPResponse(
+                body='{"success": false, "error": "Payload Too Large: exceeded 100MB limit"}',
+                status=413,
+                headers={'Content-Type': 'application/json'}
+            )
+    except (ValueError, TypeError):
+        pass
+
+    # 2. Session token validation (if token is configured in environment)
+    session_token = os.environ.get("STUDIO_SESSION_TOKEN")
+    if session_token and request.method != 'OPTIONS':
+        # All /api/* routes except /api/health require valid X-Session-Token
+        if request.path.startswith('/api/') and request.path != '/api/health':
+            client_token = request.headers.get('X-Session-Token')
+            if not client_token or client_token != session_token:
+                raise HTTPResponse(
+                    body='{"success": false, "error": "Forbidden: invalid or missing session token"}',
+                    status=403,
+                    headers={'Content-Type': 'application/json'}
+                )
+
+
 @app.hook('after_request')
-def enable_cors():
-    """Enable CORS for local development if needed."""
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Origin, Accept, Content-Type, X-Requested-With'
+def apply_security_headers():
+    """Apply strict security headers and restrict CORS to localhost only."""
+    # 1. Strict Security Headers
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; "
+        "font-src 'self' data:; "
+        "connect-src 'self';"
+    )
+
+    # 2. Localhost-only CORS: NEVER wildcard '*'
+    origin = request.headers.get('Origin')
+    if origin:
+        allowed_origins = ('http://127.0.0.1', 'http://localhost', 'vscode-webview://', 'null')
+        if any(origin.startswith(prefix) for prefix in allowed_origins):
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = (
+                'Origin, Accept, Content-Type, X-Requested-With, X-Session-Token, X-Batch-Id'
+            )
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
 
 
 @app.route('/')
 def serve_root():
-    return static_file('index.html', root=str(WEB_DIR))
+    index_file = WEB_DIR / 'index.html'
+    if not index_file.exists():
+        return static_file('index.html', root=str(WEB_DIR))
+
+    html = index_file.read_text(encoding='utf-8')
+    session_token = os.environ.get("STUDIO_SESSION_TOKEN", "")
+    if session_token:
+        injection = f'<script>window.__STUDIO_TOKEN__ = "{session_token}";</script>\n</head>'
+        html = html.replace('</head>', injection, 1)
+
+    response.content_type = 'text/html; charset=utf-8'
+    return html
 
 
 @app.route('/api/health')
@@ -456,7 +521,9 @@ def serve_static(filepath):
     return res
 
 
-def run_server(host="127.0.0.1", port=8080):
+def run_server(host="127.0.0.1", port=8080, session_token=None):
+    if session_token:
+        os.environ["STUDIO_SESSION_TOKEN"] = session_token
     app.run(host=host, port=port, server=ThreadedWSGIAdapter, quiet=True)
 
 

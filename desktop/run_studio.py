@@ -5,6 +5,8 @@ Launches the application as a standalone desktop window using Microsoft Edge Web
 or falls back to the default web browser.
 """
 
+import os
+import secrets
 import sys
 import time
 import socket
@@ -46,13 +48,16 @@ def wait_for_server(host="127.0.0.1", port=8080, timeout=5.0):
 
 
 def main():
+    session_token = os.environ.get("STUDIO_SESSION_TOKEN") or secrets.token_urlsafe(32)
+    os.environ["STUDIO_SESSION_TOKEN"] = session_token
+
     port = find_free_port()
     url = f"http://127.0.0.1:{port}"
 
     # Start server in background daemon thread
     server_thread = threading.Thread(
         target=run_server,
-        kwargs={"host": "127.0.0.1", "port": port},
+        kwargs={"host": "127.0.0.1", "port": port, "session_token": session_token},
         daemon=True,
     )
     server_thread.start()
@@ -87,8 +92,12 @@ def main():
             pass
 
         class StudioApi:
-            def __init__(self):
+            def __init__(self, token=None):
                 self.window = None
+                self.session_token = token or os.environ.get("STUDIO_SESSION_TOKEN", "")
+
+            def get_session_token(self):
+                return self.session_token
 
             def save_file_dialog(self, filename, content_b64):
                 if not self.window:
@@ -119,7 +128,7 @@ def main():
                         except Exception:
                             pass
 
-        api = StudioApi()
+        api = StudioApi(token=session_token)
         window = webview.create_window(
             title="MarkItDown Studio - Universal Markdown Editor",
             url=url,
