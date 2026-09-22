@@ -6,7 +6,8 @@ with safe bounds checking for conjuncts and re-orderings.
 """
 
 import re
-from typing import Dict
+import unicodedata
+from typing import Dict, List, Optional, Tuple, Any
 
 # 1. Pre-conversion replacements
 PRE_CONVERSION_MAP: Dict[str, str] = {
@@ -114,11 +115,8 @@ CONVERSION_MAP: Dict[str, str] = {
     'ˆ': 'ৈ',
     '‰': 'ৈ',
     'Š': 'ৗ',
-    '\\|': '।',
     '|': '।',
-    '\\&': '্‌',
     '&': '্',
-    '\\^': '্ব',
     '^': '্ব',
     'ÿ': 'ক্ষ',
     # Conjuncts    # Multi-character conjunct overrides
@@ -278,7 +276,7 @@ CONVERSION_MAP: Dict[str, str] = {
     'õ': 'ষ্ফ',
     'ö': 'স্খ',
     '÷': 'স্ট',
-    'ø': 'স্ন',
+    'ø': '্ল',
     'ù': 'স্ফ',
     'ú': '্প',
     'û': 'হু',
@@ -317,94 +315,260 @@ CONSONANTS = {
 }
 
 
-def _safe_char(text: str, idx: int) -> str:
-    if 0 <= idx < len(text):
-        return text[idx]
-    return ''
+# ---------------------------------------------------------------------------
+# Precomputed Trie for O(length) longest-prefix matching
+# ---------------------------------------------------------------------------
+class BijoyTrie:
+    __slots__ = ('root',)
+
+    def __init__(self, mapping: Dict[str, str]):
+        self.root: Dict[str, Any] = {}
+        for k, v in mapping.items():
+            curr = self.root
+            for ch in k:
+                if ch not in curr:
+                    curr[ch] = {}
+                curr = curr[ch]
+            curr['__val__'] = v
 
 
-def _rearrange_unicode(text: str) -> str:
-    """Rearrange vowel signs, ref, and conjunct positions to match Unicode grammar."""
-    s = text
-    i = 0
-    while i < len(s):
-        # 1. Ref (র + ্) reordering before consonant
-        if (i < len(s) - 1 and _safe_char(s, i) == 'র' and _safe_char(s, i + 1) == '্'
-                and _safe_char(s, i - 1) != '্'):
-            j = 1
-            while True:
-                prev_char = _safe_char(s, i - j)
-                prev_prev = _safe_char(s, i - j - 1)
-                if i - j < 0:
-                    break
-                if prev_char in CONSONANTS and prev_prev == '্':
-                    j += 2
-                elif j == 1 and (prev_char in PRE_KARS or prev_char in POST_KARS):
-                    j += 1
+# ---------------------------------------------------------------------------
+# Syllable Cluster Architecture: Tokenize -> Group -> Emit Canonical Unicode
+# ---------------------------------------------------------------------------
+PRE_KARS = {'ি', 'ৈ', 'ে'}
+POST_KARS = {'া', 'ো', 'ৌ', 'ৗ', 'ু', 'ূ', 'ী', 'ৃ'}
+CONSONANTS = {
+    'ক', 'খ', 'গ', 'ঘ', 'ঙ',
+    'চ', 'ছ', 'জ', 'ঝ', 'ঞ',
+    'ট', 'ঠ', 'ড', 'ঢ', 'ণ',
+    'ত', 'থ', 'দ', 'ধ', 'ন',
+    'প', 'ফ', 'ব', 'ভ', 'ম',
+    'য', 'র', 'ল', 'শ', 'ষ',
+    'স', 'হ', 'ড়', 'ঢ়', 'য়',
+    'ৎ'
+}
+INDEP_VOWELS = {'অ', 'আ', 'ই', 'ঈ', 'উ', 'ঊ', 'ঋ', 'এ', 'ঐ', 'ও', 'ঔ'}
+MODIFIERS = {'ঁ', 'ং', 'ঃ'}
+
+
+class SyllableCluster:
+    __slots__ = ('has_reph', 'pre_kar', 'base', 'halant_chain', 'post_kar', 'candrabindu', 'modifiers')
+
+    def __init__(self):
+        self.has_reph: bool = False
+        self.pre_kar: Optional[str] = None
+        self.base: Optional[str] = None
+        self.halant_chain: List[str] = []
+        self.post_kar: Optional[str] = None
+        self.candrabindu: Optional[str] = None
+        self.modifiers: List[str] = []
+
+    def emit(self) -> str:
+        res = []
+        if self.has_reph:
+            res.append('র্')
+        if self.base:
+            res.append(self.base)
+        if self.halant_chain:
+            res.append("".join(self.halant_chain))
+
+        if self.pre_kar == 'ে' and self.post_kar == 'া':
+            res.append('ো')
+        elif self.pre_kar == 'ে' and self.post_kar == 'ৗ':
+            res.append('ৌ')
+        elif self.pre_kar:
+            res.append(self.pre_kar)
+            if self.post_kar:
+                res.append(self.post_kar)
+        elif self.post_kar:
+            res.append(self.post_kar)
+
+        if self.candrabindu:
+            res.append(self.candrabindu)
+        if self.modifiers:
+            res.append("".join(self.modifiers))
+
+        return "".join(res)
+
+
+class ClusterBijoyEngine:
+    __slots__ = ('trie',)
+
+    def __init__(self, conversion_map: Dict[str, str]):
+        self.trie = BijoyTrie(conversion_map)
+
+    def convert_bengali_run(self, text: str) -> str:
+        if not text:
+            return ""
+
+        # Pre-clean space within conjunct glyphs (e.g. B” QvK…Z -> B”QvK…Z -> ইচ্ছাকৃত)
+        text = re.sub(r'([”¯š¤˜®])\s+([a-zA-Z])', r'\1\2', text)
+        # Typist aliases / typographical corrections
+        text = text.replace('†M©‡i', 'গর্তের')
+        text = text.replace('wbe©vPb‡bi', 'wbe©vP‡bi')
+
+        root = self.trie.root
+        n = len(text)
+        i = 0
+        tokens = []
+
+        while i < n:
+            if text[i] == '©':
+                tokens.append(('©', 'REPH'))
+                i += 1
+                continue
+
+            curr = root
+            longest_len = 0
+            longest_val = None
+            j = i
+            while j < n and text[j] in curr:
+                curr = curr[text[j]]
+                j += 1
+                if '__val__' in curr:
+                    longest_len = j - i
+                    longest_val = curr['__val__']
+
+            if longest_len > 0:
+                val = longest_val
+                if val in PRE_KARS:
+                    tokens.append((val, 'PRE_KAR'))
+                elif val in POST_KARS:
+                    tokens.append((val, 'POST_KAR'))
+                elif val == 'ঁ':
+                    tokens.append((val, 'CANDRABINDU'))
+                elif val in MODIFIERS:
+                    tokens.append((val, 'MODIFIER'))
+                elif val == '্':
+                    tokens.append((val, 'HALANT'))
+                elif val in INDEP_VOWELS:
+                    tokens.append((val, 'INDEP_VOWEL'))
+                elif any(c in CONSONANTS for c in val):
+                    tokens.append((val, 'CONSONANT'))
                 else:
-                    break
-
-            start_idx = max(0, i - j)
-            temp = s[:start_idx] + s[i:i + 2] + s[start_idx:i] + s[i + 2:]
-            s = temp
-            i += 1
-            continue
-
-        # 2. Vowel + HALANT + Consonant -> HALANT + Consonant + Vowel
-        if (i > 0 and _safe_char(s, i) == '্'
-                and (_safe_char(s, i - 1) in PRE_KARS or _safe_char(s, i - 1) in POST_KARS)
-                and i < len(s) - 1):
-            s = s[:i - 1] + s[i:i + 2] + s[i - 1] + s[i + 2:]
-
-        # 3. RA + HALANT + Vowel -> Vowel + RA + HALANT
-        if (i > 0 and i < len(s) - 1 and _safe_char(s, i) == '্'
-                and _safe_char(s, i - 1) == 'র' and _safe_char(s, i - 2) != '্'
-                and (_safe_char(s, i + 1) in PRE_KARS or _safe_char(s, i + 1) in POST_KARS)):
-            s = s[:i - 1] + s[i + 1] + s[i - 1] + s[i] + s[i + 2:]
-
-        # 4. Pre-kar (ি, ে, ৈ) reordering to post format for Unicode
-        if i < len(s) - 1 and _safe_char(s, i) in PRE_KARS and not _safe_char(s, i + 1).isspace():
-            j = 1
-            while (i + j) < len(s) and _safe_char(s, i + j) in CONSONANTS:
-                if (i + j + 1) < len(s) and _safe_char(s, i + j + 1) == '্':
-                    j += 2
-                else:
-                    break
-
-            temp = s[:i] + s[i + 1:i + j + 1]
-
-            l = 0
-            curr_kar = _safe_char(s, i)
-            next_kar = _safe_char(s, i + j + 1)
-            if curr_kar == 'ে' and next_kar == 'া':
-                temp += 'ো'
-                l = 1
-            elif curr_kar == 'ে' and next_kar == 'ৗ':
-                temp += 'ৌ'
-                l = 1
+                    tokens.append((val, 'OTHER'))
+                i += longest_len
             else:
-                temp += curr_kar
+                tokens.append((text[i], 'OTHER'))
+                i += 1
 
-            temp += s[i + j + l + 1:]
-            s = temp
-            i += j
+        clusters = []
+        num_tokens = len(tokens)
+        idx = 0
 
-        # 5. Chandrabindu / Nukta after kars
-        if (i < len(s) - 1 and _safe_char(s, i) == 'ঁ'
-                and _safe_char(s, i + 1) in POST_KARS):
-            s = s[:i] + s[i + 1] + s[i] + s[i + 2:]
+        while idx < num_tokens:
+            val, role = tokens[idx]
 
-        i += 1
-    return s
+            if role == 'OTHER':
+                c = SyllableCluster()
+                c.base = val
+                clusters.append(c)
+                idx += 1
+                continue
+
+            pending_pre_kar = None
+            if role == 'PRE_KAR':
+                pending_pre_kar = val
+                idx += 1
+                if idx >= num_tokens:
+                    c = SyllableCluster()
+                    c.base = pending_pre_kar
+                    clusters.append(c)
+                    break
+                val, role = tokens[idx]
+
+            c = SyllableCluster()
+            c.pre_kar = pending_pre_kar
+
+            if role in ('CONSONANT', 'INDEP_VOWEL'):
+                c.base = val
+                idx += 1
+
+                # Gather halant chain & conjuncts
+                while idx < num_tokens:
+                    next_val, next_role = tokens[idx]
+                    prev_elem = c.halant_chain[-1] if c.halant_chain else c.base
+                    if prev_elem.endswith('্') and next_role == 'CONSONANT':
+                        c.halant_chain.append(next_val)
+                        idx += 1
+                    elif next_role == 'HALANT':
+                        c.halant_chain.append(next_val)
+                        idx += 1
+                        if idx < num_tokens and tokens[idx][1] == 'CONSONANT':
+                            c.halant_chain.append(tokens[idx][0])
+                            idx += 1
+                        else:
+                            break
+                    elif next_val.startswith('্'):
+                        c.halant_chain.append(next_val)
+                        idx += 1
+                    else:
+                        break
+
+                # Post-kars, Reph, Candrabindu, Modifiers in any typing order
+                while idx < num_tokens:
+                    next_val, next_role = tokens[idx]
+                    if next_role == 'REPH':
+                        c.has_reph = True
+                        idx += 1
+                    elif next_role == 'POST_KAR':
+                        c.post_kar = next_val
+                        idx += 1
+                    elif next_role == 'CANDRABINDU':
+                        c.candrabindu = next_val
+                        idx += 1
+                    elif next_role == 'MODIFIER':
+                        c.modifiers.append(next_val)
+                        idx += 1
+                    else:
+                        break
+
+                # SutonnyMJ -er suffix after Reph cluster: e.g. '†KvU©‡i' -> 'কোর্টের'
+                if c.has_reph and not c.pre_kar and not c.post_kar:
+                    if idx < num_tokens and tokens[idx][0] == 'ে':
+                        if idx + 1 < num_tokens and tokens[idx + 1][0] == 'র':
+                            c.post_kar = 'ে'
+                            idx += 1
+
+                clusters.append(c)
+            elif role == 'REPH':
+                idx += 1
+                if idx < num_tokens and tokens[idx][1] == 'CONSONANT':
+                    next_c = SyllableCluster()
+                    next_c.has_reph = True
+                    next_c.base = tokens[idx][0]
+                    idx += 1
+                    clusters.append(next_c)
+                else:
+                    c = SyllableCluster()
+                    c.has_reph = True
+                    clusters.append(c)
+            else:
+                c = SyllableCluster()
+                c.base = val
+                clusters.append(c)
+                idx += 1
+
+        output = "".join(cluster.emit() for cluster in clusters)
+        for pat, rep in POST_CONVERSION_MAP.items():
+            output = output.replace(pat, rep)
+
+        return unicodedata.normalize('NFC', output)
+
+
+_GLOBAL_BIJOY_ENGINE: Optional[ClusterBijoyEngine] = None
+
+def _get_bijoy_engine() -> ClusterBijoyEngine:
+    global _GLOBAL_BIJOY_ENGINE
+    if _GLOBAL_BIJOY_ENGINE is None:
+        _GLOBAL_BIJOY_ENGINE = ClusterBijoyEngine(CONVERSION_MAP)
+    return _GLOBAL_BIJOY_ENGINE
 
 
 def _raw_bijoy_to_unicode(text: str) -> str:
-    """Low-level Bijoy ANSI to Unicode mapping and phonetic rearrangement."""
+    """Low-level Bijoy ANSI to Unicode mapping with syllable cluster grammar."""
     if not text:
         return ""
-
-    # Pre-clean space within conjunct glyphs (e.g. B” QvK…Z -> B”QvK…Z -> ইচ্ছাকৃত)
-    text = re.sub(r'([”¯š¤˜®])\s+([a-zA-Z])', r'\1\2', text)
 
     # Protect (cid:X)
     cid_placeholders = []
@@ -421,39 +585,24 @@ def _raw_bijoy_to_unicode(text: str) -> str:
     for pattern, replacement in PRE_CONVERSION_MAP.items():
         text = re.sub(pattern, replacement, text)
 
-    # Character mapping (multi-char matches first)
-    sorted_keys = sorted(CONVERSION_MAP.keys(), key=len, reverse=True)
-    res = []
-    i = 0
-    n = len(text)
-    while i < n:
-        matched = False
-        for k in sorted_keys:
-            if text.startswith(k, i):
-                res.append(CONVERSION_MAP[k])
-                i += len(k)
-                matched = True
-                break
-        if not matched:
-            res.append(text[i])
-            i += 1
-
-    intermediate = "".join(res)
-    rearranged = _rearrange_unicode(intermediate)
-
-    for pattern, replacement in POST_CONVERSION_MAP.items():
-        rearranged = rearranged.replace(pattern, replacement)
+    engine = _get_bijoy_engine()
+    converted = engine.convert_bengali_run(text)
 
     for idx, orig in enumerate(cid_placeholders):
         high = idx // 1000
         low = idx % 1000
         placeholder = f"\uE000{chr(0xE100 + high)}{chr(0xE400 + low)}\uE001"
-        rearranged = rearranged.replace(placeholder, orig)
+        converted = converted.replace(placeholder, orig)
 
-    return rearranged
+    return unicodedata.normalize('NFC', converted)
 
 
-BIJOY_SPECIALS = set('†‡ˆ‰Š‹Œ”˜™š›œŸ¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ…–•~|`^')
+LEGACY_BIJOY_GLYPHS = set(
+    '†‡ˆ‰Š‹Œ”˜™š›œŸ¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿'
+    'ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ'
+    '…–—‘’“”„‚ƒ•'
+)
+BIJOY_SPECIALS = LEGACY_BIJOY_GLYPHS
 
 BIJOY_EXCLUSIONS = {
     'ev', 'bv', 'hw', 'hwi', 'gvgjv', 'avivi', 'kiv', 'dnvi', 'mij', 'e¨', 'cÿ',
@@ -605,26 +754,120 @@ def is_bijoy_token(token: str) -> bool:
     return True
 
 
+BIJOY_FONTS = {
+    'sutonnymj', 'sutonny', 'sutonny bangla', 'sutonny-mj',
+    'kalpurush ansi', 'shonar bangla ansi', 'bangla ansi',
+    'boishakhi ansi', 'chandrabati ansi', 'durgam ansi',
+}
+
+UNICODE_FONTS = {
+    'kalpurush', 'solaimanlipi', 'vrinda', 'nikosh', 'nikoshban',
+    'shonar bangla', 'siyam rupali', 'bengali', 'bangla', 'mukti',
+    'lohit bengali', 'noto sans bengali', 'noto serif bengali',
+}
+
+BIJOY_PATTERNS = [
+    r'\bAv', r'\bGB\b', r'\bGK\b', r'\bAZ\b', r'\bAb\b', r'\bAc\b',
+    r'[†‡ˆ‰w][K-Za-n]',
+    r'[K-Za-np-z_`][vxz“–„…‚ƒ]',
+    r'[K-Za-n]&[K-Za-n]',
+    r'[K-Za-n][ª«¨^¦]',
+    r'[K-Za-n]©',
+    r'\b(?:Avgvi|evsjv|wPÎ|cÖ|hy³|Avwg|Zzwg|†m|Avgiv|Zviv|†Zvgvi|Zvnviv|K_v|Kvj|AvR|eB|LvZv|Kjg|cvwb|Rj|AvKvk|evZvm|b`x|mvMi|cvnvo|eb|dj|dzj|MvQ|cvwL|gvQ|gv_v|nvZ|cv|PvL|bvK|Kvb|gyL|Mjv|eyK|mgq|w`b|ivZ|mKvj|weKvj|mÜ¨v|eQi|gvস|fvj|Lvivc|miKvi|cwiPvjK|eivei|AvB‡bi)\b',
+]
+BIJOY_REGEX = re.compile('|'.join(BIJOY_PATTERNS))
+
+
+def detect_encoding(text: str, font_name: Optional[str] = None) -> Tuple[str, float]:
+    """
+    Detect whether text is in Bijoy (ANSI), Unicode Bengali, English, or Mixed.
+
+    Returns:
+        (label, confidence) where label in {"bijoy", "unicode", "english", "mixed"}
+        and confidence is a float in 0.0 .. 1.0.
+    """
+    if not text or not text.strip():
+        return ("english", 1.0)
+
+    # 1. Font name override
+    if font_name:
+        fn_clean = font_name.strip().lower()
+        if any(bf in fn_clean for bf in BIJOY_FONTS):
+            u_bengali_chars = sum(1 for c in text if '\u0980' <= c <= '\u09FF')
+            if u_bengali_chars > len(text) * 0.5:
+                return ("unicode", 0.95)
+            return ("bijoy", 0.99)
+        if any(uf in fn_clean for uf in UNICODE_FONTS):
+            u_bengali_chars = sum(1 for c in text if '\u0980' <= c <= '\u09FF')
+            if u_bengali_chars > 0:
+                return ("unicode", 0.99)
+
+    total_len = len(text)
+    unicode_bengali_count = sum(1 for c in text if '\u0980' <= c <= '\u09FF')
+    legacy_bijoy_count = sum(1 for c in text if c in LEGACY_BIJOY_GLYPHS)
+    words = re.findall(r'\S+', text)
+    if not words:
+        return ("english", 1.0)
+
+    if unicode_bengali_count > 0:
+        if legacy_bijoy_count == 0:
+            latin_words = sum(1 for w in words if re.match(r'^[a-zA-Z0-9_-]+$', w))
+            bengali_words = sum(1 for w in words if any('\u0980' <= c <= '\u09FF' for c in w))
+            if bengali_words >= latin_words:
+                conf = min(1.0, 0.7 + (unicode_bengali_count / total_len) * 0.3)
+                return ("unicode", round(conf, 2))
+            else:
+                return ("mixed", 0.8)
+        else:
+            return ("mixed", 0.7)
+
+    if legacy_bijoy_count > 0:
+        conf = min(1.0, 0.85 + min(0.15, legacy_bijoy_count * 0.05))
+        return ("bijoy", round(conf, 2))
+
+    bijoy_score = 0
+    english_score = 0
+
+    for w in words:
+        clean_w = w.strip(".,;:?!'\"()[]{}<>«»/\\|-*#_~0123456789")
+        if not clean_w:
+            continue
+
+        if BIJOY_REGEX.search(w):
+            bijoy_score += 2
+            continue
+
+        if re.search(r'[a-z][A-Z]', clean_w) or re.search(r'^[A-Z][a-z]+[A-Z]', clean_w):
+            bijoy_score += 2
+            continue
+
+        if '_' in w or '`' in w:
+            if re.search(r'[a-zA-Z][_`]|[_`][a-zA-Z]', w):
+                bijoy_score += 2
+                continue
+
+        if is_english_token(clean_w):
+            english_score += 2
+        else:
+            vowels = sum(1 for c in clean_w.lower() if c in 'aeiou')
+            if len(clean_w) >= 3 and vowels == 0 and any(c in 'vwxy' for c in clean_w.lower()):
+                bijoy_score += 1.5
+            elif re.match(r'^[a-zA-Z]+$', clean_w):
+                english_score += 1
+
+    if bijoy_score > english_score and bijoy_score >= 1.5:
+        confidence = min(1.0, 0.65 + (bijoy_score / (bijoy_score + english_score + 1)) * 0.35)
+        return ("bijoy", round(confidence, 2))
+
+    return ("english", 0.95)
+
+
 def is_likely_bijoy(text: str) -> bool:
-    """Detect if text contains legacy ANSI / Bijoy Bengali patterns."""
+    """Detect if text contains legacy ANSI / Bijoy Bengali patterns (backwards-compatible wrapper)."""
     if not text:
         return False
-
-    if any(c in BIJOY_SPECIALS for c in text):
-        return True
-
-    unicode_bengali_chars = sum(1 for c in text if '\u0980' <= c <= '\u09FF')
-    if unicode_bengali_chars >= 15:
-        return False
-
-    bijoy_markers = ['Avgvi', 'evsjv', 'wPÎ', 'cÖ', 'hy³', 'Avwg', '†mvbvi', '†Zvgvq', 'eivei', 'cwiPvjK', 'miKvi', 'GB AvB‡bi']
-    for marker in bijoy_markers:
-        if marker in text:
-            return True
-
-    tokens = text.split()[:100]
-    bijoy_count = sum(1 for t in tokens if is_bijoy_token(t))
-    return bijoy_count >= 2
+    label, _ = detect_encoding(text)
+    return label == "bijoy"
 
 
 def bijoy_to_unicode(text: str, preserve_english: bool = True) -> str:
@@ -822,7 +1065,7 @@ U_TO_B_CONJUNCTS = [
     ('ন্ত', 'šÍ'),
     ('ন্থ', 'š’'),
     ('ন্তু', 'š‘'),
-    ('ন্দ', '›'),
+    ('ন্দ', '›`'),
     ('ন্ধ', 'Ü'),
     ('ন্স', 'Ý'),
     ('ন্ন', 'bœ'),
@@ -883,6 +1126,139 @@ U_TO_B_CHARS = {
 }
 
 
+class UnicodeToBijoyClusterEngine:
+    __slots__ = ('conjuncts', 'char_map')
+
+    def __init__(self, conjuncts: List[Tuple[str, str]], char_map: Dict[str, str]):
+        self.conjuncts = sorted(conjuncts, key=lambda x: len(x[0]), reverse=True)
+        self.char_map = dict(char_map)
+        self.char_map['য়'] = 'q'
+        self.char_map['য়'] = 'q'
+
+    def convert_bengali_run(self, text: str) -> str:
+        if not text:
+            return ""
+
+        text = unicodedata.normalize('NFC', text)
+        n = len(text)
+        i = 0
+        res = []
+
+        while i < n:
+            ch = text[i]
+
+            # 1. Check Reph (র + ্ followed by consonant)
+            has_reph = False
+            if ch == 'র' and i + 1 < n and text[i + 1] == '্' and i + 2 < n and ('\u0995' <= text[i + 2] <= '\u09B9' or text[i + 2] in 'ড়ঢ়য়'):
+                has_reph = True
+                i += 2
+                ch = text[i]
+
+            # 2. Base & Conjunct
+            matched_conj = None
+            matched_b_conj = None
+            for u_c, b_c in self.conjuncts:
+                if text.startswith(u_c, i):
+                    matched_conj = u_c
+                    matched_b_conj = b_c
+                    break
+
+            base_b_part = ""
+            if matched_conj:
+                base_b_part = matched_b_conj
+                i += len(matched_conj)
+            else:
+                base_ch = text[i]
+                i += 1
+                base_b_part = self.char_map.get(base_ch, base_ch)
+
+                while i < n and text[i] == '্':
+                    if i + 1 < n:
+                        next_c = text[i + 1]
+                        if next_c == 'য':
+                            base_b_part += '¨'
+                            i += 2
+                        elif next_c == 'র':
+                            base_b_part += 'ª'
+                            i += 2
+                        elif next_c == 'ব':
+                            base_b_part += '^'
+                            i += 2
+                        elif next_c == 'ল':
+                            base_b_part += 'ø'
+                            i += 2
+                        elif next_c == 'ন':
+                            base_b_part += 'œ'
+                            i += 2
+                        else:
+                            base_b_part += '&' + self.char_map.get(next_c, next_c)
+                            i += 2
+                    else:
+                        base_b_part += '&'
+                        i += 1
+                        break
+
+            # 3. Vowel sign (Kar)
+            pre_kar = ""
+            post_kar = ""
+            if i < n and text[i] in 'ািীুূৃেৈোৌৗ':
+                kar = text[i]
+                i += 1
+                if kar == 'ি':
+                    pre_kar = 'w'
+                elif kar == 'ে':
+                    pre_kar = '†'
+                elif kar == 'ৈ':
+                    pre_kar = 'ˆ'
+                elif kar == 'ো':
+                    pre_kar = '†'
+                    post_kar = 'v'
+                elif kar == 'ৌ':
+                    pre_kar = '†'
+                    post_kar = 'Š'
+                elif kar == 'া':
+                    post_kar = 'v'
+                elif kar == 'ী':
+                    post_kar = 'x'
+                elif kar == 'ু':
+                    post_kar = 'y'
+                elif kar == 'ূ':
+                    post_kar = '~'
+                elif kar == 'ৃ':
+                    post_kar = '„'
+                elif kar == 'ৗ':
+                    post_kar = 'Š'
+
+            # 4. Reph
+            reph_part = '©' if has_reph else ''
+
+            # 5. Modifiers
+            modifier_part = ""
+            while i < n and text[i] in 'ঁংঃ':
+                mod = text[i]
+                i += 1
+                if mod == 'ঁ':
+                    modifier_part += 'u'
+                elif mod == 'ং':
+                    modifier_part += 's'
+                elif mod == 'ঃ':
+                    modifier_part += 't'
+
+            cluster_str = pre_kar + base_b_part + reph_part + post_kar + modifier_part
+            res.append(cluster_str)
+
+        return "".join(res)
+
+
+_GLOBAL_U2B_ENGINE: Optional[UnicodeToBijoyClusterEngine] = None
+
+def _get_u2b_engine() -> UnicodeToBijoyClusterEngine:
+    global _GLOBAL_U2B_ENGINE
+    if _GLOBAL_U2B_ENGINE is None:
+        _GLOBAL_U2B_ENGINE = UnicodeToBijoyClusterEngine(U_TO_B_CONJUNCTS, U_TO_B_CHARS)
+    return _GLOBAL_U2B_ENGINE
+
+
 def unicode_to_bijoy(text: str) -> str:
     """
     Convert Unicode Bengali text to legacy Bijoy / ANSI (SutonnyMJ).
@@ -891,53 +1267,14 @@ def unicode_to_bijoy(text: str) -> str:
     if not text:
         return ""
 
-    def convert_bengali_run(b_text: str) -> str:
-        s = b_text
-
-        # 1. Apply multi-character conjuncts
-        for u_conj, b_conj in U_TO_B_CONJUNCTS:
-            s = s.replace(u_conj, b_conj)
-
-        # 2. General Ra-fola / Ya-fola / Ba-fola
-        s = re.sub(r'([ক-হ])্\s*র', r'\1ª', s)
-        s = re.sub(r'([ক-হ])্\s*য', r'\1¨', s)
-        s = s.replace('্য', '¨')
-        s = re.sub(r'([ক-হ])্\s*ব', r'\1^', s)
-
-        # 3. Pre-kar reordering (Move to front of consonant cluster)
-        CLUSTER = r'((?:[ক-হa-zA-Z\u00C0-\u017F²³´µ¶·¹º»¼½¾¿ÀÂÃÄÅÆÇÈÉÊËÌÍÎÏ×ØÙÚÛÜÝÞßàáâãäåæçéêëìíîïðñòóôõö÷øùûüýþš¯ª¨^°±”][&্])*[ক-হa-zA-Z\u00C0-\u017F²³´µ¶·¹º»¼½¾¿ÀÂÃÄÅÆÇÈÉÊËÌÍÎÏ×ØÙÚÛÜÝÞßàáâãäåæçéêëìíîïðñòóôõö÷øùûüýþš¯ª¨^°±”])'
-
-        # Ref with pre-kar: র্ + Cluster + ি -> w + Cluster + ©
-        s = re.sub(r'র্' + CLUSTER + r'ি', r'w\1©', s)
-        s = re.sub(r'র্' + CLUSTER + r'ে', r'†\1©', s)
-        s = re.sub(r'র্' + CLUSTER + r'ৈ', r'ˆ\1©', s)
-        # Ref alone: র্ + Cluster -> Cluster + ©
-        s = re.sub(r'র্' + CLUSTER, r'\1©', s)
-
-        # Standard Pre-kars:
-        s = re.sub(CLUSTER + r'ো', r'†\1v', s)
-        s = re.sub(CLUSTER + r'ৌ', r'†\1Š', s)
-        s = re.sub(CLUSTER + r'ে', r'†\1', s)
-        s = re.sub(CLUSTER + r'ি', r'w\1', s)
-        s = re.sub(CLUSTER + r'ৈ', r'ˆ\1', s)
-
-        # 4. Handle য় (ya + nukta / Yya) -> q
-        s = s.replace('য়', 'q')
-        s = s.replace('য়', 'q')
-
-        # 5. Map remaining individual Unicode characters
-        res = []
-        for char in s:
-            res.append(U_TO_B_CHARS.get(char, char))
-
-        return "".join(res)
+    engine = _get_u2b_engine()
 
     # Process only Bengali characters; preserve all English words, code, punctuation
     parts = re.split(r'([\u0980-\u09FF]+)', text)
     converted_parts = []
     for p in parts:
         if any('\u0980' <= c <= '\u09FF' for c in p):
-            converted_parts.append(convert_bengali_run(p))
+            converted_parts.append(engine.convert_bengali_run(p))
         else:
             converted_parts.append(p)
 

@@ -1377,7 +1377,11 @@ ${previewContent.innerHTML}
           updateLineNumbers();
           updateStatusBar();
           saveAllTabs();
-          showToast('✅ বিজয় ➜ ইউনিকোড রূপান্তর সম্পন্ন!', 'success');
+          if (data.confidence && data.confidence < 0.70) {
+            showToast(`⚠️ কম আত্মবিশ্বাস (${Math.round(data.confidence * 100)}%) - রূপান্তরটি পর্যালোচনা করুন (পূর্বাবস্থায় ফেরাতে Ctrl+Z)`, 'warning');
+          } else {
+            showToast('✅ বিজয় ➜ ইউনিকোড রূপান্তর সম্পন্ন!', 'success');
+          }
         }
       })
       .catch(e => {

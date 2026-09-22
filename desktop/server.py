@@ -489,11 +489,30 @@ def api_convert_ansi():
     if not raw_text:
         raw_text = request.forms.get('text', '')
 
-    from core.bengali import auto_convert_markdown
+    from core.bengali import auto_convert_markdown, detect_encoding
+    label, confidence = detect_encoding(raw_text)
     converted = auto_convert_markdown(raw_text)
+
+    # Paragraph-level breakdown for granular inspection and per-block undo
+    paragraphs = raw_text.split('\n\n')
+    breakdown = []
+    for p in paragraphs:
+        if p.strip():
+            p_label, p_conf = detect_encoding(p)
+            p_conv = auto_convert_markdown(p)
+            breakdown.append({
+                "original": p,
+                "converted": p_conv,
+                "label": p_label,
+                "confidence": p_conf,
+            })
+
     return {
         "success": True,
         "converted": converted,
+        "label": label,
+        "confidence": confidence,
+        "breakdown": breakdown,
     }
 
 

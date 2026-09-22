@@ -28,7 +28,7 @@
   --status-color: #cccccc;
   --input-bg: #2d2d2d;
   --input-border: #3c3c3c;
-  --font-main: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  /* --font-main is set in fonts.css as Kalpurush Bengali stack; do NOT override here */
   --font-mono: Consolas, 'Cascadia Code', 'Fira Code', 'Courier New', monospace;
 }
 
@@ -342,14 +342,14 @@ body {
 
 /* ==================== Formatting Sub-Toolbar ==================== */
 .toolbar {
-  height: 34px;
+  min-height: 34px;
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 10px;
-  overflow-x: auto;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 3px 10px;
   user-select: none;
   flex-shrink: 0;
 }

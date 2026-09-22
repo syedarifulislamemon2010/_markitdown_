@@ -11,6 +11,8 @@ from core.bengali import (
     auto_convert_markdown,
     auto_convert_unicode_to_bijoy_markdown,
     bijoy_to_unicode,
+    detect_encoding,
+    is_likely_bijoy,
 )
 
 GOLDEN_CSV_PATH = Path(__file__).parent / "golden_bijoy.csv"
@@ -22,12 +24,12 @@ ANCHORS = [
     ("gvbyl", "মানুষ", False),
     ("c„w_ex", "পৃথিবী", False),
     ("evsjv‡`k", "বাংলাদেশ", False),
-    ("†KvU©‡i", "কোর্টের", True),
-    ("m~‡h©i", "সূর্যের", True),
-    ("wbe©vPb‡bi", "নির্বাচনের", True),
-    ("†M©‡i", "গর্তের", True),
-    ("Dcm‡M©i", "উপসর্গের", True),
-    ("Kzwgjøv", "কুমিল্লা", True),
+    ("†KvU©‡i", "কোর্টের", False),
+    ("m~‡h©i", "সূর্যের", False),
+    ("wbe©vPb‡bi", "নির্বাচনের", False),
+    ("†M©‡i", "গর্তের", False),
+    ("Dcm‡M©i", "উপসর্গের", False),
+    ("Kzwgjøv", "কুমিল্লা", False),
 ]
 
 
@@ -139,3 +141,60 @@ def test_hypothesis_roundtrip_phrase(words):
     bijoy = auto_convert_unicode_to_bijoy_markdown(phrase)
     roundtrip = auto_convert_markdown(bijoy)
     assert unicodedata.normalize("NFC", roundtrip) == unicodedata.normalize("NFC", phrase)
+
+
+def test_detect_encoding():
+    """Verify detect_encoding returns correct labels, confidences, and respects font overrides."""
+    # Bijoy detection
+    for bijoy_word in ["KvR", "mgvR", "gvbyl", "c„w_ex", "evsjv‡`k", "Avgvi", "Kzwgjøv"]:
+        label, conf = detect_encoding(bijoy_word)
+        assert label == "bijoy", f"Expected bijoy for {bijoy_word!r}, got {label}"
+        assert conf >= 0.65
+        assert is_likely_bijoy(bijoy_word) is True
+
+    # Negative triggers: programming/shell symbols should NOT trigger Bijoy
+    for non_bijoy in [
+        "Use ~/bin | grep foo",
+        "git status",
+        "def test_func(): pass",
+        "curl -s https://example.com | jq .",
+        "x ^ y | z ~ w",
+    ]:
+        label, conf = detect_encoding(non_bijoy)
+        assert label == "english", f"Expected english for {non_bijoy!r}, got {label}"
+        assert is_likely_bijoy(non_bijoy) is False
+
+    # Unicode Bengali detection
+    u_sample = "আমাদের দেশ বাংলাদেশ, এটি একটি সুন্দর দেশ"
+    label, conf = detect_encoding(u_sample)
+    assert label == "unicode"
+    assert conf >= 0.8
+    assert is_likely_bijoy(u_sample) is False
+
+    # Font overrides
+    label, conf = detect_encoding("Sample text", font_name="SutonnyMJ")
+    assert label == "bijoy"
+    assert conf >= 0.95
+
+    label, conf = detect_encoding("বাংলাদেশ", font_name="Kalpurush")
+    assert label == "unicode"
+    assert conf >= 0.95
+
+
+def test_trie_performance_benchmark():
+    """Verify Trie conversion benchmark: 100k characters in < 0.5s."""
+    import time
+    from core.bengali import _get_bijoy_engine
+    engine = _get_bijoy_engine()
+    sample = ("Avgvi †mvbvi evsjv Avwg †Zvgvq fvjvevwm| "
+              "wbe©vPb‡bi djvdj cÖKvk Kiv n‡q‡Q| "
+              "Kzwgjøv †Rjvq Kg©KZ©viv cÖavbgš¿xi mv‡_ †`Lv K‡ib| ") * 1000
+    sample = sample[:100000]
+    assert len(sample) == 100000
+
+    start = time.perf_counter()
+    _ = engine.convert_bengali_run(sample)
+    elapsed = time.perf_counter() - start
+
+    assert elapsed < 0.5, f"Trie benchmark exceeded 0.5s: {elapsed:.4f}s"
+
