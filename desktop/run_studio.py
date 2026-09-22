@@ -66,6 +66,10 @@ def secure_set_key(service: str, key: str) -> bool:
     data[service] = key
     import json
     store_file.write_text(json.dumps(data), encoding="utf-8")
+    try:
+        os.chmod(store_file, 0o600)
+    except Exception:
+        pass
     return True
 
 

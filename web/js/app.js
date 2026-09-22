@@ -48,6 +48,60 @@
     });
   }
 
+  // ==================== Security: Credential Management & Keyring Bridge ====================
+  // Secure In-Memory Key Store for Browser Mode (strictly never written to localStorage or cookies)
+  window.__MEMORY_KEYS__ = window.__MEMORY_KEYS__ || {
+    openai: '',
+    gemini: ''
+  };
+
+  // Immediate purge of any legacy API keys that may have been stored in localStorage
+  try {
+    localStorage.removeItem('markitdown_openai_key');
+    localStorage.removeItem('markitdown_gemini_key');
+  } catch (_) {}
+
+  async function getSecureApiKey(service) {
+    if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.get_api_key === 'function') {
+      try {
+        const k = await window.pywebview.api.get_api_key(service);
+        if (k) return k;
+      } catch (e) {
+        console.warn('Failed to retrieve key from desktop keyring:', e);
+      }
+    }
+    return window.__MEMORY_KEYS__[service] || '';
+  }
+
+  async function setSecureApiKey(service, key) {
+    window.__MEMORY_KEYS__[service] = key || '';
+    if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.set_api_key === 'function') {
+      try {
+        await window.pywebview.api.set_api_key(service, key || '');
+        return true;
+      } catch (e) {
+        console.warn('Failed to persist key to desktop keyring:', e);
+      }
+    }
+    return false;
+  }
+
+  async function clearSecureApiKeys() {
+    window.__MEMORY_KEYS__.openai = '';
+    window.__MEMORY_KEYS__.gemini = '';
+    if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.clear_api_keys === 'function') {
+      try {
+        await window.pywebview.api.clear_api_keys();
+      } catch (e) {
+        console.warn('Failed to clear keys from desktop keyring:', e);
+      }
+    }
+    try {
+      localStorage.removeItem('markitdown_openai_key');
+      localStorage.removeItem('markitdown_gemini_key');
+    } catch (_) {}
+  }
+
   // ==================== Global Elements & State ====================
   const editor = document.getElementById('editor');
   const preview = document.getElementById('preview');
@@ -1194,9 +1248,9 @@ ${previewContent.innerHTML}
       const formData = new FormData();
       formData.append('file', file);
 
-      const openaiKey = localStorage.getItem('markitdown_openai_key');
+      const openaiKey = await getSecureApiKey('openai');
       const openaiBaseUrl = localStorage.getItem('markitdown_openai_base_url');
-      const geminiKey = localStorage.getItem('markitdown_gemini_key');
+      const geminiKey = await getSecureApiKey('gemini');
       const model = localStorage.getItem('markitdown_openai_model');
 
       if (openaiKey) formData.append('openai_key', openaiKey);
@@ -1235,9 +1289,9 @@ ${previewContent.innerHTML}
 
     const formData = new FormData();
     formData.append('image', file);
-    const key = localStorage.getItem('markitdown_openai_key');
+    const key = await getSecureApiKey('openai');
     const baseUrl = localStorage.getItem('markitdown_openai_base_url');
-    const geminiKey = localStorage.getItem('markitdown_gemini_key');
+    const geminiKey = await getSecureApiKey('gemini');
     const model = localStorage.getItem('markitdown_openai_model');
     if (key) formData.append('openai_key', key);
     if (baseUrl) formData.append('openai_base_url', baseUrl);
@@ -2098,6 +2152,14 @@ ${previewContent.innerHTML}
     const batchId = 'batch_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     const formData = new FormData();
     formData.append('batch_id', batchId);
+    const bOpenaiKey = await getSecureApiKey('openai');
+    const bGeminiKey = await getSecureApiKey('gemini');
+    const bBaseUrl = localStorage.getItem('markitdown_openai_base_url');
+    const bModel = localStorage.getItem('markitdown_openai_model');
+    if (bOpenaiKey) formData.append('openai_key', bOpenaiKey);
+    if (bBaseUrl) formData.append('openai_base_url', bBaseUrl);
+    if (bGeminiKey) formData.append('gemini_key', bGeminiKey);
+    if (bModel) formData.append('openai_model', bModel);
     for (let i = 0; i < total; i++) {
       formData.append('files', files[i]);
     }
@@ -2529,10 +2591,8 @@ ${previewContent.innerHTML}
           const sData = await sResp.json();
           if (sData.success && sData.config) {
             const c = sData.config;
-            if (c.openai_key) localStorage.setItem('markitdown_openai_key', c.openai_key);
             if (c.openai_base_url) localStorage.setItem('markitdown_openai_base_url', c.openai_base_url);
             if (c.openai_model) localStorage.setItem('markitdown_openai_model', c.openai_model);
-            if (c.gemini_key) localStorage.setItem('markitdown_gemini_key', c.gemini_key);
             if (c.provider) localStorage.setItem('markitdown_provider', c.provider);
           }
         }
@@ -2542,25 +2602,32 @@ ${previewContent.innerHTML}
 
     // Settings Modal Open
     document.getElementById('settingsBtn')?.addEventListener('click', async () => {
+      // Toggle Desktop Keyring notice vs Browser in-memory warning
+      const isDesktop = Boolean(window.pywebview && window.pywebview.api);
+      const desktopNotice = document.getElementById('desktopKeyringNotice');
+      const browserWarning = document.getElementById('browserModeKeyWarning');
+      if (desktopNotice && browserWarning) {
+        desktopNotice.style.display = isDesktop ? 'block' : 'none';
+        browserWarning.style.display = isDesktop ? 'none' : 'block';
+      }
+
       try {
         const sResp = await fetch('/api/settings');
         if (sResp.ok) {
           const sData = await sResp.json();
           if (sData.success && sData.config) {
             const c = sData.config;
-            if (c.openai_key) localStorage.setItem('markitdown_openai_key', c.openai_key);
             if (c.openai_base_url) localStorage.setItem('markitdown_openai_base_url', c.openai_base_url);
             if (c.openai_model) localStorage.setItem('markitdown_openai_model', c.openai_model);
-            if (c.gemini_key) localStorage.setItem('markitdown_gemini_key', c.gemini_key);
             if (c.provider) localStorage.setItem('markitdown_provider', c.provider);
           }
         }
       } catch (err) {}
 
-      const key = localStorage.getItem('markitdown_openai_key') || defaultHcnsecKey;
+      const key = await getSecureApiKey('openai');
       const baseUrl = localStorage.getItem('markitdown_openai_base_url') || defaultHcnsecUrl;
       const model = localStorage.getItem('markitdown_openai_model') || defaultModel;
-      const gemini = localStorage.getItem('markitdown_gemini_key') || '';
+      const gemini = await getSecureApiKey('gemini');
       const provider = localStorage.getItem('markitdown_provider') || 'hcnsec';
 
       const keyInput = document.getElementById('openaiKeyInput');
@@ -2594,7 +2661,7 @@ ${previewContent.innerHTML}
       });
     });
 
-    // Toggle API Key Visibility
+    // Toggle API Key Visibility (OpenAI / Relay)
     document.getElementById('toggleApiKeyVisibility')?.addEventListener('click', () => {
       const keyInput = document.getElementById('openaiKeyInput');
       const btn = document.getElementById('toggleApiKeyVisibility');
@@ -2609,14 +2676,31 @@ ${previewContent.innerHTML}
       }
     });
 
+    // Toggle Gemini Key Visibility
+    document.getElementById('toggleGeminiKeyVisibility')?.addEventListener('click', () => {
+      const geminiInput = document.getElementById('geminiKeyInput');
+      const btn = document.getElementById('toggleGeminiKeyVisibility');
+      if (geminiInput) {
+        if (geminiInput.type === 'password') {
+          geminiInput.type = 'text';
+          if (btn) btn.textContent = '🔒';
+        } else {
+          geminiInput.type = 'password';
+          if (btn) btn.textContent = '👁️';
+        }
+      }
+    });
+
     // Test Connection & Fetch Models
     document.getElementById('btnTestAiConnection')?.addEventListener('click', async () => {
-      const key = document.getElementById('openaiKeyInput')?.value.trim() || '';
+      const activeChip = document.querySelector('.preset-chip.active');
+      const provider = activeChip ? activeChip.getAttribute('data-provider') : 'hcnsec';
+      const key = (provider === 'gemini')
+        ? (document.getElementById('geminiKeyInput')?.value.trim() || await getSecureApiKey('gemini'))
+        : (document.getElementById('openaiKeyInput')?.value.trim() || await getSecureApiKey('openai'));
       const baseUrl = document.getElementById('openaiBaseUrlInput')?.value.trim() || '';
       const model = document.getElementById('openaiModelInput')?.value.trim() || 'auto';
       const statusBadge = document.getElementById('aiConnectionStatus');
-      const activeChip = document.querySelector('.preset-chip.active');
-      const provider = activeChip ? activeChip.getAttribute('data-provider') : 'hcnsec';
 
       if (!key) {
         showToast('⚠️ অনুগ্রহ করে প্রথমে একটি API Key প্রদান করুন।', 'warning');
@@ -2687,10 +2771,12 @@ ${previewContent.innerHTML}
       const activeChip = document.querySelector('.preset-chip.active');
       const provider = activeChip ? activeChip.getAttribute('data-provider') : 'custom';
 
-      localStorage.setItem('markitdown_openai_key', key);
+      // Secure key storage in OS keyring or in-memory (never in localStorage or repo)
+      await setSecureApiKey('openai', key);
+      await setSecureApiKey('gemini', gemini);
+
       localStorage.setItem('markitdown_openai_base_url', baseUrl);
       localStorage.setItem('markitdown_openai_model', model);
-      localStorage.setItem('markitdown_gemini_key', gemini);
       localStorage.setItem('markitdown_provider', provider);
 
       try {
@@ -2709,6 +2795,22 @@ ${previewContent.innerHTML}
 
       closeAllModals();
       showToast('⚙️ সেটিংস ও AI কনফিগারেশন সফলভাবে সংরক্ষিত হয়েছে!', 'success');
+    });
+
+    // Clear API Keys
+    document.getElementById('clearApiKeysBtn')?.addEventListener('click', async () => {
+      await clearSecureApiKeys();
+      const keyInput = document.getElementById('openaiKeyInput');
+      const geminiInput = document.getElementById('geminiKeyInput');
+      if (keyInput) keyInput.value = '';
+      if (geminiInput) geminiInput.value = '';
+      const statusBadge = document.getElementById('aiConnectionStatus');
+      if (statusBadge) {
+        statusBadge.className = 'ai-status-badge';
+        const stText = statusBadge.querySelector('.status-text');
+        if (stText) stText.textContent = 'ক্লিক করে কানেকশন টেস্ট ও মডেল যাচাই করুন';
+      }
+      showToast('🗑️ সব API কী সফলভাবে মুছে ফেলা হয়েছে!', 'info');
     });
 
     // ==================== Editor Toolbar AI Assistant ====================
@@ -2750,9 +2852,14 @@ ${previewContent.innerHTML}
         return;
       }
 
-      const key = localStorage.getItem('markitdown_openai_key') || defaultHcnsecKey;
+      const key = await getSecureApiKey('openai');
       const baseUrl = localStorage.getItem('markitdown_openai_base_url') || defaultHcnsecUrl;
       const model = localStorage.getItem('markitdown_openai_model') || defaultModel;
+
+      if (!key) {
+        showToast('⚠️ অনুগ্রহ করে প্রথমে Settings থেকে একটি API Key প্রদান করুন।', 'warning');
+        return;
+      }
 
       const actionLabels = {
         polish: 'AI প্রুফরিডিং ও পলিশিং',
