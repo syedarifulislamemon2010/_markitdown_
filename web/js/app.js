@@ -790,6 +790,8 @@ graph TD
     if (mode === 'bijoy') {
       editor.classList.add('font-bijoy');
       editor.classList.remove('font-unicode');
+      previewContent?.classList.add('font-bijoy');
+      previewContent?.classList.remove('font-unicode');
       if (toolBtn) toolBtn.innerHTML = '🔤 কালপুরুষ ANSI (বিজয়)';
       if (sbBtn) sbBtn.innerHTML = '🔤 Kalpurush ANSI (বিজয়)';
       if (sbEnc) sbEnc.textContent = 'ANSI (বিজয়)';
@@ -797,6 +799,8 @@ graph TD
     } else {
       editor.classList.remove('font-bijoy');
       editor.classList.add('font-unicode');
+      previewContent?.classList.remove('font-bijoy');
+      previewContent?.classList.add('font-unicode');
       if (toolBtn) toolBtn.innerHTML = '🔤 কালপুরুষ (ইউনিকোড)';
       if (sbBtn) sbBtn.innerHTML = '🔤 Kalpurush';
       if (sbEnc) sbEnc.textContent = 'UTF-8';
