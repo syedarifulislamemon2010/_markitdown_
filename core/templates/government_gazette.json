@@ -1,0 +1,58 @@
+{
+  "template_id": "government_gazette",
+  "title": "Government Gazette / সরকারি গেজেট",
+  "description": "Extracts SRO number, section/dhara, authority/ministry, Bangabda & Gregorian dates, and amendments from official gazettes.",
+  "category": "legal_official",
+  "version": "1.0.0",
+  "fields": [
+    {
+      "name": "sro_number",
+      "label": "SRO Number (এস.আর.ও. নং)",
+      "type": "string",
+      "pattern": "(?:(?:এস\\.?\\s*আর\\.?\\s*ও\\.?|S\\.?\\s*R\\.?\\s*O\\.?)\\s*(?:নং|No\\.?))\\s*([০-৯\\d]+-[^\\n\\r/]+/[০-৯\\d]+)",
+      "confidence_threshold": 0.8
+    },
+    {
+      "name": "gazette_type",
+      "label": "Gazette Type (গেজেটের ধরন)",
+      "type": "string",
+      "pattern": "(অতিরিক্ত\\s*সংখ্যা|সাধারণ\\s*সংখ্যা|EXTRAORDINARY|REGULAR)",
+      "confidence_threshold": 0.8
+    },
+    {
+      "name": "authority",
+      "label": "Authority / Ministry (প্রকাশকারী কর্তৃপক্ষ)",
+      "type": "string",
+      "pattern": "(?:গণপ্রজাতন্ত্রী\\s*বাংলাদেশ\\s*সরকার|Government\\s*of\\s*the\\s*People's\\s*Republic\\s*of\\s*Bangladesh)[\\s\\S]{0,120}?\\n+([^\\n]+?(?:মন্ত্রণালয়|বিভাগ|অধিদপ্তর|কমিশন|কর্তৃপক্ষ|Ministry|Division|Department))",
+      "confidence_threshold": 0.75
+    },
+    {
+      "name": "date_bangabda",
+      "label": "Bangabda Date (বঙ্গাব্দ তারিখ)",
+      "type": "string",
+      "pattern": "([০-৯\\d]+\\s*(?:বৈশাখ|জ্যৈষ্ঠ|আষাঢ়|আষাঢ়|শ্রাবণ|ভাদ্র|আশ্বিন|কার্তিক|অগ্রহায়ণ|পৌষ|মাঘ|ফাল্গুন|চৈত্র)[,\\s]+[০-৯\\d]{4}(?:\\s*বঙ্গাব্দ)?)",
+      "confidence_threshold": 0.85
+    },
+    {
+      "name": "date_gregorian",
+      "label": "Gregorian Date (খ্রিষ্টাব্দ তারিখ)",
+      "type": "string",
+      "pattern": "([০-৯\\d]+\\s*(?:জানুয়ারি|ফেব্রুয়ারি|মার্চ|এপ্রিল|মে|জুন|জুলাই|আগস্ট|সেপ্টেম্বর|অক্টোবর|নভেম্বর|ডিসেম্বর|January|February|March|April|May|June|July|August|September|October|November|December)[,\\s]+[০-৯\\d]{4}(?:\\s*খ্রিষ্টাব্দ)?)",
+      "confidence_threshold": 0.85
+    },
+    {
+      "name": "sections",
+      "label": "Sections / Dhara (ধারা/দফাসমূহ)",
+      "type": "list",
+      "pattern": "(?:ধারা|দফা|Section)\\s*([০-৯\\d]+[ক-হa-zA-Z]?|[a-zA-Z\\d]+)",
+      "confidence_threshold": 0.7
+    },
+    {
+      "name": "amendments",
+      "label": "Amendments / Subject (বিষয় ও সংশোধনী)",
+      "type": "string",
+      "pattern": "(?:বিষ[য়য]|উদ্দেশ্য|সংক্ষিপ্ত\\s*শিরোনাম|Amendment|Subject)[:\\s]*\\n+([^\\n]+)",
+      "confidence_threshold": 0.65
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "template_id": "academic_paper",
+  "title": "Academic Paper / গবেষণা পত্র",
+  "description": "Extracts paper title, authors, affiliations, abstract, keywords, and references from scholarly articles.",
+  "category": "academic_research",
+  "version": "1.0.0",
+  "fields": [
+    {
+      "name": "title",
+      "label": "Paper Title (শিরোনাম)",
+      "type": "string",
+      "pattern": "^(?:#\\s+)?([^\\n]{8,180})",
+      "confidence_threshold": 0.8
+    },
+    {
+      "name": "authors",
+      "label": "Authors & Researchers (লেখক ও গবেষকবৃন্দ)",
+      "type": "string",
+      "pattern": "(?:(?i:Author[s]?)|লেখক(?:বৃন্দ)?|গবেষক)[:\\s]*([^\\n]+)",
+      "confidence_threshold": 0.75
+    },
+    {
+      "name": "abstract",
+      "label": "Abstract (সারসংক্ষেপ)",
+      "type": "string",
+      "pattern": "(?:(?i:Abstract)|সারসংক্ষেপ|মূলকথা)[:\\s]*\\n+([\\s\\S]+?)(?=\\n+(?:(?i:Keywords)|মূলশব্দ|সূচকশব্দ|#|1\\.)|\\Z)",
+      "confidence_threshold": 0.85
+    },
+    {
+      "name": "keywords",
+      "label": "Keywords (মূলশব্দসমূহ)",
+      "type": "list",
+      "pattern": "(?:(?i:Keywords?)|মূলশব্দ|সূচকশব্দ)[:\\s]*([^\\n]+)",
+      "confidence_threshold": 0.75
+    },
+    {
+      "name": "references",
+      "label": "References / Bibliography (তথ্যসূত্র)",
+      "type": "list",
+      "pattern": "(?:(?i:References?|Bibliography)|তথ্যসূত্র|গ্রন্থপঞ্জি)[:\\s]*\\n+([\\s\\S]+)",
+      "confidence_threshold": 0.8
+    }
+  ]
+}

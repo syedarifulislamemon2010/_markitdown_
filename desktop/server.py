@@ -143,10 +143,13 @@ def apply_security_headers():
         "connect-src 'self';"
     )
 
-    # 2. Localhost-only CORS: NEVER wildcard '*'
+    # 2. Localhost-only CORS: NEVER wildcard '*' or 'null'
+    # Note: 'null' origin is strictly excluded to prevent sandboxed iframes or file:// contexts from bypassing CORS.
+    # pywebview loads http://127.0.0.1:{port} directly (inheriting localhost origin).
+    # Per-launch session token validation (X-Session-Token) is the primary defense layer.
     origin = request.headers.get('Origin')
     if origin:
-        allowed_origins = ('http://127.0.0.1', 'http://localhost', 'vscode-webview://', 'null')
+        allowed_origins = ('http://127.0.0.1', 'http://localhost', 'vscode-webview://')
         if any(origin.startswith(prefix) for prefix in allowed_origins):
             response.headers['Access-Control-Allow-Origin'] = origin
             response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
@@ -622,6 +625,277 @@ def api_ocr():
                 os.remove(tmp_path)
             except Exception:
                 pass
+
+
+def _validate_path_within_root(target_path: str, root_dir: str) -> Path:
+    """Ensures target_path resolves strictly within root_dir, preventing directory traversal."""
+    resolved_root = Path(root_dir).resolve()
+    if not resolved_root.is_dir():
+        raise HTTPResponse(
+            body=json.dumps({"success": False, "error": "Invalid workspace root directory."}),
+            status=400,
+            headers={'Content-Type': 'application/json'}
+        )
+
+    resolved_target = Path(target_path)
+    if not resolved_target.is_absolute():
+        resolved_target = (resolved_root / resolved_target).resolve()
+    else:
+        resolved_target = resolved_target.resolve()
+
+    try:
+        resolved_target.relative_to(resolved_root)
+    except ValueError:
+        raise HTTPResponse(
+            body=json.dumps({"success": False, "error": "Access denied: Path traversal detected outside workspace root."}),
+            status=403,
+            headers={'Content-Type': 'application/json'}
+        )
+    return resolved_target
+
+
+def _build_dir_tree(current_dir: Path, max_depth: int = 5, current_depth: int = 0) -> list:
+    if current_depth > max_depth:
+        return []
+    items = []
+    ignored = {'.git', '__pycache__', '.venv', 'node_modules', '.idea', '.vscode'}
+    try:
+        entries = sorted(list(current_dir.iterdir()), key=lambda e: (not e.is_dir(), e.name.lower()))
+    except (PermissionError, OSError):
+        return []
+
+    for entry in entries:
+        if entry.name in ignored:
+            continue
+        try:
+            is_directory = entry.is_dir()
+            item = {
+                "name": entry.name,
+                "path": str(entry.resolve()),
+                "is_dir": is_directory,
+                "size": entry.stat().st_size if not is_directory else None,
+            }
+            if is_directory:
+                item["children"] = _build_dir_tree(entry, max_depth=max_depth, current_depth=current_depth + 1)
+            items.append(item)
+        except (PermissionError, OSError):
+            continue
+    return items
+
+
+@app.get('/api/workspace/tree')
+def api_workspace_tree():
+    """Return recursive directory tree for the requested workspace root."""
+    root_param = request.query.get('path') or str(PROJECT_ROOT)
+    resolved_root = Path(root_param).resolve()
+    if not resolved_root.is_dir():
+        response.status = 400
+        return {"success": False, "error": f"Directory not found: {root_param}"}
+
+    tree = _build_dir_tree(resolved_root)
+    return {
+        "success": True,
+        "root": str(resolved_root),
+        "name": resolved_root.name,
+        "tree": tree
+    }
+
+
+@app.get('/api/workspace/file')
+def api_workspace_file():
+    """Read a file within the workspace root, safely checking against path traversal."""
+    root_param = request.query.get('root') or str(PROJECT_ROOT)
+    path_param = request.query.get('path')
+    if not path_param:
+        response.status = 400
+        return {"success": False, "error": "Missing file path"}
+
+    safe_path = _validate_path_within_root(path_param, root_param)
+    if not safe_path.is_file():
+        response.status = 404
+        return {"success": False, "error": "File not found"}
+
+    try:
+        content = safe_path.read_text(encoding='utf-8', errors='replace')
+        return {
+            "success": True,
+            "path": str(safe_path),
+            "name": safe_path.name,
+            "size": safe_path.stat().st_size,
+            "content": content
+        }
+    except Exception as e:
+        response.status = 500
+        return {"success": False, "error": f"Failed to read file: {e}"}
+
+
+@app.post('/api/workspace/save')
+def api_workspace_save():
+    """Save document content back in-place to disk (Ctrl+S)."""
+    data = request.json or {}
+    root_param = data.get('root') or str(PROJECT_ROOT)
+    path_param = data.get('path')
+    content = data.get('content')
+    if path_param is None or content is None:
+        response.status = 400
+        return {"success": False, "error": "Missing path or content"}
+
+    safe_path = _validate_path_within_root(path_param, root_param)
+    try:
+        safe_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_target = safe_path.with_suffix(f"{safe_path.suffix}.tmp.{os.getpid()}")
+        tmp_target.write_text(content, encoding='utf-8')
+        tmp_target.replace(safe_path)
+        return {"success": True, "path": str(safe_path), "message": "File saved successfully."}
+    except Exception as e:
+        response.status = 500
+        return {"success": False, "error": f"Failed to save file: {e}"}
+
+
+@app.post('/api/workspace/file-op')
+def api_workspace_file_op():
+    """Create, rename, or delete files and folders within workspace root."""
+    data = request.json or {}
+    action = data.get('action')
+    root_param = data.get('root') or str(PROJECT_ROOT)
+    path_param = data.get('path')
+    if not action or not path_param:
+        response.status = 400
+        return {"success": False, "error": "Missing action or path"}
+
+    safe_path = _validate_path_within_root(path_param, root_param)
+
+    try:
+        if action == 'create_file':
+            if safe_path.exists():
+                return {"success": False, "error": "File already exists"}
+            safe_path.parent.mkdir(parents=True, exist_ok=True)
+            safe_path.write_text("", encoding='utf-8')
+            return {"success": True, "action": action, "path": str(safe_path)}
+
+        elif action == 'create_folder':
+            safe_path.mkdir(parents=True, exist_ok=True)
+            return {"success": True, "action": action, "path": str(safe_path)}
+
+        elif action == 'rename':
+            new_name = data.get('new_name')
+            if not new_name or '/' in new_name or '\\' in new_name:
+                return {"success": False, "error": "Invalid new name"}
+            new_path = safe_path.parent / new_name
+            _validate_path_within_root(str(new_path), root_param)
+            safe_path.rename(new_path)
+            return {"success": True, "action": action, "old_path": str(safe_path), "new_path": str(new_path)}
+
+        elif action == 'delete':
+            if not safe_path.exists():
+                return {"success": False, "error": "Target does not exist"}
+            if safe_path.is_file():
+                safe_path.unlink()
+            elif safe_path.is_dir():
+                import shutil
+                shutil.rmtree(safe_path)
+            return {"success": True, "action": action, "path": str(safe_path)}
+
+        else:
+            return {"success": False, "error": f"Unknown action: {action}"}
+    except Exception as e:
+        response.status = 500
+        return {"success": False, "error": f"File operation failed: {e}"}
+
+
+@app.get('/api/workspace/git-status')
+def api_workspace_git_status():
+    """Retrieve Git repository branch and modified files for the given workspace root."""
+    root_param = request.query.get('root') or str(PROJECT_ROOT)
+    resolved_root = Path(root_param).resolve()
+    if not resolved_root.is_dir():
+        return {"success": False, "error": "Invalid workspace path"}
+
+    import subprocess
+    try:
+        branch_proc = subprocess.run(
+            ['git', 'branch', '--show-current'],
+            cwd=str(resolved_root),
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if branch_proc.returncode != 0:
+            return {"success": True, "is_git": False, "branch": None, "dirty": False, "files": []}
+
+        branch_name = branch_proc.stdout.strip() or "HEAD"
+        status_proc = subprocess.run(
+            ['git', 'status', '--porcelain'],
+            cwd=str(resolved_root),
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        status_lines = [l.strip() for l in status_proc.stdout.splitlines() if l.strip()]
+        dirty = len(status_lines) > 0
+        file_entries = []
+        for line in status_lines:
+            status_code = line[:2].strip()
+            fname = line[2:].strip()
+            file_entries.append({"status": status_code, "file": fname})
+
+        return {
+            "success": True,
+            "is_git": True,
+            "branch": branch_name,
+            "dirty": dirty,
+            "modified_count": len(file_entries),
+            "files": file_entries
+        }
+    except Exception as e:
+        logger.warning("Git status check error: %s", e)
+        return {"success": True, "is_git": False, "branch": None, "dirty": False, "files": []}
+
+
+@app.get('/api/extract/templates')
+def api_extract_templates():
+    """List all available structured document extraction templates."""
+    from core.structured_extractor import list_templates
+    return {
+        "success": True,
+        "templates": list_templates()
+    }
+
+
+@app.post('/api/extract')
+def api_extract():
+    """Extract structured data from text or uploaded document using a pluggable template."""
+    data = {}
+    try:
+        data = request.json or {}
+    except Exception:
+        pass
+
+    text = data.get('text') or request.forms.get('text') or ''
+    template_id = data.get('template_id') or request.forms.get('template_id') or 'government_gazette'
+
+    upload = request.files.get('file')
+    if upload and not text:
+        suffix = Path(upload.filename).suffix
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            upload.save(tmp.name, overwrite=True)
+            tmp_path = tmp.name
+        try:
+            conv = get_converter()
+            res = conv.convert_file(tmp_path)
+            text = res.markdown if res.success else ""
+        finally:
+            if os.path.exists(tmp_path):
+                try: os.remove(tmp_path)
+                except Exception: pass
+
+    if not text.strip():
+        response.status = 400
+        return {"success": False, "error": "No text or document provided for structured extraction."}
+
+    from core.structured_extractor import extract_structured_data
+    result = extract_structured_data(text, template_id)
+    return result
 
 
 @app.post('/api/convert-ansi')

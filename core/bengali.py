@@ -683,14 +683,6 @@ _CANDIDATE_DICTS = [
     r'd:\markitdown\.venv\Lib\site-packages\speech_recognition\pocketsphinx-data\en-US\pronounciation-dictionary.dict',
     os.path.join(os.path.dirname(__file__), '..', '.venv', 'Lib', 'site-packages', 'speech_recognition', 'pocketsphinx-data', 'en-US', 'pronounciation-dictionary.dict')
 ]
-try:
-    import speech_recognition
-    _sr_dict = os.path.join(os.path.dirname(speech_recognition.__file__), 'pocketsphinx-data', 'en-US', 'pronounciation-dictionary.dict')
-    if _sr_dict not in _CANDIDATE_DICTS:
-        _CANDIDATE_DICTS.insert(0, _sr_dict)
-except Exception:
-    pass
-
 for p in _CANDIDATE_DICTS:
     if os.path.exists(p):
         try:

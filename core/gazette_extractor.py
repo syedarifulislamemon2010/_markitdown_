@@ -442,8 +442,9 @@ def extract_gazette_pdf(pdf_path: str) -> str:
                     ]
                     merged_lines = header_block + merged_lines[1:]
 
-            # Page 4 National Pay Scale 2015 Table formatting
-            if page_idx == 4:
+            # Content-driven salary scale table formatting (only when explicit scale keywords are present)
+            has_pay_scale = any(('জাতীয় বেতনস্কেল' in l or 'জাতীয় বেতনস্কেল' in l) for l in merged_lines) and any('অনুরূপ স্কেল' in l for l in merged_lines)
+            if has_pay_scale:
                 split_lines = []
                 for l in merged_lines:
                     parts = re.split(r'(?<=\S)\s+(?=([০-৯]+)\.\s*টাকা)', l)
@@ -462,14 +463,14 @@ def extract_gazette_pdf(pdf_path: str) -> str:
                             i += 1
                         joined_rows.append(curr)
                     else:
-                        if not any(kw in curr for kw in ['জাতীয় বেতনস্কেল', 'বর্তমান', 'অনুরূপ স্কেল', 'গ্রেড']):
+                        if not any(kw in curr for kw in ['জাতীয় বেতনস্কেল', 'জাতীয় বেতনস্কেল', 'বর্তমান', 'অনুরূপ স্কেল', 'গ্রেড']):
                             other_lines.append(curr)
                     i += 1
 
                 table_lines = [
-                    "### জাতীয় বেতনস্কেল, ২০১৫ ও ২০০৯",
+                    "### জাতীয় বেতনস্কেল",
                     "",
-                    "| গ্রেড | জাতীয় বেতনস্কেল, ২০০৯ (বর্তমান) | জাতীয় বেতনস্কেল, ২০১৫ (কার্যকর অনুরূপ স্কেল) |",
+                    "| গ্রেড | পূর্ববর্তী স্কেল | কার্যকর অনুরূপ স্কেল |",
                     "| :---: | :--- | :--- |"
                 ]
                 for r in joined_rows:
@@ -483,14 +484,14 @@ def extract_gazette_pdf(pdf_path: str) -> str:
 
                 merged_lines = other_lines + ["\n".join(table_lines)]
 
-            # Format headings
+            # Generalize headings for all ministries, divisions, and orders
             final_lines = []
             for pl in merged_lines:
                 if pl == 'গণপ্রজাতন্ত্রী বাংলাদেশ সরকার':
                     final_lines.append(f"# {pl}")
-                elif pl.startswith('অর্থ মন্ত্রণালয়'):
+                elif any(pl.endswith(kw) for kw in ['মন্ত্রণালয়', 'মন্ত্রণালয়', 'কমিশন', 'কর্তৃপক্ষ', 'Department', 'Ministry']):
                     final_lines.append(f"### {pl}")
-                elif pl.startswith('অর্থ বিভাগ') or pl.startswith('বাস্তবায়ন অনুবিভাগ'):
+                elif any(pl.endswith(kw) or pl.startswith(kw) for kw in ['বিভাগ', 'অধিদপ্তর', 'অনুবিভাগ', 'Division']):
                     final_lines.append(f"**{pl}**")
                 elif pl.startswith('আদেশ') and len(pl) < 15:
                     final_lines.append(f"### {pl}")

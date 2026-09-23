@@ -1,0 +1,44 @@
+{
+  "template_id": "business_invoice_contract",
+  "title": "Business Contract & Invoice / চুক্তি ও চালান",
+  "description": "Extracts document type, parties, effective dates, monetary amounts, and contract terms.",
+  "category": "business_finance",
+  "version": "1.0.0",
+  "fields": [
+    {
+      "name": "doc_type",
+      "label": "Document Type (ডকুমেন্টের প্রকার)",
+      "type": "string",
+      "pattern": "(?i:Agreement|Contract|Invoice|Bill|চুক্তিপত্র|চালান|বিল|রসিদ)",
+      "confidence_threshold": 0.85
+    },
+    {
+      "name": "parties",
+      "label": "Parties Involved (পক্ষসমূহ)",
+      "type": "list",
+      "pattern": "(?:(?:Between|মধ্যে|Party\\s*[12A-B]|পক্ষ|১ম\\s*পক্ষ|২য়\\s*পক্ষ|Customer|Vendor|Client|Buyer|Seller)[:\\s]+)([^\\n,;]+)",
+      "confidence_threshold": 0.7
+    },
+    {
+      "name": "date",
+      "label": "Date (তারিখ)",
+      "type": "string",
+      "pattern": "(?:(?i:Date)|তারিখ)[:\\s]*([^\\n]+)",
+      "confidence_threshold": 0.8
+    },
+    {
+      "name": "amounts",
+      "label": "Monetary Amounts (টাকা/অর্থের পরিমাণ)",
+      "type": "list",
+      "pattern": "(?:টাকা|\\$|USD|BDT|EUR|€|GBP|£|Tk\\.?)\\s*([০-৯\\d,]+(?:\\.[০-৯\\d]{2})?)",
+      "confidence_threshold": 0.8
+    },
+    {
+      "name": "terms",
+      "label": "Terms & Conditions (শর্তাবলী)",
+      "type": "string",
+      "pattern": "(?:(?i:Terms\\s*&\\s*Conditions|Obligations)|শর্তাবলী|শর্তসমূহ)[:\\s]*\\n+([\\s\\S]+?)(?=\\n+#|\\Z)",
+      "confidence_threshold": 0.75
+    }
+  ]
+}
