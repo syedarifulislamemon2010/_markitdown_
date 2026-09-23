@@ -108,7 +108,7 @@ def test_route_api_export_pdf(server_url):
         r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
     ]
     if not any(os.path.exists(p) for p in chrome_candidates):
-        pytest.xfail("Headless Chrome/Edge not installed at standard Windows path")
+        pytest.skip("Headless Chrome/Edge not installed at standard Windows path")
 
     payload = {"markdown": "# Test PDF\n\nParagraph", "title": "TestPdf"}
     resp = requests.post(f"{server_url}/api/export-pdf", json=payload, timeout=15)

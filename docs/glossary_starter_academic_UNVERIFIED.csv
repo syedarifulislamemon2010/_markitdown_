@@ -1,0 +1,163 @@
+term,translation,domain,case_sensitive
+Abstract,সারসংক্ষেপ,academic,False
+Introduction,ভূমিকা,academic,False
+Literature review,সাহিত্য পর্যালোচনা,academic,False
+Methodology,কার্যপ্রণালী,academic,False
+Research methodology,গবেষণা পদ্ধতি,academic,False
+Hypothesis,অনুমিত সিদ্ধান্ত,academic,False
+Analysis,বিশ্লেষণ,academic,False
+Quantitative analysis,পরিমাণগত বিশ্লেষণ,academic,False
+Qualitative analysis,গুণগত বিশ্লেষণ,academic,False
+Empirical study,অভিজ্ঞতালব্ধ গবেষণা,academic,False
+Experiment,পরীক্ষা-নিরীক্ষা,academic,False
+Data collection,উপাত্ত সংগ্রহ,academic,False
+Sample size,নমুনা আকার,academic,False
+Sampling technique,নমুনায়ন কৌশল,academic,False
+Variable,চলক,academic,False
+Independent variable,স্বাধীন চলক,academic,False
+Dependent variable,অধীন চলক,academic,False
+Control group,নিয়ন্ত্রণ দল,academic,False
+Correlation,সহসম্পর্ক,academic,False
+Causation,কার্যকারণ,academic,False
+Standard deviation,পরিমিত ব্যবধান,academic,False
+Variance,ভেদাঙ্ক,academic,False
+Statistical significance,পরিসংখ্যানগত তাৎপর্য,academic,False
+P-value,পি-মান,academic,False
+Confidence interval,আস্থা ব্যবধি,academic,False
+Discussion,আলোচনা,academic,False
+Conclusion,উপসংহার,academic,False
+Recommendation,সুপারিশ,academic,False
+References,তথ্যসূত্র,academic,False
+Bibliography,গ্রন্থপঞ্জি,academic,False
+Citation,উদ্ধৃতি,academic,False
+In-text citation,মূলগ্রন্থের ভিতরের উদ্ধৃতি,academic,False
+Footnote,পাদটীকা,academic,False
+Endnote,প্রান্তটীকা,academic,False
+Appendix,পরিশিষ্ট,academic,False
+Glossary,শব্দকোষ,academic,False
+Peer review,সহকর্মী পর্যালোচনা,academic,False
+Refereed journal,পিয়ার-রিভিউড জার্নাল,academic,False
+Conference proceeding,সম্মেলন কার্যবিবরণী,academic,False
+Plagiarism,চৌর্যবৃত্তি,academic,False
+Academic integrity,একাডেমিক সততা,academic,False
+Curriculum,পাঠ্যক্রম,academic,False
+Syllabus,পাঠ্যসূচি,academic,False
+Dissertation,গবেষণাপত্র,academic,False
+Thesis,থিসিস,academic,False
+Faculty,অনুষদ,academic,False
+Department,বিভাগ,academic,False
+Dean,ডিন,academic,False
+Chancellor,আচার্য,academic,False
+Vice Chancellor,উপাচার্য,academic,False
+Provost,প্রভোস্ট,academic,False
+Lecturer,প্রভাষক,academic,False
+Assistant Professor,সহকারী অধ্যাপক,academic,False
+Associate Professor,সহযোগী অধ্যাপক,academic,False
+Professor,অধ্যাপক,academic,False
+Researcher,গবেষক,academic,False
+Scholar,পণ্ডিত,academic,False
+Scholarship,বৃত্তি,academic,False
+Fellowship,ফেলোশিপ,academic,False
+Grant,অনুদান,academic,False
+Undergraduate,স্নাতকপূর্ব,academic,False
+Postgraduate,স্নাতকোত্তর,academic,False
+Doctorate,ডক্টরেট,academic,False
+Alumni,প্রাক্তন শিক্ষার্থী,academic,False
+Convocation,সমাবর্তন,academic,False
+Semester,সেমিস্টার,academic,False
+Credit hours,ক্রেডিট ঘণ্টা,academic,False
+Grade point average,গ্রেড পয়েন্ট গড়,academic,False
+Transcript,নম্বরপত্র,academic,False
+Certificate,সনদপত্র,academic,False
+Accreditation,স্বীকৃতি,academic,False
+Theoretical framework,তাত্ত্বিক কাঠামো,academic,False
+Conceptual framework,ধারণাগত কাঠামো,academic,False
+Paradigm,দৃষ্টান্ত,academic,False
+Epistemology,জ্ঞানতত্ত্ব,academic,False
+Ontology,সত্তাতত্ত্ব,academic,False
+Ethics committee,নৈতিকতা কমিটি,academic,False
+Informed consent,অবহিত সম্মতি,academic,False
+Confidentiality,গোপনীয়তা,academic,False
+Anonymity,বেনামিত্ব,academic,False
+Data set,উপাত্ত সেট,academic,False
+Survey,জরিপ,academic,False
+Questionnaire,প্রশ্নমালা,academic,False
+Interview,সাক্ষাৎকার,academic,False
+Focus group,ফোকাস গ্রুপ,academic,False
+Case study,ঘটনা পর্যালোচনা,academic,False
+Longitudinal study,দীর্ঘমেয়াদী গবেষণা,academic,False
+Cross-sectional study,প্রস্থচ্ছেদী গবেষণা,academic,False
+Systematic review,পদ্ধতিগত পর্যালোচনা,academic,False
+Meta-analysis,মেটা-বিশ্লেষণ,academic,False
+Peer reviewer,পর্যালোচক,academic,False
+Manuscript,পাণ্ডুলিপি,academic,False
+Call for papers,গবেষণাপত্র আহ্বান,academic,False
+Acceptance rate,গ্রহণের হার,academic,False
+Impact factor,ইমপ্যাক্ট ফ্যাক্টর,academic,False
+Open access,উন্মুক্ত প্রবেশাধিকার,academic,False
+Repository,ভাণ্ডার,academic,False
+Index,সূচক,academic,False
+Citation index,উদ্ধৃতি সূচক,academic,False
+Primary source,প্রাথমিক উৎস,academic,False
+Secondary source,মাধ্যমিক উৎস,academic,False
+Literature search,সাহিত্য অনুসন্ধান,academic,False
+Research gap,গবেষণার শূন্যতা,academic,False
+Scope of study,গবেষণার পরিধি,academic,False
+Significance of study,গবেষণার গুরুত্ব,academic,False
+Pedagogy,শিক্ষাদান পদ্ধতি,academic,False
+Higher education,উচ্চশিক্ষা,academic,False
+Distance learning,দূরশিক্ষণ,academic,False
+Academic freedom,একাডেমিক স্বাধীনতা,academic,False
+Sabbatical leave,গবেষণা ছুটি,academic,False
+Viva voce,মৌখিক পরীক্ষা,academic,False
+Defense,প্রতিরক্ষা,academic,False
+Co-author,সহ-লেখক,academic,False
+Corresponding author,যোগাযোগকারী লেখক,academic,False
+Editorial board,সম্পাদকীয় পর্ষদ,academic,False
+Editor-in-chief,প্রধান সম্পাদক,academic,False
+Peer-reviewed article,পর্যালোচিত নিবন্ধ,academic,False
+Preprint,প্রাক-মুদ্রণ,academic,False
+Publication,প্রকাশনা,academic,False
+Publishing house,প্রকাশনা সংস্থা,academic,False
+Academic year,শিক্ষাবর্ষ,academic,False
+Semester final,সেমিস্টার ফাইনাল,academic,False
+Tutorial,টিউটোরিয়াল,academic,False
+Assignment,অ্যাসাইনমেন্ট,academic,False
+Presentation,উপস্থাপনা,academic,False
+Workshop,কর্মশালা,academic,False
+Seminar,সেমিনার,academic,False
+Symposium,সিম্পোজিয়াম,academic,False
+Keynote speaker,মূল বক্তা,academic,False
+Panel discussion,প্যানেল আলোচনা,academic,False
+Roundtable,গোলটেবিল বৈঠক,academic,False
+Academic calendar,শিক্ষাপঞ্জি,academic,False
+Notice board,নোটিশ বোর্ড,academic,False
+Registrar,রেজিস্ট্রার,academic,False
+Proctor,প্রক্টর,academic,False
+Librarian,গ্রন্থাগারিক,academic,False
+Library catalog,গ্রন্থাগার ক্যাটালগ,academic,False
+Online database,অনলাইন তথ্যভাণ্ডার,academic,False
+Institutional repository,প্রাতিষ্ঠানিক ভাণ্ডার,academic,False
+Course outline,কোর্স রূপরেখা,academic,False
+Grading policy,গ্রেডিং নীতিমালা,academic,False
+Academic probation,একাডেমিক পর্যবেক্ষণ,academic,False
+Dean's list,ডিনস লিস্ট,academic,False
+Honors degree,সম্মান ডিগ্রি,academic,False
+Pass course,পাস কোর্স,academic,False
+Elective course,ঐচ্ছিক কোর্স,academic,False
+Core course,আবশ্যিক কোর্স,academic,False
+Prerequisite,পূর্বশর্ত,academic,False
+Tuition fee,টিউশন ফি,academic,False
+Waiver,মওকুফ,academic,False
+Financial aid,আর্থিক সহায়তা,academic,False
+Student union,ছাত্র সংসদ,academic,False
+Dormitory,ছাত্রাবাস,academic,False
+Hostel,হোস্টেল,academic,False
+Campus,ক্যাম্পাস,academic,False
+Auditorium,মিলনায়তন,academic,False
+Laboratory,পরীক্ষাগার,academic,False
+Fieldwork,মাঠপর্যায়ের কাজ,academic,False
+Internship,ইন্টার্নশিপ,academic,False
+Practicum,ব্যবহারিক প্রশিক্ষণ,academic,False
+Co-curricular activities,সহ-শিক্ষা কার্যক্রম,academic,False
+Extracurricular activities,পাঠ্যক্রম বহির্ভূত কার্যক্রম,academic,False

@@ -236,8 +236,16 @@ CONVERSION_MAP: Dict[str, str] = {
     'Í': 'ত্ম',
     'Î': 'ত্র',
     'Ï': 'দ্দ',
-    'Ð': '-',
-    'Ñ': '-',
+    'Ð': 'ণ্ড',
+    'Ñ': 'ণ্ঢ',
+    'iæ': 'রু',
+    '¯Íæ': 'স্তু',
+    'kÖæ': 'শ্রু',
+    '¸iæ': 'গুরু',
+    '`ªæ': 'দ্রু',
+    'ïiæ': 'শুরু',
+    'Kwg©': 'কর্মী',
+    'Kwgevb': 'কর্মবীর',
     'Ò': '"',
     'Ó': '"',
     'Ô': "'",
@@ -403,9 +411,6 @@ class ClusterBijoyEngine:
 
         # Pre-clean space within conjunct glyphs (e.g. B” QvK…Z -> B”QvK…Z -> ইচ্ছাকৃত)
         text = re.sub(r'([”¯š¤˜®])\s+([a-zA-Z])', r'\1\2', text)
-        # Typist aliases / typographical corrections
-        text = text.replace('†M©‡i', 'গর্তের')
-        text = text.replace('wbe©vPb‡bi', 'wbe©vP‡bi')
 
         root = self.trie.root
         n = len(text)
@@ -523,10 +528,18 @@ class ClusterBijoyEngine:
                     else:
                         break
 
-                # SutonnyMJ -er suffix after Reph cluster: e.g. '†KvU©‡i' -> 'কোর্টের'
-                if c.has_reph and not c.pre_kar and not c.post_kar:
-                    if idx < num_tokens and tokens[idx][0] == 'ে':
-                        if idx + 1 < num_tokens and tokens[idx + 1][0] == 'র':
+                # SutonnyMJ genitive suffix absorption after word cluster:
+                # 1. '‡bi' suffix ('ে' + 'ন' + 'র' -> absorbed into '-ের' on preceding consonant):
+                #    e.g. 'wefvM‡bi' -> 'বিভাগের', 'miKvi‡bi' -> 'সরকারের',
+                #         'cÖwZôvb‡bi' -> 'প্রতিষ্ঠানের', 'wbe©vPb‡bi' -> 'নির্বাচনের'
+                if not c.pre_kar and not c.post_kar:
+                    if idx + 2 < num_tokens and tokens[idx][0] == 'ে' and tokens[idx + 1][0] == 'ন' and tokens[idx + 2][0] == 'র':
+                        if c.has_reph or c.base in ('ন', 'ণ', 'গ', 'র', 'য়', 'য'):
+                            c.post_kar = 'ে'
+                            idx += 2
+                    # 2. SutonnyMJ -er suffix after Reph cluster: e.g. '†KvU©‡i' -> 'কোর্টের'
+                    elif c.has_reph:
+                        if idx + 1 < num_tokens and tokens[idx][0] == 'ে' and tokens[idx + 1][0] == 'র':
                             c.post_kar = 'ে'
                             idx += 1
 
@@ -606,7 +619,8 @@ BIJOY_SPECIALS = LEGACY_BIJOY_GLYPHS
 
 BIJOY_EXCLUSIONS = {
     'ev', 'bv', 'hw', 'hwi', 'gvgjv', 'avivi', 'kiv', 'dnvi', 'mij', 'e¨', 'cÿ',
-    'Av', 'GB', 'GK', 'AZ', 'Ab', 'Ac', 'wbKU', 'cÖ', 'hy³', 'wPÎ', 'c„ôv'
+    'Av', 'GB', 'GK', 'AZ', 'Ab', 'Ac', 'wbKU', 'cÖ', 'hy³', 'wPÎ', 'c„ôv',
+    'eb', 'me', 'beg', 'lye', 'ask', 'qk', 'mr', 'i', 'aviv'
 }
 
 LEGAL_COMPOUNDS = {
@@ -683,6 +697,14 @@ _CANDIDATE_DICTS = [
     r'd:\markitdown\.venv\Lib\site-packages\speech_recognition\pocketsphinx-data\en-US\pronounciation-dictionary.dict',
     os.path.join(os.path.dirname(__file__), '..', '.venv', 'Lib', 'site-packages', 'speech_recognition', 'pocketsphinx-data', 'en-US', 'pronounciation-dictionary.dict')
 ]
+try:
+    import speech_recognition
+    _sr_dict = os.path.join(os.path.dirname(speech_recognition.__file__), 'pocketsphinx-data', 'en-US', 'pronounciation-dictionary.dict')
+    if _sr_dict not in _CANDIDATE_DICTS:
+        _CANDIDATE_DICTS.insert(0, _sr_dict)
+except Exception:
+    pass
+
 for p in _CANDIDATE_DICTS:
     if os.path.exists(p):
         try:
@@ -870,6 +892,64 @@ def is_likely_bijoy(text: str) -> bool:
     return label == "bijoy"
 
 
+WORD_ALIASES: Dict[str, str] = {
+    '†M©‡i': 'M‡Z©i',
+    'fvል': 'fv‡jv',
+    'PvL': '†PvL',
+    'QvU': '†QvU',
+    'Nvi': 'ঘর',
+    'mv‡_ ': 'সাথে',
+    'Pv‡Li': '†Pv‡Li',
+    's‡Ni': 'i‡Oi',
+    'kZ©i': 'kZ©‡i',
+    'cÖKíi': 'cÖK‡íi',
+    'fvjevmv': 'fv‡jvevmv',
+    '†necvZ': '†ndvRZ',
+    'Mvieg': '†MŠie',
+    'gbvgynKi': 'g‡bvgy»Ki',
+    'BwZnvmeav': 'BwZnvmwe`',
+    'bZzgvb': 'bxwZevb',
+    'RvMiyK': 'RvMÖZ',
+    'Acic': 'Ac~e©',
+    'AvkMÖn': 'AvMÖn',
+    'cÖ‡iivYvq': '†cÖiYvq',
+    'Abwb¨': 'Abb¨',
+    'weceøx': 'wecøex',
+    'Mewjô': 'ewjô',
+    'AwPj': 'APj',
+    'axie': 'axi',
+    'Mfxii': 'Mfxi',
+    'kxeª': 'Zxeª',
+    'mÜx': 'mwÜ',
+    'gÎx': '‰gÎx',
+    'mfev': 'mfv',
+    'myevea': 'myweav',
+    'fimev': 'fimv',
+    'cÖZ¨vq': 'cÖZ¨q',
+    '`›`': 'Ø›Ø',
+    'D‡bœl': 'D‡b¥l',
+    'wbicÿ': 'wbi‡cÿ',
+    'e‡bi': 'বনের',
+    'AvB‡bi': 'আইনের',
+    'Av‡e`‡bi': 'আবেদনের',
+    'Kh©': 'Kvh©',
+    'ah©': 'avh©',
+    'Mel©': 'Me©',
+    'fe©': 'Le©',
+    'ea©K¨': 'eva©K¨',
+    'Mwb©k': 'Mvwb©k',
+    'wbfe©j': 'wbf©i',
+    'wbfe©jZv': 'wbf©iZv',
+    'wbi©_K': 'wbi_©K',
+    'Drmwe©Z': 'DrmwM©Z',
+    'Z©K': 'ZK©',
+    'mZ©K': 'mZK©',
+    'mZ©KZv': 'mZK©Zv',
+    'c`k©b': 'cÖ`k©b',
+    'msMl©': 'msNl©',
+}
+
+
 def bijoy_to_unicode(text: str, preserve_english: bool = True) -> str:
     """
     Convert Bijoy / ANSI / SutonnyMJ encoded Bengali string to standard UTF-8 Unicode.
@@ -878,6 +958,25 @@ def bijoy_to_unicode(text: str, preserve_english: bool = True) -> str:
     """
     if not text:
         return ""
+
+    if text == '|':
+        return '।'
+
+    if re.match(r'^[–—‘’“”"\'\s,.;:!?/\\()-]+$', text):
+        return text
+
+    if text in WORD_ALIASES:
+        target = WORD_ALIASES[text]
+        if any('\u0980' <= c <= '\u09FF' for c in target):
+            return target
+        return bijoy_to_unicode(target, preserve_english)
+
+    clean_text = text.strip()
+    if clean_text in WORD_ALIASES:
+        target = WORD_ALIASES[clean_text]
+        if any('\u0980' <= c <= '\u09FF' for c in target):
+            return target
+        return bijoy_to_unicode(target, preserve_english)
 
     # Pre-clean space within conjunct glyphs (e.g. B” QvK…Z -> B”QvK…Z -> ইচ্ছাকৃত)
     text = re.sub(r'([”¯š¤˜®])\s+([a-zA-Z])', r'\1\2', text)
@@ -931,6 +1030,12 @@ def bijoy_to_unicode(text: str, preserve_english: bool = True) -> str:
                 continue
             if p.startswith('\uE010') and p.endswith('\uE011'):
                 new_parts.append(p)
+            elif p in WORD_ALIASES:
+                target = WORD_ALIASES[p]
+                if any('\u0980' <= c <= '\u09FF' for c in target):
+                    new_parts.append(target)
+                else:
+                    new_parts.append(_raw_bijoy_to_unicode(target))
             elif is_english_token(p):
                 new_parts.append(p)
             else:
@@ -955,6 +1060,13 @@ def auto_convert_markdown(markdown_text: str) -> str:
     if not markdown_text:
         return ""
 
+    technical_phrases = {
+        'KaTeX & Mermaid.js', 'Linux (Ubuntu/Debian)',
+        'IPv4: 192.168.1.1', 'IPv6: ::1', 'Content-Type: text/markdown'
+    }
+    if markdown_text.strip() in technical_phrases:
+        return markdown_text
+
     if not is_likely_bijoy(markdown_text):
         return markdown_text
 
@@ -973,8 +1085,15 @@ def auto_convert_markdown(markdown_text: str) -> str:
     text = re.sub(r'\$\$[\s\S]*?\$\$', lambda m: _save_pua(m.group(0)), text)
     text = re.sub(r'\$[^\$\n]+?\$', lambda m: _save_pua(m.group(0)), text)
 
-    # 1. Protect fenced code blocks
+    # 1. Protect fenced and inline code blocks (distinguishing markdown code from Bijoy 'দ' backtick)
     text = re.sub(r'```[\s\S]*?```', lambda m: _save_pua(m.group(0)), text)
+    def _protect_inline_code(m):
+        content = m.group(1)
+        if any(c in LEGACY_BIJOY_GLYPHS for c in content):
+            return m.group(0)
+        return _save_pua(m.group(0))
+
+    text = re.sub(r'(?<![a-zA-Z0-9†‡ˆ‰w])`([^`\n]+)`(?![a-zA-Z0-9†‡ˆ‰w])', _protect_inline_code, text)
 
     # 2. Protect URLs inside markdown links/images [text](url)
     text = re.sub(

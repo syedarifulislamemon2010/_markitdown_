@@ -3288,11 +3288,267 @@ ${previewContent.innerHTML}
     detectLineEnding();
     detectIndentation();
     updateBranchStatus(false);
-    setSaveStatus('saved');
+    // ==================== Machine Translation (Task 5.2 - 5.5) ====================
+    let lastTranslationSegments = [];
+
+    function initTranslationFeatures() {
+      const btnToBn = document.getElementById('toolTranslateToBn');
+      const btnToEn = document.getElementById('toolTranslateToEn');
+      const scopeSelect = document.getElementById('toolMtScope');
+      const badge = document.getElementById('aiTranslationBadge');
+      const badgeMeta = document.getElementById('aiBadgeMeta');
+      const dismissBadgeBtn = document.getElementById('dismissMtBadgeBtn');
+      const openReviewBtn = document.getElementById('openReviewModalBtn');
+      const reviewModal = document.getElementById('mtReviewModal');
+      const clearModelsBtn = document.getElementById('clearDownloadedModelsBtn');
+      const viewAuditBtn = document.getElementById('viewCloudAuditBtn');
+
+      dismissBadgeBtn?.addEventListener('click', () => {
+        if (badge) badge.style.display = 'none';
+      });
+
+      openReviewBtn?.addEventListener('click', () => {
+        renderMtReviewModal();
+        reviewModal?.classList.add('active');
+      });
+
+      btnToBn?.addEventListener('click', () => triggerTranslation('to_bengali'));
+      btnToEn?.addEventListener('click', () => triggerTranslation('to_english'));
+
+      clearModelsBtn?.addEventListener('click', async () => {
+        showConfirmModal("মডেল ক্যাশ ক্লিয়ার", "ডাউনলোড করা লোকাল মডেল ফাইলগুলো মুছে ডিস্ক স্পেস খালি করতে চান?", async () => {
+          try {
+            const resp = await fetch('/api/translate/clear', { method: 'POST' });
+            const data = await resp.json();
+            if (data.success) {
+              showToast("ডাউনলোড করা মডেল ফাইল মুছে ফেলা হয়েছে।", "info");
+            }
+          } catch (e) {
+            showToast("মডেল ক্লিয়ার করতে সমস্যা হয়েছে।", "error");
+          }
+        });
+      });
+
+      viewAuditBtn?.addEventListener('click', async () => {
+        try {
+          const resp = await fetch('/api/translate/audit-logs');
+          const data = await resp.json();
+          const logs = data.logs || [];
+          let msg = logs.length === 0 ? "কোনো ক্লাউড ট্রান্সলেশন কল রেকর্ড পাওয়া যায়নি।" :
+            logs.map(l => `[${l.timestamp}] Provider: ${l.provider}, Chars: ${l.char_count}, Dir: ${l.direction}`).join('\n');
+          alert("🔒 Cloud Translation Privacy Audit Log (No content stored):\n\n" + msg);
+        } catch (_) {}
+      });
+
+      async function triggerTranslation(action) {
+        const scope = scopeSelect ? scopeSelect.value : 'document';
+        let textToTranslate = '';
+        let selStart = 0;
+        let selEnd = 0;
+
+        if (scope === 'selection') {
+          selStart = editor.selectionStart;
+          selEnd = editor.selectionEnd;
+          textToTranslate = editor.value.substring(selStart, selEnd);
+          if (!textToTranslate.trim()) {
+            showToast("অনুবাদের জন্য প্রথমে টেক্সট সিলেক্ট করুন।", "warning");
+            return;
+          }
+        } else {
+          textToTranslate = editor.value;
+          if (!textToTranslate.trim()) {
+            showToast("ডকুমেন্টে কোনো টেক্সট নেই।", "warning");
+            return;
+          }
+        }
+
+        // Check capabilities first
+        let caps = {};
+        try {
+          const cResp = await fetch('/api/translate/capabilities');
+          caps = await cResp.json();
+        } catch (_) {}
+
+        const engineSelect = document.getElementById('mtEngineSelect');
+        const chosenEngine = engineSelect ? engineSelect.value : 'indictrans2';
+        const engineInfo = (caps.engines || []).find(e => e.id === chosenEngine);
+
+        if (engineInfo && !engineInfo.is_downloaded && chosenEngine !== 'cloud') {
+          showConfirmModal(
+            "মডেল ডাউনলোড আবশ্যক",
+            `${engineInfo.name} (${engineInfo.size_mb} MB) এখনও ডাউনলোড করা হয়নি। অফলাইনে অনুবাদ করতে এটি ডাউনলোড করতে চান?`,
+            () => executeTranslationRequest(action, textToTranslate, scope, chosenEngine, selStart, selEnd)
+          );
+          return;
+        }
+
+        executeTranslationRequest(action, textToTranslate, scope, chosenEngine, selStart, selEnd);
+      }
+
+      async function executeTranslationRequest(action, text, scope, engine, selStart, selEnd) {
+        showToast("অনুবাদ প্রক্রিয়াকরণ চলছে (512-টোকেন চাঙ্কিং)...", "info");
+
+        // Enabled starter glossaries from settings
+        const starter_glossaries = [];
+        if (document.getElementById('glossaryGeneralCb')?.checked) starter_glossaries.push('general');
+        if (document.getElementById('glossaryAcademicCb')?.checked) starter_glossaries.push('academic');
+        if (document.getElementById('glossaryLegalCb')?.checked) starter_glossaries.push('legal');
+
+        try {
+          const resp = await fetch('/api/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: text,
+              action: action,
+              engine: engine,
+              scope: scope,
+              starter_glossaries: starter_glossaries
+            })
+          });
+
+          const data = await resp.json();
+          if (!data.success) {
+            showToast(data.error || "অনুবাদ সম্পন্ন করা যায়নি।", "error");
+            return;
+          }
+
+          // Apply translated text
+          if (scope === 'selection') {
+            const before = editor.value.substring(0, selStart);
+            const after = editor.value.substring(selEnd);
+            editor.value = before + data.translated_text + after;
+          } else {
+            editor.value = data.translated_text;
+          }
+
+          // Show non-negotiable persistent verification badge (Rule 9)
+          if (badge) {
+            badge.style.display = 'flex';
+            if (badgeMeta) {
+              badgeMeta.textContent = `[${data.target_lang === 'bn' ? 'বাংলা' : 'English'} • ${data.total_chunks || 1} chunks • ${data.duration_seconds}s]`;
+            }
+          }
+
+          // Store for review modal
+          lastTranslationSegments = [
+            { source: text, translated: data.translated_text, target_lang: data.target_lang }
+          ];
+
+          renderMarkdown();
+          showToast(data.is_idempotent_noop ? "ডকুমেন্ট ইতিমধ্যেই লক্ষ্য ভাষায় রয়েছে (কোনো পরিবর্তন প্রয়োজন হয়নি)।" : "অনুবাদ সফলভাবে সম্পন্ন হয়েছে!", "success");
+
+        } catch (err) {
+          showToast("অনুবাদ সার্ভারের সাথে সংযোগে ত্রুটি।", "error");
+        }
+      }
+
+      function renderMtReviewModal() {
+        const container = document.getElementById('mtReviewContainer');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (!lastTranslationSegments.length) {
+          container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">পর্যালোচনার জন্য কোনো সাম্প্রতিক অনুবাদের রেকর্ড নেই।</div>';
+          return;
+        }
+
+        lastTranslationSegments.forEach((seg, idx) => {
+          const row = document.createElement('div');
+          row.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr 120px; gap: 10px; background: var(--input-bg); padding: 10px; border-radius: 6px; border: 1px solid var(--input-border); font-size: 13px; align-items: start;';
+
+          row.innerHTML = `
+            <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; overflow-wrap: break-word; color: var(--text-secondary);">
+              <div style="font-weight: 600; font-size: 11px; margin-bottom: 4px; color: var(--text-bright);">মূল লেখা (Original):</div>
+              <div>${escapeHtml(seg.source)}</div>
+            </div>
+            <div>
+              <div style="font-weight: 600; font-size: 11px; margin-bottom: 4px; color: var(--text-bright);">মেশিন অনুবাদ (সম্পাদনযোগ্য):</div>
+              <textarea class="form-input review-target-input" style="width: 100%; min-height: 70px; font-size: 13px; font-family: var(--font-main);">${escapeHtml(seg.translated)}</textarea>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <button class="btn btn-save-tm" style="background: var(--success-color); color: #fff; font-size: 11px; padding: 4px 6px;">✓ Save to TM</button>
+            </div>
+          `;
+
+          const saveBtn = row.querySelector('.btn-save-tm');
+          const targetArea = row.querySelector('.review-target-input');
+          saveBtn?.addEventListener('click', async () => {
+            const approved = targetArea.value.trim();
+            if (!approved) return;
+            try {
+              await fetch('/api/translate/tm/store', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  source: seg.source,
+                  target: approved,
+                  direction: seg.target_lang === 'bn' ? 'en->bn' : 'bn->en'
+                })
+              });
+              saveBtn.textContent = '✓ Saved!';
+              saveBtn.style.background = 'var(--text-secondary)';
+            } catch (_) {}
+          });
+
+          container.appendChild(row);
+        });
+
+        document.getElementById('btnBulkAcceptHighConf')?.addEventListener('click', () => {
+          container.querySelectorAll('.btn-save-tm').forEach(b => b.click());
+          showToast("সকল অনুবাদ Translation Memory-তে সেভ করা হয়েছে।", "success");
+        });
+
+        document.getElementById('mtReviewApplyBtn')?.addEventListener('click', () => {
+          const firstInput = container.querySelector('.review-target-input');
+          if (firstInput && editor) {
+            editor.value = firstInput.value;
+            renderMarkdown();
+          }
+          reviewModal?.classList.remove('active');
+          showToast("অনুমোদিত অনুবাদ ডকুমেন্টে প্রয়োগ করা হয়েছে।", "success");
+        });
+      }
+    }
 
     // Expose helpers for testing and external integrations
     window.renderMarkdown = renderMarkdown;
     window.sanitizeHtml = sanitizeHtml;
+  }
+
+  // ==================== Initialization ====================
+  function init() {
+    const savedTheme = localStorage.getItem('markitdown_studio_theme') || 'dark';
+    setTheme(savedTheme);
+
+    const savedFontSize = parseInt(localStorage.getItem('markitdown_studio_font_size') || '13', 10);
+    if (!isNaN(savedFontSize) && savedFontSize >= 10 && savedFontSize <= 28) {
+      currentFontSize = savedFontSize;
+      editor.style.fontSize = `${currentFontSize}px`;
+      previewContent.style.fontSize = `${currentFontSize}px`;
+      if (lineNumbers) lineNumbers.style.fontSize = `${currentFontSize}px`;
+    }
+
+    if (window.mermaid) {
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: savedTheme === 'light' ? 'default' : 'dark',
+        securityLevel: 'strict',
+      });
+    }
+
+    initTabs();
+    setFontMode('unicode', true);
+    renderMarkdown();
+    updateUndoRedoUI();
+    setupEventListeners();
+    checkServerStatus();
+    updateDiagnostics();
+    detectLineEnding();
+    detectIndentation();
+    updateBranchStatus(false);
+    setSaveStatus('saved');
+    initTranslationFeatures();
   }
 
   if (document.readyState === 'loading') {

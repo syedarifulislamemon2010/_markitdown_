@@ -1,0 +1,54 @@
+# Domain-Diverse Machine Translation Benchmark (50 sentence pairs)
+# Contexts: Academic (1-12), Casual/Everyday (13-25), Official Notices (26-38), Business/Legal (39-50)
+# Reference: Human-referenced bilingual pairs (synthetic-but-realistic, based on authentic Bangladesh administrative, academic, and commercial styles)
+id	domain	bn	en
+1	academic	এই গবেষণার প্রধান উদ্দেশ্য হলো গ্রামীণ জনগোষ্ঠীর আর্থ-সামাজিক অবস্থার মূল্যায়ন করা।	The primary objective of this study is to assess the socio-economic condition of rural populations.
+2	academic	পরিমাণগত ও গুণগত উভয় পদ্ধতি প্রয়োগ করে তথ্য সংগ্রহ করা হয়েছে।	Data was collected applying both quantitative and qualitative methods.
+3	academic	প্রাপ্ত পরিসংখ্যানগত ফলাফল পি-মান ০.০৫ এর নিচে তাৎপর্যপূর্ণ নির্দেশ করে।	The obtained statistical results indicate significance below a p-value of 0.05.
+4	academic	তাত্ত্বিক কাঠামোটি পূর্ববর্তী সাহিত্যের বিস্তৃত পর্যালোচনার উপর ভিত্তি করে গঠিত।	The theoretical framework is grounded on an extensive review of existing literature.
+5	academic	নমুনার আকার ছিল বিভিন্ন বিশ্ববিদ্যালয়ের পাঁচশত শিক্ষার্থী।	The sample size consisted of five hundred students from various universities.
+6	academic	শিক্ষার্থীদের সেমিস্টার ফাইনাল পরীক্ষার পূর্বে সকল অ্যাসাইনমেন্ট জমা দিতে হবে।	Students must submit all assignments prior to the semester final examination.
+7	academic	গবেষণার ফলাফল শিক্ষানীতি সংস্কারের ক্ষেত্রে গুরুত্বপূর্ণ অবদান রাখবে।	The research findings will contribute significantly to educational policy reforms.
+8	academic	উক্ত জার্নালটি একটি উচ্চ ইমপ্যাক্ট ফ্যাক্টর বিশিষ্ট আন্তর্জাতিক প্রকাশনা।	The journal is an international publication with a high impact factor.
+9	academic	সহকর্মী পর্যালোচনার পর গবেষণাপত্রটি প্রকাশের জন্য আনুষ্ঠানিকভাবে গৃহীত হয়েছে।	Following peer review, the research paper was formally accepted for publication.
+10	academic	নমুনায়ন কৌশলে দৈবচয়ন পদ্ধতি ব্যবহার করা হয়েছিল যাতে পক্ষপাতমুক্ত ফলাফল পাওয়া যায়।	A random sampling technique was utilized to obtain unbiased results.
+11	academic	স্বাধীন ও অধীন চলকসমূহের মধ্যে রৈখিক সহসম্পর্ক বিদ্যমান।	A linear correlation exists between the independent and dependent variables.
+12	academic	গবেষণা নীতিমালার আলোকে সকল অংশগ্রহণকারীর কাছ থেকে লিখিত সম্মতি গ্রহণ করা হয়।	In accordance with research ethics guidelines, written informed consent was obtained from all participants.
+13	casual	আজকের আবহাওয়াটা সত্যিই চমৎকার এবং বাইরে বাতাস বইছে।	Today's weather is truly pleasant and a breeze is blowing outside.
+14	casual	তুমি কি আজকে বিকেলে বাজারে যাবে নাকি বাসায় থাকবে?	Will you go to the market this evening or stay at home?
+15	casual	আমার ফোনের ব্যাটারি শেষ হয়ে গেছে, বাসায় পৌঁছে কথা বলব।	My phone battery is drained; I will speak to you after reaching home.
+16	casual	চলো সবাই মিলে একটা গরম চা খাই আর আড্ডা দিই।	Let's all have a hot cup of tea and chat together.
+17	casual	ট্রাফিক জ্যামের কারণে অফিসে পৌঁছাতে আমার একটু দেরি হতে পারে।	Due to traffic congestion, I might be slightly late reaching the office.
+18	casual	কালকে ছুটির দিনে আমরা পুরান ঢাকায় বিরিয়ানি খেতে যাব।	Tomorrow on the holiday, we will go to Old Dhaka to eat biryani.
+19	casual	দয়া করে তোমার লাইভ লোকেশনটা হোয়াটসঅ্যাপে শেয়ার করো।	Please share your live location on WhatsApp.
+20	casual	নতুন কেনা ল্যাপটপটির পারফরম্যান্স বেশ ভালো ও দ্রুতগতির।	The performance of the newly purchased laptop is quite good and fast.
+21	casual	তুমি কি আগামী শুক্রবারের বিয়েতে যাচ্ছ?	Are you attending the wedding next Friday?
+22	casual	আমি তোমার পাঠানো ছবিগুলো এবং ডকুমেন্টগুলো ডাউনলোড করেছি।	I have downloaded the pictures and documents you sent.
+23	casual	আজকে রাতের রান্নায় খুব বেশি ঝাল দিও না।	Do not make tonight's cooking too spicy.
+24	casual	অনেক দিন পর তোমার সাথে কথা বলে মনটা ভালো হয়ে গেল।	After a long time, talking to you made me feel wonderful.
+25	casual	জরুরি প্রয়োজনে আমাকে যেকোনো সময় কল করতে পারো।	You can call me anytime in case of an emergency.
+26	official	সংবিধানের ২৭ অনুচ্ছেদ অনুসারে সকল নাগরিক আইনের দৃষ্টিতে সমান।	According to Article 27 of the Constitution, all citizens are equal before law.
+27	official	আগামী রবিবার অর্থ মন্ত্রণালয়ের সভাকক্ষে আন্তঃমন্ত্রণালয় বৈঠক অনুষ্ঠিত হবে।	The inter-ministerial meeting will be held next Sunday at the Ministry of Finance conference room.
+28	official	জাতীয় পরিচয়পত্র ও জন্ম নিবন্ধন সনদের সত্যায়িত অনুলিপি আবেদনপত্রের সাথে সংযুক্ত করুন।	Attach certified copies of the National Identity Card and birth registration certificate with the application.
+29	official	উক্ত সার্কুলারের ৩ নম্বর অনুচ্ছেদ অনুযায়ী সকল কর্মকর্তার উপস্থিতি বাধ্যতামূলক।	In accordance with paragraph 3 of the circular, attendance of all officers is mandatory.
+30	official	দরপত্র দাখিলের সময়সীমা আগামী ১৫ নভেম্বর বেলা বারোটা পর্যন্ত বৃদ্ধি করা হলো।	The deadline for tender submission has been extended until 12:00 PM on 15 November.
+31	official	সরকারি গেজেটে প্রকাশিত প্রজ্ঞাপন অবিলম্বে কার্যকর হইবে।	The notification published in the official gazette shall take effect immediately.
+32	official	সকল সরকারি কর্মচারীকে আর্থিক বছর শেষে সম্পদের বিবরণী দাখিল করতে হবে।	All public servants must submit asset statements at the end of the financial year.
+33	official	অননুমোদিত অনুপস্থিতির ক্ষেত্রে বিধি মোতাবেক শাস্তিমূলক ব্যবস্থা গ্রহণ করা হবে।	In case of unauthorized absence, disciplinary action will be taken according to rules.
+34	official	নাগরিক সনদ অনুযায়ী নির্দিষ্ট সময়সীমার মধ্যে জনসেবা প্রদান নিশ্চিত করতে হবে।	Public services must be ensured within the specified timeframe according to the citizen charter.
+35	official	উক্ত আদেশ যথাযথ কর্তৃপক্ষের অনুমোদনক্রমে জনস্বার্থে জারি করা হলো।	The order has been issued in the public interest with the approval of the competent authority.
+36	official	প্রকল্পের অগ্রগতি সংক্রান্ত মাসিক প্রতিবেদন প্রতি মাসের পাঁচ তারিখের মধ্যে প্রেরণ করতে হবে।	The monthly project progress report must be transmitted by the fifth day of each month.
+37	official	সচিবালয়ে প্রবেশকালে নিরাপত্তা কর্মীদের পরিচয়পত্র প্রদর্শন করা বাধ্যতামূলক।	Displaying identity cards to security personnel is mandatory upon entering the Secretariat.
+38	official	জাতীয় রাজস্ব বোর্ডের নির্দেশনা মোতাবেক সকল চালানে ই-পেমেন্ট পদ্ধতি অনুসরণ করতে হবে।	E-payment procedures must be followed for all invoices as per National Board of Revenue directives.
+39	business_legal	কোম্পানি আইন অনুযায়ী বার্ষিক সাধারণ সভা নির্ধারিত মেয়াদের মধ্যে আহ্বান করতে হবে।	Under Company Law, the Annual General Meeting must be convened within the stipulated period.
+40	business_legal	বাদী ও বিবাদীর মধ্যে সম্পাদিত চুক্তিপত্রটি আদালতে প্রদর্শনী হিসেবে গৃহীত হয়েছে।	The contract agreement executed between the plaintiff and the defendant was admitted as an exhibit in court.
+41	business_legal	ব্যাংক কর্তৃপক্ষ বন্ধকী সম্পত্তি নিলামে বিক্রয়ের জন্য বিজ্ঞপ্তি জারি করেছে।	The bank authorities have issued a notice for the auction sale of the mortgaged property.
+42	business_legal	সংঘস্মারক ও সংঘবিধির শর্তাবলী সকল পরিচালকের জন্য সমভাবে প্রযোজ্য।	The terms of the Memorandum and Articles of Association are equally applicable to all directors.
+43	business_legal	উচ্চ আদালত অধস্তন আদালতের প্রদত্ত স্থগিতাদেশ বাতিল ঘোষণা করেছে।	The High Court declared the stay order issued by the subordinate court vacated.
+44	business_legal	উভয় পক্ষ আলোচনার মাধ্যমে বিরোধ সালিশি ট্রাইব্যুনালে নিষ্পত্তির সিদ্ধান্ত নিয়েছে।	Both parties decided through negotiation to settle the dispute before an arbitration tribunal.
+45	business_legal	চুক্তিভঙ্গের কারণে ক্ষতিগ্রস্ত পক্ষ উপযুক্ত ক্ষতিপূরণ দাবি করেছে।	Due to breach of contract, the aggrieved party claimed adequate damages.
+46	business_legal	দায়মুক্তি ও নিশ্চয়তাপত্রের অনুলিপি নোটারি পাবলিক কর্তৃক সত্যায়িত হতে হবে।	The copy of the indemnity and guarantee must be attested by a notary public.
+47	business_legal	পুঁজিবাজার নিয়ন্ত্রক সংস্থা অভ্যন্তরীণ তথ্য লেনদেনের বিরুদ্ধে কঠোর সতর্কতা জারি করেছে।	The capital market regulator issued a strict warning against insider trading.
+48	business_legal	বকেয়া ঋণ পরিশোধে ব্যর্থ হওয়ায় দেনাদারের বিরুদ্ধে দেউলিয়া মামলা দায়ের করা হয়েছে।	A bankruptcy suit was instituted against the debtor for failure to repay outstanding debts.
+49	business_legal	মেধাসম্পদ অধিকার সুরক্ষায় পেটেন্ট ও ট্রেডমার্ক নিবন্ধন সম্পন্ন হয়েছে।	Patent and trademark registrations have been completed to protect intellectual property rights.
+50	business_legal	বিজ্ঞাপন বিরতির পূর্বে সাধারণ খতিয়ানে সকল লেনদেন সমন্বয় করতে হবে।	All transactions must be reconciled in the general ledger before the close of accounts.

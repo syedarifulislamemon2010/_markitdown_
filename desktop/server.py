@@ -577,6 +577,210 @@ def api_ocr_capabilities():
         )
     }
 
+# ---------------------------------------------------------------------------
+# Machine Translation API Endpoints (Task 5.2, 5.3, 5.4, 5.5)
+# ---------------------------------------------------------------------------
+@app.get('/api/translate/capabilities')
+def api_translate_capabilities():
+    """Return which translation engines are downloaded and ready, with speed and badge notices."""
+    from core.translate import get_download_manager
+    mgr = get_download_manager()
+
+    it_downloaded = mgr.is_model_downloaded("indictrans2-dist-200m")
+    nllb_downloaded = mgr.is_model_downloaded("nllb-200-distilled-600m")
+
+    return {
+        "success": True,
+        "disclaimer_badge": "AI অনুবাদ — যাচাই করুন / AI Translation — verify before relying on it",
+        "chunking_notice": "Document translation chunks at sentence/paragraph boundaries (512-token limit) to preserve document structure.",
+        "engines": [
+            {
+                "id": "indictrans2",
+                "name": "IndicTrans2 (AI4Bharat)",
+                "precision": "INT8",
+                "is_downloaded": it_downloaded,
+                "size_mb": 420.0,
+                "speed_sents_sec": 14.8,
+                "description": "Specialized Bengali-English neural MT engine"
+            },
+            {
+                "id": "nllb",
+                "name": "NLLB-200 (Meta)",
+                "precision": "INT8",
+                "is_downloaded": nllb_downloaded,
+                "size_mb": 593.0,
+                "speed_sents_sec": 8.2,
+                "description": "General-purpose multilingual neural MT (200+ languages)"
+            },
+            {
+                "id": "cloud",
+                "name": "Cloud AI Provider",
+                "precision": "Cloud",
+                "is_downloaded": True,
+                "size_mb": 0.0,
+                "speed_sents_sec": 20.0,
+                "description": "Opt-in OpenAI / Gemini / Anthropic with explicit confirmation"
+            }
+        ],
+        "active_default": "indictrans2" if it_downloaded else ("nllb" if nllb_downloaded else None)
+    }
+
+
+@app.post('/api/translate/download')
+def api_translate_download():
+    """Trigger on-demand download for an MT model with disk-space check."""
+    from core.translate import get_download_manager, MODEL_MANIFEST
+    data = request.json or {}
+    model_id = data.get("model") or "indictrans2"
+
+    manifest_key = "indictrans2-dist-200m" if model_id == "indictrans2" else "nllb-200-distilled-600m"
+    mgr = get_download_manager()
+
+    info = MODEL_MANIFEST.get(manifest_key)
+    if not info:
+        response.status = 400
+        return {"success": False, "error": f"Unknown model: {model_id}"}
+
+    total_bytes = sum(f.get("size_bytes", 0) for f in info["files"].values())
+    has_space, free_bytes = mgr.check_disk_space(total_bytes)
+    if not has_space:
+        response.status = 400
+        return {
+            "success": False,
+            "error": f"Insufficient disk space. Required: {total_bytes / (1024*1024):.1f} MB, Free: {free_bytes / (1024*1024):.1f} MB."
+        }
+
+    try:
+        mgr.download_model(manifest_key)
+        return {"success": True, "message": f"{info['description']} downloaded successfully."}
+    except Exception as e:
+        response.status = 500
+        return {"success": False, "error": str(e)}
+
+
+@app.post('/api/translate/clear')
+def api_translate_clear():
+    """Clear downloaded local models to reclaim disk space."""
+    from core.translate import get_download_manager
+    mgr = get_download_manager()
+    mgr.clear_downloaded_models()
+    return {"success": True, "message": "Downloaded translation models cleared."}
+
+
+@app.post('/api/translate')
+def api_translate():
+    """
+    Execute translation with explicit dual actions:
+      1. 'to_bengali' (বাংলায় অনুবাদ করুন - translates only English & mixed segments)
+      2. 'to_english' (translates only Bengali & mixed segments)
+    Supports selection, document, or workspace scope with TM and glossaries.
+    """
+    from core.translate import get_download_manager, IndicTransEngine, NLLBEngine, CloudTranslationEngine
+    from core.doc_translator import DocumentTranslator
+    from core.glossary import GlossaryManager
+    from core.translation_memory import TranslationMemory
+
+    data = request.json or {}
+    text = data.get("text", "")
+    action = data.get("action", "to_bengali")  # 'to_bengali' or 'to_english'
+    engine_choice = data.get("engine", "indictrans2")
+    _scope = data.get("scope", "document")  # 'selection', 'document', 'workspace'
+    starter_glossaries = data.get("starter_glossaries", [])
+
+    if not text.strip():
+        response.status = 400
+        return {"success": False, "error": "No text provided for translation."}
+
+    target_lang = "bn" if action in ("to_bengali", "bn") else "en"
+    mgr = get_download_manager()
+
+    # Select backend engine
+    if engine_choice == "indictrans2":
+        model_dir = mgr.get_model_path("indictrans2-dist-200m")
+        engine = IndicTransEngine(model_dir=model_dir, precision="int8")
+    elif engine_choice == "nllb":
+        model_dir = mgr.get_model_path("nllb-200-distilled-600m")
+        engine = NLLBEngine(model_dir=model_dir, precision="int8")
+    else:
+        # Cloud LLM engine
+        cfg = get_studio_config()
+        provider = cfg.get("provider", "openai")
+        engine = CloudTranslationEngine(
+            provider=provider,
+            api_key=cfg.get("openai_key") or os.environ.get("OPENAI_API_KEY", ""),
+            base_url=cfg.get("openai_base_url", "https://api.openai.com/v1"),
+            model=cfg.get("openai_model", "gpt-4o-mini")
+        )
+
+    # Initialize glossaries
+    gm = GlossaryManager()
+    docs_dir = PROJECT_ROOT / "docs"
+    for g_name in starter_glossaries:
+        g_path = docs_dir / f"glossary_starter_{g_name}_UNVERIFIED.csv"
+        if g_path.exists():
+            gm.load_csv(g_path, domain_override=g_name)
+
+    # Initialize Translation Memory
+    tm = TranslationMemory(db_path=PROJECT_ROOT / ".studio_tm.db")
+
+    # Run document translation
+    translator = DocumentTranslator(
+        engine=engine,
+        glossary=gm,
+        translation_memory=tm
+    )
+
+    report = translator.translate_document(text, target_lang=target_lang)
+
+    return {
+        "success": True,
+        "action": action,
+        "target_lang": target_lang,
+        "translated_text": report.translated_markdown,
+        "total_chunks": report.total_chunks,
+        "translated_chunks": report.translated_chunks,
+        "engine_calls_made": report.engine_calls_made,
+        "tm_matches_used": report.tm_matches_used,
+        "glossary_overrides_used": report.glossary_overrides_used,
+        "duration_seconds": report.duration_seconds,
+        "is_idempotent_noop": report.is_idempotent_noop,
+        "disclaimer_badge": "AI অনুবাদ — যাচাই করুন / AI Translation — verify before relying on it"
+    }
+
+
+@app.get('/api/translate/audit-logs')
+def api_translate_audit_logs():
+    """Return privacy audit log for cloud translation calls."""
+    from core.translate import _GLOBAL_AUDIT_LOGGER
+    logs = _GLOBAL_AUDIT_LOGGER.get_logs()
+    return {"success": True, "logs": logs}
+
+
+@app.post('/api/translate/audit-logs/clear')
+def api_translate_audit_logs_clear():
+    """Clear privacy audit log."""
+    from core.translate import _GLOBAL_AUDIT_LOGGER
+    _GLOBAL_AUDIT_LOGGER.clear()
+    return {"success": True, "message": "Audit logs cleared."}
+
+
+@app.post('/api/translate/tm/store')
+def api_translate_tm_store():
+    """Store human-reviewed translation into local Translation Memory."""
+    from core.translation_memory import TranslationMemory
+    data = request.json or {}
+    source = data.get("source", "").strip()
+    target = data.get("target", "").strip()
+    direction = data.get("direction", "en->bn")
+
+    if not source or not target:
+        response.status = 400
+        return {"success": False, "error": "Source and target text required."}
+
+    tm = TranslationMemory(db_path=PROJECT_ROOT / ".studio_tm.db")
+    tm.store(source, target, direction=direction, approved_by="user")
+    return {"success": True, "message": "Saved to Translation Memory."}
+
 
 @app.post('/api/ocr')
 def api_ocr():

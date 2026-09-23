@@ -80,7 +80,8 @@ def test_api_ai_action_with_gemini(server_url):
         captured_req = req
         return mock_resp
 
-    with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen):
+    with mock.patch("desktop.server.urllib.request.urlopen", side_effect=fake_urlopen), \
+         mock.patch("urllib.request.urlopen", side_effect=fake_urlopen):
         resp = requests.post(
             f"{server_url}/api/ai-action",
             json={

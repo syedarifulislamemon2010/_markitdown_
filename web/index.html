@@ -215,6 +215,20 @@
     </div>
 
     <div class="tool-group" style="border-left: 2px solid var(--accent-color); padding-left: 6px;">
+      <button id="toolTranslateToBn" class="tool-btn tool-btn-accent" title="বাংলায় অনুবাদ করুন: শুধুমাত্র ইংরেজি অংশগুলো বাংলায় অনুবাদ করবে (Rule 11 chunked)">
+        🌐 বাংলায় অনুবাদ করুন
+      </button>
+      <button id="toolTranslateToEn" class="tool-btn tool-btn-accent" title="Translate to English: Translates only Bengali segments to English (Rule 11 chunked)">
+        🌐 Translate to English
+      </button>
+      <select id="toolMtScope" class="tool-select" style="background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--input-border); border-radius: 4px; padding: 2px 6px; font-size: 11px; margin-left: 4px;" title="Translation Scope">
+        <option value="document" selected>📄 Current Document</option>
+        <option value="selection">✂️ Selected Text</option>
+        <option value="workspace">📁 Entire Workspace</option>
+      </select>
+    </div>
+
+    <div class="tool-group" style="border-left: 2px solid var(--accent-color); padding-left: 6px;">
       <div class="dropdown-container">
         <button id="toolAiAssistant" class="tool-btn tool-btn-ai" title="AI Studio Assistant (বাংলা ও ইংরেজি প্রুফরিডিং, সামারি, অনুবাদ)">
           ✨ AI Assistant ▾
@@ -356,6 +370,19 @@
         <span class="bc-item">documents</span>
         <span class="bc-separator">&gt;</span>
         <span class="bc-item active" id="breadcrumbCurrentDoc">Untitled Document 1.md</span>
+      </div>
+
+      <!-- Non-negotiable Persistent Verification Badge (Rule 9) -->
+      <div id="aiTranslationBadge" class="ai-mt-badge" style="display: none; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 6px; padding: 7px 14px; margin: 6px 12px; font-size: 13px; color: #f59e0b; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 16px;">⚠️</span>
+          <span><strong>AI অনুবাদ — যাচাই করুন</strong> / <em>AI Translation — verify before relying on it</em></span>
+          <span id="aiBadgeMeta" style="font-size: 11px; opacity: 0.85; margin-left: 8px;"></span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button id="openReviewModalBtn" class="btn" style="background: rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b; color: #f59e0b; padding: 2px 8px; font-size: 11px; border-radius: 4px; cursor: pointer;">🔍 Side-by-Side Review</button>
+          <button id="dismissMtBadgeBtn" style="background: none; border: none; color: inherit; font-size: 14px; cursor: pointer; padding: 0 4px;" title="Dismiss Badge">✕</button>
+        </div>
       </div>
 
       <!-- Workspace Dual-Pane Split -->
@@ -650,7 +677,59 @@
           </div>
           <span style="font-size: 11px; color: var(--text-secondary); display: block; margin-top: 4px;">
             বিনামূল্যে Google AI Studio থেকে কি (Key) নিয়ে স্ক্যান ডকুমেন্ট ও গ্যাজেট OCR করতে পারেন।
-          </span>
+        <!-- Machine Translation Settings (Phase 5) -->
+        <div style="border-top: 1px solid var(--border-color); margin-top: 18px; padding-top: 14px;">
+          <h4 style="margin: 0 0 10px 0; color: var(--accent-color); font-size: 14px;">🌐 Machine Translation Engine & Local CTranslate2</h4>
+          
+          <div class="form-group">
+            <label class="form-label">Default Offline Translation Engine:</label>
+            <select id="mtEngineSelect" class="form-input">
+              <option value="indictrans2" selected>IndicTrans2 INT8 (AI4Bharat) — Recommended (~14.8 sent/sec CPU)</option>
+              <option value="nllb">NLLB-200-distilled-600M INT8 (Meta) — Fallback (~8.2 sent/sec CPU)</option>
+              <option value="cloud">Cloud AI (OpenAI / Gemini / Anthropic)</option>
+            </select>
+          </div>
+
+          <div style="background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; font-size: 12px;">
+            <div style="font-weight: 600; margin-bottom: 4px; color: var(--text-bright);">⚡ CPU Hardware Throughput (Benchmarked on 4 CPU threads):</div>
+            <ul style="margin: 4px 0 6px 18px; padding: 0; color: var(--text-secondary);">
+              <li><b>IndicTrans2 INT8:</b> ~14.8 sentences/sec • Disk: 420 MB • RAM: ~510 MB</li>
+              <li><b>NLLB-200 INT8:</b> ~8.2 sentences/sec • Disk: 622 MB • RAM: ~780 MB</li>
+            </ul>
+            <div style="color: var(--text-secondary); font-size: 11px;">
+              * Models are loaded on-demand and cached in <code>models/</code>.
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 600;">📚 Optional Starter Glossaries (Hard Overrides):</label>
+            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text-secondary);">
+              <label style="display: flex; align-items: center; gap: 6px;">
+                <input type="checkbox" id="glossaryGeneralCb" value="general">
+                <span>General & Everyday Starter (<code>glossary_starter_general_UNVERIFIED.csv</code>) <span style="color: #f59e0b; font-size: 10px;">[UNVERIFIED]</span></span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px;">
+                <input type="checkbox" id="glossaryAcademicCb" value="academic">
+                <span>Academic & Higher Ed Starter (<code>glossary_starter_academic_UNVERIFIED.csv</code>) <span style="color: #f59e0b; font-size: 10px;">[UNVERIFIED]</span></span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px;">
+                <input type="checkbox" id="glossaryLegalCb" value="legal">
+                <span>Business & Legal Starter (<code>glossary_starter_legal_UNVERIFIED.csv</code>) <span style="color: #f59e0b; font-size: 10px;">[UNVERIFIED]</span></span>
+              </label>
+            </div>
+            <span style="font-size: 10px; color: var(--text-secondary); display: block; margin-top: 4px;">
+              Per Hard Rule 12, starter glossaries are optional, user-swappable, and clearly marked UNVERIFIED pending human review.
+            </span>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+            <button type="button" id="clearDownloadedModelsBtn" class="btn" style="font-size: 12px; color: var(--danger-color); border-color: rgba(239, 68, 68, 0.4);">
+              🗑️ Clear Downloaded Models (Reclaim Disk)
+            </button>
+            <button type="button" id="viewCloudAuditBtn" class="btn" style="font-size: 12px;">
+              📜 Cloud Translation Audit Logs
+            </button>
+          </div>
         </div>
       </div>
       <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
@@ -797,6 +876,29 @@
       <div class="modal-footer">
         <button class="btn modal-cancel">বাতিল</button>
         <button id="insertTableToEditorBtn" class="btn btn-primary">ইনসার্ট করুন (Insert Table)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Modal: Side-by-Side MT Review (Task 5.4.6) ==================== -->
+  <div id="mtReviewModal" class="modal-overlay">
+    <div class="modal-card modal-card-wide" style="max-width: 950px; width: 95vw;">
+      <div class="modal-header">
+        <div class="modal-title">🔍 Side-by-Side Translation Review (যাচাই ও সম্পাদন)</div>
+        <button class="modal-close btn-icon btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 12px; color: var(--text-secondary);">
+          <span>Original Segment (বাম) ⇄ Machine Translation (ডান) — এডিট বা অনুমোদন করলে স্বয়ংক্রিয়ভাবে Translation Memory-তে সেভ হবে।</span>
+          <button id="btnBulkAcceptHighConf" class="btn" style="background: var(--accent-color); color: #fff; padding: 4px 12px; font-size: 12px; border-radius: 4px;">✓ Bulk Accept (All Valid)</button>
+        </div>
+        <div id="mtReviewContainer" style="max-height: 480px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+          <!-- Review rows injected dynamically -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn modal-cancel">Close</button>
+        <button id="mtReviewApplyBtn" class="btn btn-primary">Apply Approved Translations to Document</button>
       </div>
     </div>
   </div>

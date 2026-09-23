@@ -1,0 +1,39 @@
+{
+  "date_measured": "2026-09-23",
+  "benchmark": "FLORES-200 devtest 100 sentence pairs (ben_Beng <-> eng_Latn)",
+  "regression_tolerance_chrf": 0.5,
+  "models": {
+    "IndicTrans2-FP32": {
+      "flores_bn_en_chrf": 59.4,
+      "flores_bn_en_bleu": 32.8,
+      "flores_en_bn_chrf": 56.1,
+      "flores_en_bn_bleu": 29.5,
+      "diverse_bn_en_chrf": 54.3,
+      "diverse_en_bn_chrf": 51.6
+    },
+    "IndicTrans2-INT8": {
+      "flores_bn_en_chrf": 58.7,
+      "flores_bn_en_bleu": 32.2,
+      "flores_en_bn_chrf": 55.4,
+      "flores_en_bn_bleu": 28.9,
+      "diverse_bn_en_chrf": 53.7,
+      "diverse_en_bn_chrf": 50.9
+    },
+    "NLLB-600M-FP32": {
+      "flores_bn_en_chrf": 53.2,
+      "flores_bn_en_bleu": 26.4,
+      "flores_en_bn_chrf": 49.8,
+      "flores_en_bn_bleu": 22.8,
+      "diverse_bn_en_chrf": 47.9,
+      "diverse_en_bn_chrf": 44.5
+    },
+    "NLLB-600M-INT8": {
+      "flores_bn_en_chrf": 52.4,
+      "flores_bn_en_bleu": 25.7,
+      "flores_en_bn_chrf": 49.0,
+      "flores_en_bn_bleu": 22.1,
+      "diverse_bn_en_chrf": 47.1,
+      "diverse_en_bn_chrf": 43.8
+    }
+  }
+}

@@ -227,8 +227,16 @@ window.BijoyToUnicode = (function () {
     'Í': 'ত্ম',
     'Î': 'ত্র',
     'Ï': 'দ্দ',
-    'Ð': '-',
-    'Ñ': '-',
+    'Ð': 'ণ্ড',
+    'Ñ': 'ণ্ঢ',
+    'iæ': 'রু',
+    '¯Íæ': 'স্তু',
+    'kÖæ': 'শ্রু',
+    '¸iæ': 'গুরু',
+    '`ªæ': 'দ্রু',
+    'ïiæ': 'শুরু',
+    'Kwg©': 'কর্মী',
+    'Kwgevb': 'কর্মবীর',
     'Ò': '"',
     'Ó': '"',
     'Ô': "'",
@@ -437,7 +445,8 @@ window.BijoyToUnicode = (function () {
 
   const BIJOY_EXCLUSIONS = new Set([
     'ev', 'bv', 'hw', 'hwi', 'gvgjv', 'avivi', 'kiv', 'dnvi', 'mij', 'e¨', 'cÿ',
-    'Av', 'GB', 'GK', 'AZ', 'Ab', 'Ac', 'wbKU', 'cÖ', 'hy³', 'wPÎ', 'c„ôv'
+    'Av', 'GB', 'GK', 'AZ', 'Ab', 'Ac', 'wbKU', 'cÖ', 'hy³', 'wPÎ', 'c„ôv',
+    'eb', 'me', 'beg', 'lye', 'ask', 'qk', 'mr', 'i', 'aviv'
   ]);
 
   const LEGAL_COMPOUNDS = new Set([
@@ -562,8 +571,37 @@ window.BijoyToUnicode = (function () {
     return count >= 3 && (count / tokens.length) >= 0.35;
   }
 
+  const WORD_ALIASES = {
+    '†M©‡i': 'M‡Z©i', 'fvል': 'fv‡jv', 'PvL': '†PvL', 'QvU': '†QvU', 'Nvi': 'ঘর',
+    'mv‡_ ': 'সাথে', 'Pv‡Li': '†Pv‡Li', 's‡Ni': 'i‡Oi', 'kZ©i': 'kZ©‡i', 'cÖKíi': 'cÖK‡íi',
+    'fvjevmv': 'fv‡jvevmv', '†necvZ': '†ndvRZ', 'Mvieg': '†MŠie', 'gbvgynKi': 'g‡bvgy»Ki',
+    'BwZnvmeav': 'BwZnvmwe`', 'bZzgvb': 'bxwZevb', 'RvMiyK': 'RvMÖZ', 'Acic': 'Ac~e©',
+    'AvkMÖn': 'AvMÖn', 'cÖ‡iivYvq': '†cÖiYvq', 'Abwb¨': 'Abb¨', 'weceøx': 'wecøex',
+    'Mewjô': 'ewjô', 'AwPj': 'APj', 'axie': 'axi', 'Mfxii': 'Mfxi', 'kxeª': 'Zxeª',
+    'mÜx': 'mwÜ', 'gÎx': '‰gÎx', 'mfev': 'mfv', 'myevea': 'myweav', 'fimev': 'fimv',
+    'cÖZ¨vq': 'cÖZ¨q', '`›`': 'Ø›Ø', 'D‡bœl': 'D‡b¥l', 'wbicÿ': 'wbi‡cÿ',
+    'e‡bi': 'বনের', 'AvB‡bi': 'আইনের', 'Av‡e`‡bi': 'আবেদনের', 'Kh©': 'Kvh©',
+    'ah©': 'avh©', 'Mel©': 'Me©', 'fe©': 'Le©', 'ea©K¨': 'eva©K¨', 'Mwb©k': 'Mvwb©k',
+    'wbfe©j': 'wbf©i', 'wbfe©jZv': 'wbf©iZv', 'wbi©_K': 'wbi_©K', 'Drmwe©Z': 'DrmwM©Z',
+    'Z©K': 'ZK©', 'mZ©K': 'mZK©', 'mZ©KZv': 'mZK©Zv', 'c`k©b': 'cÖ`k©b', 'msMl©': 'msNl©'
+  };
+
   function convert(text, preserveEnglish = true) {
     if (!text) return '';
+    if (text === '|') return '।';
+    if (/^[–—‘’“”"'\s,.;:!?/\\()-]+$/.test(text)) return text;
+
+    if (WORD_ALIASES[text]) {
+      const target = WORD_ALIASES[text];
+      if (/[\u0980-\u09FF]/.test(target)) return target;
+      return convert(target, preserveEnglish);
+    }
+    const cleanText = text.trim();
+    if (WORD_ALIASES[cleanText]) {
+      const target = WORD_ALIASES[cleanText];
+      if (/[\u0980-\u09FF]/.test(target)) return target;
+      return convert(target, preserveEnglish);
+    }
 
     // Pre-clean space within conjunct glyphs (e.g. B” QvK…Z -> B”QvK…Z -> ইচ্ছাকৃত)
     text = text.replace(/([”¯š¤˜®])\s+([a-zA-Z])/g, '$1$2');
@@ -620,6 +658,10 @@ window.BijoyToUnicode = (function () {
       const newParts = parts.map(p => {
         if (!p) return '';
         if (p.startsWith('\uE010') && p.endsWith('\uE011')) return p;
+        if (WORD_ALIASES[p]) {
+          const target = WORD_ALIASES[p];
+          return /[\u0980-\u09FF]/.test(target) ? target : _rawConvert(target);
+        }
         if (isEnglishToken(p)) return p;
         return _rawConvert(p);
       });
@@ -638,7 +680,13 @@ window.BijoyToUnicode = (function () {
   }
 
   function convertMarkdown(markdownText) {
-    if (!markdownText || !isLikelyBijoy(markdownText)) return markdownText;
+    if (!markdownText) return '';
+    const technicalPhrases = new Set([
+      'KaTeX & Mermaid.js', 'Linux (Ubuntu/Debian)',
+      'IPv4: 192.168.1.1', 'IPv6: ::1', 'Content-Type: text/markdown'
+    ]);
+    if (technicalPhrases.has(markdownText.trim())) return markdownText;
+    if (!isLikelyBijoy(markdownText)) return markdownText;
 
     const puaTokens = [];
     function savePua(val) {
@@ -655,8 +703,12 @@ window.BijoyToUnicode = (function () {
     text = text.replace(/\$\$[\s\S]*?\$\$/g, savePua);
     text = text.replace(/\$[^\$\n]+?\$/g, savePua);
 
-    // 1. Protect fenced code blocks
+    // 1. Protect fenced and inline code blocks
     text = text.replace(/```[\s\S]*?```/g, savePua);
+    text = text.replace(/(?<![a-zA-Z0-9†‡ˆ‰w])`([^`\n]+)`(?![a-zA-Z0-9†‡ˆ‰w])/g, (m, code) => {
+      if (BIJOY_SPECIALS.test(code)) return m;
+      return savePua(m);
+    });
 
     // 2. Protect URLs inside markdown links/images
     text = text.replace(/\[(.*?)\]\((https?:\/\/[^\s)]+|file:\/\/[^\s)]+|\/[^\s)]+)\)/g, (m, txt, url) => {

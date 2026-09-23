@@ -1,0 +1,212 @@
+term,translation,domain,case_sensitive
+Court,আদালত,legal,False
+High Court,হাইকোর্ট,legal,False
+Supreme Court,সুপ্রিম কোর্ট,legal,False
+Appellate Division,আপিল বিভাগ,legal,False
+High Court Division,হাইকোর্ট বিভাগ,legal,False
+Judge,বিচারক,legal,False
+Chief Justice,প্রধান বিচারপতি,legal,False
+Magistrate,ম্যাজিস্ট্রেট,legal,False
+Tribunal,ট্রাইব্যুনাল,legal,False
+Special Tribunal,বিশেষ ট্রাইব্যুনাল,legal,False
+Administrative Tribunal,প্রশাসনিক ট্রাইব্যুনাল,legal,False
+Labor Court,শ্রম আদালত,legal,False
+Family Court,পারিবারিক আদালত,legal,False
+Plaintiff,বাদী,legal,False
+Defendant,বিবাদী,legal,False
+Petitioner,আবেদনকারী,legal,False
+Respondent,উত্তরদাতা,legal,False
+Appellant,আপিলকারী,legal,False
+Advocate,আইনজীবী,legal,False
+Barrister,ব্যারিস্টার,legal,False
+Attorney General,অ্যাটর্নি জেনারেল,legal,False
+Public Prosecutor,পাবলিক প্রসিকিউটর,legal,False
+Legal counsel,আইন উপদেষ্টা,legal,False
+Witness,সাক্ষী,legal,False
+Eye-witness,প্রত্যক্ষদর্শী,legal,False
+Deposition,জবানবন্দি,legal,False
+Cross-examination,জেরা,legal,False
+Testimony,সাক্ষ্য,legal,False
+Evidence,প্রমাণ,legal,False
+Circumstantial evidence,পারিপার্শ্বিক প্রমাণ,legal,False
+Exhibit,প্রদর্শনী,legal,False
+Documentary evidence,দালিলিক প্রমাণ,legal,False
+Suit,মামলা,legal,False
+Civil suit,দেওয়ানি মামলা,legal,False
+Criminal case,ফৌজদারি মামলা,legal,False
+First Information Report,প্রাথমিক তথ্য বিবরণী,legal,False
+Charge sheet,অভিযোগপত্র,legal,False
+Indictment,অভিযোগ গঠন,legal,False
+Summons,সমন,legal,False
+Warrant,পরোয়ানা,legal,False
+Arrest warrant,গ্রেপ্তারি পরোয়ানা,legal,False
+Search warrant,তল্লাশি পরোয়ানা,legal,False
+Bail,জামিন,legal,False
+Anticipatory bail,আগাম জামিন,legal,False
+Interim bail,অন্তর্বর্তীকালীন জামিন,legal,False
+Bail bond,জামিননামা,legal,False
+Surety,জামিনদার,legal,False
+Custody,হেফাজত,legal,False
+Judicial custody,কারাগারে হেফাজত,legal,False
+Police remand,পুলিশ রিমান্ড,legal,False
+Acquittal,খালাস,legal,False
+Conviction,দণ্ডাদেশ,legal,False
+Sentence,সাজা,legal,False
+Life imprisonment,যাবজ্জীবন কারাদণ্ড,legal,False
+Capital punishment,মৃত্যুদণ্ড,legal,False
+Fine,অর্থদণ্ড,legal,False
+Compensation,ক্ষতিপূরণ,legal,False
+Damages,ক্ষতিপূরণ,legal,False
+Injunction,নিষেধাজ্ঞা,legal,False
+Temporary injunction,অস্থায়ী নিষেধাজ্ঞা,legal,False
+Permanent injunction,স্থায়ী নিষেধাজ্ঞা,legal,False
+Stay order,স্থগিতাদেশ,legal,False
+Decree,ডিক্রি,legal,False
+Judgment,রায়,legal,False
+Order,আদেশ,legal,False
+Interim order,অন্তর্বর্তীকালীন আদেশ,legal,False
+Appeal,আপিল,legal,False
+Revision,রিভিশন,legal,False
+Review,পুনর্বিবেচনা,legal,False
+Affidavit,হলফনামা,legal,False
+Power of attorney,আমমোক্তারনামা,legal,False
+Deed,দলিল,legal,False
+Sale deed,বিক্রয় কবলা,legal,False
+Gift deed,হেবানামা,legal,False
+Mortgage,বন্ধক,legal,False
+Mortgagor,বন্ধকদাতা,legal,False
+Mortgagee,বন্ধকগ্রহীতা,legal,False
+Equitable mortgage,উদ্বৃত্ত স্বত্বের বন্ধক,legal,False
+Foreclosure,বন্ধকমুক্তি রোধ,legal,False
+Lease,ইজারা,legal,False
+Lessor,ইজারাদাতা,legal,False
+Lessee,ইজারাগ্রহীতা,legal,False
+Tenancy,ভাড়াটীয়াত্ব,legal,False
+Tenant,ভাড়াটিয়া,legal,False
+Landlord,বাড়িওয়ালা,legal,False
+Rent,ভাড়া,legal,False
+Ledger,খতিয়ান,legal,False
+General ledger,সাধারণ খতিয়ান,legal,False
+Account ledger,হিসাব খতিয়ান,legal,False
+Mutation,নামজারি,legal,False
+Khatian,খতিয়ান,legal,False
+Mouza,মৌজা,legal,False
+Plot number,দাগ নম্বর,legal,False
+Contract,চুক্তি,legal,False
+Breach of contract,চুক্তিভঙ্গ,legal,False
+Agreement,সমঝোতা,legal,False
+Memorandum of Understanding,সমঝোতা স্মারক,legal,False
+Arbitration,সালিশ,legal,False
+Arbitrator,সালিশকারী,legal,False
+Mediation,মধ্যস্থতা,legal,False
+Conciliation,আপস নিষ্পত্তি,legal,False
+Jurisdiction,এখতিয়ার,legal,False
+Territorial jurisdiction,আঞ্চলিক এখতিয়ার,legal,False
+Pecuniary jurisdiction,আর্থিক এখতিয়ার,legal,False
+Original jurisdiction,আদি এখতিয়ার,legal,False
+Appellate jurisdiction,আপিল এখতিয়ার,legal,False
+Cause of action,মামলার কারণ,legal,False
+Limitation,তামাদি,legal,False
+Law of limitation,তামাদি আইন,legal,False
+Statute,সংবিধি,legal,False
+Ordinance,অধ্যাদেশ,legal,False
+Gazette,গেজেট,legal,False
+Official gazette,সরকারি গেজেট,legal,False
+Constitution,সংবিধান,legal,False
+Fundamental rights,মৌলিক অধিকার,legal,False
+Writ,রিট,legal,False
+Habeas corpus,বন্দি প্রদর্শন রিট,legal,False
+Mandamus,পরমাদেশ,legal,False
+Certiorari,উৎপ্রেষণ,legal,False
+Quo warranto,অধিকার পৃচ্ছা,legal,False
+Prohibition,প্রতিষেধ,legal,False
+Public interest litigation,জনস্বার্থ মামলা,legal,False
+Suo moto,স্বপ্রণোদিত,legal,False
+Contempt of court,আদালত অবমাননা,legal,False
+Perjury,মিথ্যা সাক্ষ্যদান,legal,False
+Defamation,মানহানি,legal,False
+Libel,লিখিত মানহানি,legal,False
+Slander,মৌখিক মানহানি,legal,False
+Fraud,প্রতারণা,legal,False
+Forgery,জালিয়াতি,legal,False
+Cheating,বিশ্বাসভঙ্গ,legal,False
+Breach of trust,বিশ্বাসভঙ্গ,legal,False
+Misappropriation,আত্মসাৎ,legal,False
+Embezzlement,তছরুপ,legal,False
+Bribery,ঘুষ,legal,False
+Corruption,দুর্নীতি,legal,False
+Money laundering,অর্থপাচার,legal,False
+Asset,সম্পদ,legal,False
+Liability,দায়,legal,False
+Bankruptcy,দেউলিয়াত্ব,legal,False
+Insolvency,দেউলিয়াত্ব,legal,False
+Liquidation,অবসায়ন,legal,False
+Company Law,কোম্পানি আইন,legal,False
+Articles of Association,সংঘবিধি,legal,False
+Memorandum of Association,সংঘস্মারক,legal,False
+Board of Directors,পরিচালনা পর্ষদ,legal,False
+Managing Director,ব্যবস্থাপনা পরিচালক,legal,False
+Shareholder,শেয়ারহোল্ডার,legal,False
+Dividend,লভ্যাংশ,legal,False
+Tax,কর,legal,False
+Income tax,আয়কর,legal,False
+Value Added Tax,মূল্য সংযোজন কর,legal,False
+Customs duty,শুল্ক,legal,False
+Audit,নিরীক্ষা,legal,False
+Auditor,নিরীক্ষক,legal,False
+Compliance,অনুপালন,legal,False
+Non-compliance,অনানুপালন,legal,False
+Due diligence,যথাযথ নিরীক্ষা,legal,False
+Intellectual property,মেধাসম্পদ,legal,False
+Copyright,কপিরাইট,legal,False
+Trademark,ট্রেডমার্ক,legal,False
+Patent,পেটেন্ট,legal,False
+Trade secret,বাণিজ্যিক গোপনীয়তা,legal,False
+Probate,উইল প্রত্যয়নপত্র,legal,False
+Will,উইল,legal,False
+Testator,উইলকারী,legal,False
+Beneficiary,সুবিধাভোগী,legal,False
+Succession,উত্তরাধিকার,legal,False
+Heir,ওয়ারিশ,legal,False
+Inheritance,উত্তরাধিকার সম্পত্তি,legal,False
+Partition,বাটোয়ারা,legal,False
+Partition suit,বাটোয়ারা মামলা,legal,False
+Title,স্বত্ব,legal,False
+Title suit,স্বত্ব মামলা,legal,False
+Adverse possession,প্রতিকূল দখল,legal,False
+Easement right,সুখাধিকার,legal,False
+Insolvent,দেউলিয়া,legal,False
+Creditor,পাওনাদার,legal,False
+Debtor,দেনাদার,legal,False
+Suretyship,জামিনদারি,legal,False
+Indemnity,ক্ষতিপূরণপত্র,legal,False
+Guarantee,নিশ্চয়তাপত্র,legal,False
+Promissory note,অঙ্গীকারপত্র,legal,False
+Bill of exchange,বিনিময় বিল,legal,False
+Cheque dishonor,চেক প্রত্যাখ্যাত,legal,False
+Negotiable instrument,হস্তান্তরযোগ্য দলিল,legal,False
+Securities,সিকিউরিটিজ,legal,False
+Capital market,পুঁজিবাজার,legal,False
+Stock exchange,শেয়ার বাজার,legal,False
+Insider trading,অভ্যন্তরীণ তথ্য লেনদেন,legal,False
+Monopoly,একচেটিয়া ব্যবসা,legal,False
+Cartel,কার্টেল,legal,False
+Consumer rights,ভোক্তা অধিকার,legal,False
+Anti-corruption,দুর্নীতি দমন,legal,False
+Ombudsman,ন্যায়পাল,legal,False
+Notary public,নোটারি পাবলিক,legal,False
+Attestation,সত্যায়ন,legal,False
+Solemn affirmation,দৃঢ় ঘোষণা,legal,False
+Precedent,নজির,legal,False
+Stare decisis,পূর্বসিদ্ধান্ত মেনে চলার নীতি,legal,False
+Prima facie,প্রথম দর্শনে,legal,False
+Ultra vires,ক্ষমতাবহির্ভূত,legal,False
+Bona fide,সরল বিশ্বাসে,legal,False
+Mala fide,অসৎ উদ্দেশ্যে,legal,False
+Ex parte,একতরফা,legal,False
+Status quo,স্থিতাবস্থা,legal,False
+Sub judice,বিচারাধীন,legal,False
+Pro bono,বিনা খরচে আইন সহায়তা,legal,False
+Legal aid,আইনগত সহায়তা,legal,False
+Bar Council,বার কাউন্সিল,legal,False
+Bar Association,আইনজীবী সমিতি,legal,False

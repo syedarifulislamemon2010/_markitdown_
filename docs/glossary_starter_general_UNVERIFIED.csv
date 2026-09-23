@@ -1,0 +1,128 @@
+term,translation,domain,case_sensitive
+Hello,হ্যালো,general,False
+Good morning,শুভ সকাল,general,False
+Good evening,শুভ সন্ধ্যা,general,False
+Good night,শুভ রাত্রি,general,False
+Thank you,ধন্যবাদ,general,False
+Please,দয়া করে,general,False
+Welcome,স্বাগতম,general,False
+Excuse me,মাফ করবেন,general,False
+Sorry,দুঃখিত,general,False
+Yes,হ্যাঁ,general,False
+No,না,general,False
+How are you?,আপনি কেমন আছেন?,general,False
+What is your name?,আপনার নাম কী?,general,False
+My name is,আমার নাম,general,False
+Where are you from?,আপনার বাড়ি কোথায়?,general,False
+Goodbye,বিদায়,general,False
+See you later,আবার দেখা হবে,general,False
+Help,সাহায্য,general,False
+Hospital,হাসপাতাল,general,False
+Doctor,ডাক্তার,general,False
+Nurse,সেবিকা,general,False
+Medicine,ওষুধ,general,False
+Pharmacy,ফার্মেসি,general,False
+Police station,থানা,general,False
+Airport,বিমানবন্দর,general,False
+Railway station,রেলওয়ে স্টেশন,general,False
+Bus stop,বাস স্টপ,general,False
+Hotel,হোটেল,general,False
+Restaurant,রেস্তোরাঁ,general,False
+Market,বাজার,general,False
+Bank,ব্যাংক,general,False
+Money,টাকা,general,False
+Price,দাম,general,False
+Discount,ছাড়,general,False
+Receipt,রসিদ,general,False
+Water,পানি,general,False
+Food,খাবার,general,False
+Tea,চা,general,False
+Coffee,কফি,general,False
+Breakfast,সকালের নাস্তা,general,False
+Lunch,দুপুরের খাবার,general,False
+Dinner,রাতের খাবার,general,False
+Today,আজ,general,False
+Tomorrow,আগামীকাল,general,False
+Yesterday,গতকাল,general,False
+Now,এখন,general,False
+Later,পরে,general,False
+Morning,সকাল,general,False
+Afternoon,দুপুর,general,False
+Evening,সন্ধ্যা,general,False
+Night,রাত,general,False
+Week,সপ্তাহ,general,False
+Month,মাস,general,False
+Year,বছর,general,False
+Sunday,রবিবার,general,False
+Monday,সোমবার,general,False
+Tuesday,মঙ্গলবার,general,False
+Wednesday,বুধবার,general,False
+Thursday,বৃহস্পতিবার,general,False
+Friday,শুক্রবার,general,False
+Saturday,শনিবার,general,False
+Address,ঠিকানা,general,False
+Phone number,ফোন নম্বর,general,False
+Email,ইমেইল,general,False
+Post office,ডাকঘর,general,False
+Friend,বন্ধু,general,False
+Family,পরিবার,general,False
+Father,বাবা,general,False
+Mother,মা,general,False
+Brother,ভাই,general,False
+Sister,বোন,general,False
+Son,ছেলে,general,False
+Daughter,মেয়ে,general,False
+Child,শিশু,general,False
+Teacher,শিক্ষক,general,False
+Student,ছাত্র,general,False
+Book,বই,general,False
+Pen,কলম,general,False
+Paper,কাগজ,general,False
+Computer,কম্পিউটার,general,False
+Internet,ইন্টারনেট,general,False
+Mobile,মোবাইল,general,False
+Road,রাস্তা,general,False
+Vehicle,যানবাহন,general,False
+Car,গাড়ি,general,False
+Bicycle,সাইকেল,general,False
+Train,ট্রেন,general,False
+Airplane,উড়োজাহাজ,general,False
+Passport,পাসপোর্ট,general,False
+Ticket,টিকিট,general,False
+Emergency,জরুরি,general,False
+Danger,বিপদ,general,False
+Caution,সতর্কতা,general,False
+Information,তথ্য,general,False
+Question,প্রশ্ন,general,False
+Answer,উত্তর,general,False
+Correct,সঠিক,general,False
+Wrong,ভুল,general,False
+Clean,পরিষ্কার,general,False
+Dirty,নোংরা,general,False
+Big,বড়,general,False
+Small,ছোট,general,False
+Open,খোলা,general,False
+Closed,বন্ধ,general,False
+Good,ভালো,general,False
+Bad,খারাপ,general,False
+Beautiful,সুন্দর,general,False
+Ready,প্রস্তুত,general,False
+Time,সময়,general,False
+Distance,দূরত্ব,general,False
+Map,মানচিত্র,general,False
+Weather,আবহাওয়া,general,False
+Rain,বৃষ্টি,general,False
+Sun,সূর্য,general,False
+Cold,ঠান্ডা,general,False
+Hot,গরম,general,False
+New,নতুন,general,False
+Old,পুরনো,general,False
+Important,গুরুত্বপূর্ণ,general,False
+Simple,সহজ,general,False
+Difficult,কঠিন,general,False
+Possible,সম্ভব,general,False
+Impossible,অসম্ভব,general,False
+True,সত্য,general,False
+False,মিথ্যা,general,False
+Safe,নিরাপদ,general,False
+Secure,সুরক্ষিত,general,False

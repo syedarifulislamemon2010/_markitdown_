@@ -56,6 +56,14 @@ def test_cors_no_wildcard(server_url):
     )
     assert resp_local.headers.get("Access-Control-Allow-Origin") == "http://127.0.0.1:8080"
 
+    # Request from null origin (sandboxed iframe / untrusted context) must be denied
+    resp_null = requests.get(
+        f"{server_url}/api/health",
+        headers={"Origin": "null"},
+        timeout=5,
+    )
+    assert resp_null.headers.get("Access-Control-Allow-Origin") is None
+
 
 def test_session_token_enforcement(monkeypatch, server_url):
     """When STUDIO_SESSION_TOKEN is configured, /api/* routes reject missing/invalid tokens with 403."""
