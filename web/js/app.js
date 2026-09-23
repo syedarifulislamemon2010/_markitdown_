@@ -2860,14 +2860,14 @@ ${previewContent.innerHTML}
         return;
       }
 
-      const key = await getSecureApiKey('openai');
-      const baseUrl = localStorage.getItem('markitdown_openai_base_url') || defaultHcnsecUrl;
-      const model = localStorage.getItem('markitdown_openai_model') || defaultModel;
-
+      const provider = localStorage.getItem('markitdown_provider') || 'hcnsec';
+      const isGemini = provider === 'gemini';
+      let key = isGemini ? await getSecureApiKey('gemini') : await getSecureApiKey('openai');
       if (!key) {
-        showToast('⚠️ অনুগ্রহ করে প্রথমে Settings থেকে একটি API Key প্রদান করুন।', 'warning');
-        return;
+        key = (await getSecureApiKey('openai')) || (await getSecureApiKey('gemini'));
       }
+      const baseUrl = localStorage.getItem('markitdown_openai_base_url') || defaultHcnsecUrl;
+      const model = localStorage.getItem('markitdown_openai_model') || (isGemini ? 'gemini-1.5-flash' : defaultModel);
 
       const actionLabels = {
         polish: 'AI প্রুফরিডিং ও পলিশিং',
@@ -2887,6 +2887,7 @@ ${previewContent.innerHTML}
             action: action,
             text: targetText,
             api_key: key,
+            provider: provider,
             base_url: baseUrl,
             model: model
           })
