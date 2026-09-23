@@ -14,8 +14,16 @@ import re
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 
-import customtkinter as ctk
-from tkinter import filedialog, messagebox
+# Import GUI libraries with safe fallback for headless / server environments
+try:
+    import customtkinter as ctk
+    from tkinter import filedialog, messagebox
+    HAS_GUI = True
+except Exception:
+    ctk = None
+    filedialog = None
+    messagebox = None
+    HAS_GUI = False
 
 # Import DnD support with fallback
 try:
@@ -23,6 +31,7 @@ try:
     HAS_DND = True
 except Exception:
     HAS_DND = False
+
 
 # Import core conversion engine
 from core.converter import (
@@ -73,7 +82,12 @@ def parse_dnd_data(data: str) -> List[str]:
 
 
 # Base class incorporating DnD if available
-if HAS_DND:
+if not HAS_GUI:
+    class AppBase:
+        """Fallback empty class when GUI libraries are unavailable in headless CI."""
+        def __init__(self, *args, **kwargs):
+            pass
+elif HAS_DND:
     class AppBase(ctk.CTk, TkinterDnD.DnDWrapper):
         def __init__(self):
             super().__init__()
@@ -84,6 +98,7 @@ if HAS_DND:
 else:
     class AppBase(ctk.CTk):
         pass
+
 
 
 class MarkItDownDesktopApp(AppBase):
@@ -842,8 +857,12 @@ class MarkItDownDesktopApp(AppBase):
 
 
 def main():
+    if not HAS_GUI:
+        print("Error: Desktop GUI requires customtkinter and tkinter.")
+        return
     app = MarkItDownDesktopApp()
     app.mainloop()
+
 
 
 if __name__ == "__main__":

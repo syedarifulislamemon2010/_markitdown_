@@ -6,24 +6,13 @@ achieving verbatim Bengali Markdown extraction without any external APIs.
 """
 
 import io
-import os
 import re
-from pathlib import Path
 from typing import Dict, Optional, Tuple
 from fontTools.ttLib import TTFont
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfdocument import PDFDocument
 from pdfminer.pdfpage import PDFPage
 from pdfminer.pdftypes import resolve1
-
-from core.bengali import bijoy_to_unicode
-
-POTENTIAL_NIKOSH_PATHS = [
-    r'D:\Software\fonts\Nikosh.ttf',
-    r'D:\Software\fonts\NikoshBAN.ttf',
-    r'C:\Windows\Fonts\Nikosh.ttf',
-    r'C:\Windows\Fonts\NikoshBAN.ttf',
-]
 
 PRE_KARS = {'ি', 'ে', 'ৈ'}
 CONSONANTS = set('কখগঘঙচছজঝঞটঠডঢণতথদধনপফবভমযরলশষসহড়ঢ়য়ৎংঃঁ')
@@ -51,9 +40,17 @@ R12_MAP: Dict[int, str] = {
 
 
 def _find_reference_nikosh() -> Optional[str]:
-    for p in POTENTIAL_NIKOSH_PATHS:
-        if os.path.exists(p):
-            return p
+    candidates = [
+        r'C:\Windows\Fonts\Nikosh.ttf',
+        r'C:\Windows\Fonts\NikoshBAN.ttf',
+        r'C:\Windows\Fonts\Kalpurush.ttf',
+    ]
+    for p in candidates:
+        try:
+            with open(p, 'rb'):
+                return p
+        except (OSError, IOError):
+            continue
     return None
 
 
@@ -66,8 +63,12 @@ class NikoshFontDecoder:
         self.single_subs: Dict[str, str] = {}
         self.lig_subs: Dict[str, list] = {}
         self.ref_glyphs: list = []
-        if self.ref_path and os.path.exists(self.ref_path):
-            self._load_reference_font(self.ref_path)
+        if self.ref_path:
+            try:
+                with open(self.ref_path, 'rb'):
+                    self._load_reference_font(self.ref_path)
+            except (OSError, IOError):
+                pass
 
     def _load_reference_font(self, path: str):
         ref_font = TTFont(path)

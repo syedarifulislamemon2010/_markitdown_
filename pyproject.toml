@@ -35,6 +35,7 @@ dependencies = [
     "pydub==0.25.1",
     "SpeechRecognition==3.17.0",
     "keyring>=25.0.0",
+    "customtkinter>=6.0.0",
 ]
 
 [project.optional-dependencies]

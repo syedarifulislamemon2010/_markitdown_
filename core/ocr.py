@@ -9,9 +9,12 @@ Supports:
 
 import os
 import base64
+import logging
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, Callable, Any
 from PIL import Image
+
+logger = logging.getLogger(__name__)
 
 # Check for winocr (Windows 10/11 built-in OCR)
 try:
@@ -32,8 +35,9 @@ def extract_text_from_image(
     image_input: Union[str, Path, Image.Image],
     openai_api_key: Optional[str] = None,
     gemini_api_key: Optional[str] = None,
-    openai_model: str = "gpt-4o",
+    openai_model: Optional[str] = None,
     openai_base_url: Optional[str] = None,
+    gemini_model: Optional[str] = None,
     language: str = "auto",
 ) -> str:
     """
@@ -44,31 +48,34 @@ def extract_text_from_image(
     3. Windows Native Media OCR (Offline, Windows 10/11)
     4. Tesseract OCR (Fallback)
     """
+    eff_openai_model = openai_model or os.environ.get("OPENAI_MODEL") or "gpt-4o"
+    eff_gemini_model = gemini_model or os.environ.get("GEMINI_MODEL") or "gemini-1.5-flash"
+
     # 1. AI Vision OCR via OpenAI or Compatible Relay
     if openai_api_key and openai_api_key.strip():
         try:
             return _ocr_via_openai(
                 image_input,
                 api_key=openai_api_key,
-                model=openai_model,
+                model=eff_openai_model,
                 base_url=openai_base_url,
             )
         except Exception as e:
-            print(f"OpenAI / Custom Relay OCR error: {e}. Falling back...")
+            logger.warning("OpenAI / Custom Relay OCR error: %s. Falling back...", e)
 
     # 2. AI Vision OCR via Google Gemini
     if gemini_api_key and gemini_api_key.strip():
         try:
-            return _ocr_via_gemini(image_input, gemini_api_key)
+            return _ocr_via_gemini(image_input, gemini_api_key, model=eff_gemini_model)
         except Exception as e:
-            print(f"Gemini OCR error: {e}. Falling back...")
+            logger.warning("Gemini OCR error: %s. Falling back...", e)
 
     # 3. Windows Native OCR (Offline, Windows 10/11)
     if HAS_WINOCR:
         try:
             return _ocr_via_winocr(image_input)
         except Exception as e:
-            print(f"Windows OCR error: {e}")
+            logger.error("Windows OCR error: %s", e)
 
     # 4. Tesseract OCR (Fallback if installed)
     if HAS_TESSERACT:
@@ -208,9 +215,12 @@ def extract_text_from_pdf_pages(
     pdf_path: Union[str, Path],
     openai_api_key: Optional[str] = None,
     gemini_api_key: Optional[str] = None,
-    openai_model: str = "gpt-4o",
+    openai_model: Optional[str] = None,
     openai_base_url: Optional[str] = None,
-    max_pages: int = 15,
+    gemini_model: Optional[str] = None,
+    max_pages: Optional[int] = None,
+    progress_callback: Optional[Callable[[int, int], Optional[bool]]] = None,
+    cancel_token: Optional[Any] = None,
 ) -> str:
     """
     Renders PDF pages to high-resolution images and transcribes them using AI Vision OCR.
@@ -223,10 +233,32 @@ def extract_text_from_pdf_pages(
         return "⚠️ pypdfium2 is required for PDF page rendering."
 
     pdf_doc = pypdfium2.PdfDocument(str(pdf_path))
-    total_pages = min(len(pdf_doc), max_pages)
-    page_markdowns = []
+    doc_len = len(pdf_doc)
+    if doc_len == 0:
+        return ""
 
-    for i in range(total_pages):
+    if max_pages is not None and max_pages > 0:
+        pages_to_process = min(doc_len, max_pages)
+    else:
+        pages_to_process = doc_len
+
+    page_markdowns = []
+    cancelled = False
+
+    for i in range(pages_to_process):
+        # Check cancellation
+        if cancel_token and getattr(cancel_token, "is_set", lambda: False)():
+            cancelled = True
+            logger.info("PDF OCR processing cancelled at page %d/%d", i + 1, pages_to_process)
+            break
+
+        if progress_callback:
+            continue_processing = progress_callback(i + 1, pages_to_process)
+            if continue_processing is False:
+                cancelled = True
+                logger.info("PDF OCR processing cancelled by callback at page %d/%d", i + 1, pages_to_process)
+                break
+
         page = pdf_doc[i]
         # Render at 2x scale (144 dpi) for optimal OCR clarity
         img = page.render(scale=2.0).to_pil()
@@ -236,8 +268,20 @@ def extract_text_from_pdf_pages(
             gemini_api_key=gemini_api_key,
             openai_model=openai_model,
             openai_base_url=openai_base_url,
+            gemini_model=gemini_model,
         )
-        page_markdowns.append(f"<!-- 📄 Page {i+1} of {total_pages} -->\n\n{text}")
+        page_markdowns.append(f"<!-- 📄 Page {i+1} of {pages_to_process} -->\n\n{text}")
 
-    return "\n\n---\n\n".join(page_markdowns)
+    result = "\n\n---\n\n".join(page_markdowns)
+
+    if cancelled:
+        result += f"\n\n> [!NOTE]\n> PDF OCR transcription cancelled by user after {len(page_markdowns)} of {doc_len} page(s).\n"
+    elif doc_len > pages_to_process:
+        result += (
+            f"\n\n> [!WARNING]\n"
+            f"> PDF OCR transcription completed for the first {pages_to_process} of {doc_len} page(s). "
+            f"Pass a higher `max_pages` configuration to process the remaining {doc_len - pages_to_process} page(s).\n"
+        )
+
+    return result
 

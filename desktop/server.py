@@ -10,11 +10,15 @@ import sys
 import tempfile
 import json
 import time
+import logging
 import urllib.request
 import urllib.error
 from pathlib import Path
+from typing import Optional
 from urllib.parse import quote
 from bottle import Bottle, request, response, static_file, HTTPResponse
+
+logger = logging.getLogger("desktop.server")
 
 # Add project root to sys.path
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
@@ -56,25 +60,35 @@ def save_studio_config(data: dict):
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2, ensure_ascii=False)
     except Exception as e:
-        print(f"Error saving studio config: {e}")
+        logger.error("Error saving studio config: %s", e)
     return cfg
 
 
-_converter_instance = None
 _batch_progress = {}
 
-def get_converter():
-    global _converter_instance
-    if _converter_instance is None:
-        from core.converter import DocumentConverter
-        cfg = get_studio_config()
-        _converter_instance = DocumentConverter(
-            openai_api_key=cfg.get("openai_key") or None,
-            openai_base_url=cfg.get("openai_base_url") or None,
-            gemini_api_key=cfg.get("gemini_key") or None,
-            llm_model=cfg.get("openai_model") or "auto",
-        )
-    return _converter_instance
+def get_converter(
+    openai_api_key: Optional[str] = None,
+    openai_base_url: Optional[str] = None,
+    gemini_api_key: Optional[str] = None,
+    llm_model: Optional[str] = None,
+):
+    """
+    Returns an isolated, immutable DocumentConverter configured per-request.
+    Eliminates global singleton mutation and prevents cross-contamination of API keys across concurrent requests.
+    """
+    from core.converter import DocumentConverter
+    cfg = get_studio_config()
+    eff_key = openai_api_key if openai_api_key is not None else cfg.get("openai_key")
+    eff_url = openai_base_url if openai_base_url is not None else cfg.get("openai_base_url")
+    eff_gemini = gemini_api_key if gemini_api_key is not None else cfg.get("gemini_key")
+    eff_model = llm_model if llm_model is not None else (cfg.get("openai_model") or "auto")
+
+    return DocumentConverter(
+        openai_api_key=eff_key or None,
+        openai_base_url=eff_url or None,
+        gemini_api_key=eff_gemini or None,
+        llm_model=eff_model,
+    )
 
 import bottle
 
@@ -202,14 +216,6 @@ def api_save_settings():
     except Exception:
         pass
 
-    # Also update active converter instance
-    conv = get_converter()
-    conv.update_config(
-        openai_api_key=data.get("openai_key") or os.environ.get("OPENAI_API_KEY"),
-        openai_base_url=saved.get("openai_base_url") or None,
-        gemini_api_key=data.get("gemini_key") or os.environ.get("GEMINI_API_KEY"),
-        llm_model=saved.get("openai_model", "auto"),
-    )
     return {"success": True, "config": saved, "message": "Settings saved successfully."}
 
 
@@ -504,8 +510,7 @@ def api_convert():
     gemini_key = request.forms.get('gemini_key') or request.headers.get('X-Gemini-Key') or os.environ.get('GEMINI_API_KEY') or sec_gemini
     openai_model = request.forms.get('openai_model') or request.headers.get('X-OpenAI-Model') or cfg.get('openai_model') or "auto"
 
-    conv = get_converter()
-    conv.update_config(
+    conv = get_converter(
         openai_api_key=openai_key,
         openai_base_url=openai_base_url,
         gemini_api_key=gemini_key,
@@ -533,6 +538,41 @@ def api_convert():
                 os.remove(tmp_path)
             except Exception:
                 pass
+
+
+@app.get('/api/ocr-capabilities')
+def api_ocr_capabilities():
+    """Probe system OCR engines (Windows Media OCR, Tesseract with 'ben', Cloud AI) and report offline capability."""
+    from core.ocr import HAS_WINOCR, HAS_TESSERACT
+    tess_has_ben = False
+    tesseract_version = None
+    if HAS_TESSERACT:
+        try:
+            import pytesseract
+            tesseract_version = str(pytesseract.get_tesseract_version())
+            tess_has_ben = "ben" in pytesseract.get_languages()
+        except Exception:
+            pass
+
+    has_offline_bengali = HAS_WINOCR or tess_has_ben
+
+    return {
+        "success": True,
+        "platform": sys.platform,
+        "winocr_available": HAS_WINOCR,
+        "tesseract_available": HAS_TESSERACT,
+        "tesseract_has_ben": tess_has_ben,
+        "tesseract_version": tesseract_version,
+        "has_offline_bengali": has_offline_bengali,
+        "active_offline_engine": "winocr" if HAS_WINOCR else ("tesseract" if tess_has_ben else None),
+        "helper_instructions": (
+            "Windows 10/11 built-in Windows Media OCR is active." if HAS_WINOCR else (
+                "Tesseract with Bengali ('ben') traineddata is active." if tess_has_ben else (
+                    "To enable 100% offline Bengali OCR: install Tesseract OCR and copy ben.traineddata to your tessdata directory."
+                )
+            )
+        )
+    }
 
 
 @app.post('/api/ocr')
@@ -796,7 +836,7 @@ def generate_pdf_from_markdown(markdown_text, title="Document"):
             with open(pdf_path, 'rb') as f_pdf:
                 return f_pdf.read()
     except Exception as e:
-        print("PDF gen exception:", e)
+        logger.error("PDF gen exception: %s", e)
     finally:
         if os.path.exists(html_path):
             try: os.remove(html_path)
@@ -863,8 +903,7 @@ def api_batch_convert():
     gemini_key = request.forms.get('gemini_key') or request.headers.get('X-Gemini-Key') or os.environ.get('GEMINI_API_KEY') or cfg.get('gemini_key')
     openai_model = request.forms.get('openai_model') or request.headers.get('X-OpenAI-Model') or cfg.get('openai_model') or "auto"
 
-    conv = get_converter()
-    conv.update_config(
+    conv = get_converter(
         openai_api_key=openai_key,
         openai_base_url=openai_base_url,
         gemini_api_key=gemini_key,
@@ -944,5 +983,5 @@ def run_server(host="127.0.0.1", port=8080, session_token=None):
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
-    print(f"Starting MarkItDown Studio backend on http://127.0.0.1:{port}")
+    logger.info("Starting MarkItDown Studio backend on http://127.0.0.1:%d", port)
     run_server(port=port)

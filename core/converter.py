@@ -6,10 +6,13 @@ Shared by Desktop GUI and future Web/API endpoints.
 
 import os
 import time
+import logging
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Callable, Any, Generator
 from markitdown import MarkItDown
+
+logger = logging.getLogger(__name__)
 
 # List of all file extensions natively supported by MarkItDown
 SUPPORTED_EXTENSIONS = {
@@ -190,7 +193,7 @@ class DocumentConverter:
                                 error_message=None,
                             )
                 except Exception as gaz_err:
-                    print(f"Gazette extractor notice: {gaz_err}")
+                    logger.warning("Gazette extractor notice: %s", gaz_err)
 
             # Run MarkItDown conversion
             res = self._md.convert(str(p.resolve()))
@@ -211,14 +214,14 @@ class DocumentConverter:
                     elif ocr_text:
                         markdown_content = f"{markdown_content}\n\n_{ocr_text}_\n"
                 except Exception as ocr_err:
-                    print(f"OCR warning: {ocr_err}")
+                    logger.warning("OCR warning: %s", ocr_err)
 
             # Auto-detect and convert legacy ANSI/Bijoy Bengali to modern Unicode
             try:
                 from core.bengali import auto_convert_text
                 markdown_content = auto_convert_text(markdown_content)
             except Exception as be_err:
-                print(f"Bengali conversion warning: {be_err}")
+                logger.warning("Bengali conversion warning: %s", be_err)
 
             # Smart PDF CID Font & Scanned Document Handling
             is_pdf = p.suffix.lower() == ".pdf"
@@ -246,7 +249,7 @@ class DocumentConverter:
                             if ocr_result and "⚠️" not in ocr_result:
                                 markdown_content = ocr_result
                         except Exception as pdf_ocr_err:
-                            print(f"PDF Vision OCR error: {pdf_ocr_err}")
+                            logger.error("PDF Vision OCR error: %s", pdf_ocr_err)
                     else:
                         # Clean excessive (cid:X) noise to prevent freezing editor and provide clear user notice
                         cleaned_lines = []
