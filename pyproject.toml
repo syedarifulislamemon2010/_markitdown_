@@ -36,6 +36,7 @@ dependencies = [
     "SpeechRecognition==3.17.0",
     "keyring>=25.0.0",
     "customtkinter>=6.0.0",
+    "markitdown>=0.1.8b3",
 ]
 
 [project.optional-dependencies]
