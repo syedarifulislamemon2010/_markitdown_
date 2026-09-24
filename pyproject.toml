@@ -22,7 +22,6 @@ dependencies = [
     "requests==2.34.2",
     "pypdfium2==5.13.0",
     "Pillow==12.3.0",
-    "openai==3.16.2",
     "beautifulsoup4==4.15.0",
     "markdownify==1.2.3",
     "magika==0.6.2",
@@ -31,20 +30,40 @@ dependencies = [
     "openpyxl==3.1.5",
     "python-pptx==1.0.2",
     "mammoth==1.11.0",
-    "pandas==3.0.6",
-    "pydub==0.25.1",
-    "SpeechRecognition==3.17.0",
     "keyring>=25.0.0",
     "customtkinter>=6.0.0",
     "markitdown>=0.1.8b3",
-    "rapidfuzz>=3.0.0",
-    "sacrebleu>=2.4.0",
-    "ctranslate2>=4.0.0",
-    "indic-nlp-library>=0.92",
-    "sentencepiece>=0.2.0",
 ]
 
 [project.optional-dependencies]
+translation = [
+    "ctranslate2>=4.0.0",
+    "sentencepiece>=0.2.0",
+    "indic-nlp-library>=0.92",
+    "sacrebleu>=2.4.0",
+    "rapidfuzz>=3.0.0",
+]
+ai = [
+    "openai>=1.0.0",
+]
+voice = [
+    "SpeechRecognition==3.17.0",
+    "pydub==0.25.1",
+]
+data = [
+    "pandas>=2.0.0",
+]
+all = [
+    "ctranslate2>=4.0.0",
+    "sentencepiece>=0.2.0",
+    "indic-nlp-library>=0.92",
+    "sacrebleu>=2.4.0",
+    "rapidfuzz>=3.0.0",
+    "openai>=1.0.0",
+    "SpeechRecognition==3.17.0",
+    "pydub==0.25.1",
+    "pandas>=2.0.0",
+]
 dev = [
     "pytest>=8.0.0",
     "hypothesis>=6.100.0",

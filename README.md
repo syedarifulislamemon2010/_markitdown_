@@ -80,9 +80,16 @@ python -m venv .venv
 # Linux / macOS:
 source .venv/bin/activate
 
-# Install dependencies
+# Install core lightweight workspace (<150MB):
 pip install -e packages/markitdown
-pip install bottle pywebview python-docx pdfminer.six fonttools requests
+pip install -e .
+
+# Optional extras (install as needed):
+# pip install -e .[translation]   # Offline Neural MT (IndicTrans2, NLLB)
+# pip install -e .[ai]            # OpenAI Python SDK
+# pip install -e .[voice]         # Audio transcription (SpeechRecognition, pydub)
+# pip install -e .[data]          # Excel data frame parsing (pandas)
+# pip install -e .[all]           # All extras
 ```
 
 ### 2. Launching the Studio
