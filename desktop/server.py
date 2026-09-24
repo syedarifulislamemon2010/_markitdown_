@@ -6,6 +6,7 @@ Serves the web application and exposes endpoints for Document Conversion and Ima
 
 import io
 import os
+import re
 import sys
 import tempfile
 import json
@@ -838,6 +839,15 @@ def _validate_path_within_root(target_path: str, root_dir: str) -> Path:
         raise HTTPResponse(
             body=json.dumps({"success": False, "error": "Invalid workspace root directory."}),
             status=400,
+            headers={'Content-Type': 'application/json'}
+        )
+
+    # Defense-in-depth: reject drive letter syntax (e.g. C:\... or C:/...) on POSIX systems.
+    # On POSIX systems, Path("C:\\...").is_absolute() returns False and resolves as a relative child, bypassing checks.
+    if os.name != 'nt' and re.match(r'^[a-zA-Z]:[\\/]', target_path):
+        raise HTTPResponse(
+            body=json.dumps({"success": False, "error": "Access denied: Path traversal detected outside workspace root."}),
+            status=403,
             headers={'Content-Type': 'application/json'}
         )
 

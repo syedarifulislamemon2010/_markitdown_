@@ -155,3 +155,4 @@ def test_workspace_git_status(server_url):
     assert "is_git" in data
     assert "branch" in data
     assert "dirty" in data
+
