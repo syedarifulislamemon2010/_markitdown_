@@ -509,10 +509,22 @@ graph TD
     return tabs.find(t => t.id === activeTabId) || null;
   }
 
+  const MAX_HISTORY_BYTES = 15 * 1024 * 1024; // 15MB budget per tab
   function pushHistoryState(oldContent) {
     const tab = getActiveTab();
     if (!tab) return;
     if (oldContent === editor.value) return;
+
+    // Adaptive stack limit: prevent memory blow-up on large (3-5MB) documents
+    const docSize = oldContent.length;
+    let maxStates = 50;
+    if (docSize > 2 * 1024 * 1024) { // > 2MB
+      maxStates = 6;
+    } else if (docSize > 500 * 1024) { // > 500KB
+      maxStates = 12;
+    } else if (docSize > 100 * 1024) { // > 100KB
+      maxStates = 25;
+    }
 
     tab.undoStack.push({
       content: oldContent,
@@ -520,7 +532,17 @@ graph TD
       selEnd: editor.selectionEnd
     });
 
-    if (tab.undoStack.length > 50) tab.undoStack.shift();
+    while (tab.undoStack.length > maxStates) {
+      tab.undoStack.shift();
+    }
+
+    // Enforce memory budget across the stack
+    let totalBytes = tab.undoStack.reduce((sum, s) => sum + (s.content ? s.content.length : 0), 0);
+    while (tab.undoStack.length > 2 && totalBytes > MAX_HISTORY_BYTES) {
+      const removed = tab.undoStack.shift();
+      if (removed && removed.content) totalBytes -= removed.content.length;
+    }
+
     tab.redoStack = [];
     updateUndoRedoUI();
   }
@@ -535,13 +557,14 @@ graph TD
       selStart: editor.selectionStart,
       selEnd: editor.selectionEnd
     });
+    if (tab.redoStack.length > 20) tab.redoStack.shift();
 
     editor.value = previous.content;
     editor.setSelectionRange(previous.selStart, previous.selEnd);
     renderMarkdown();
     updateUndoRedoUI();
-    updateLineNumbers();
-    updateStatusBar();
+    debouncedUpdateLineNumbers(0);
+    debouncedUpdateStatusBar(0);
     saveAllTabs();
   }
 
@@ -555,13 +578,14 @@ graph TD
       selStart: editor.selectionStart,
       selEnd: editor.selectionEnd
     });
+    if (tab.undoStack.length > 50) tab.undoStack.shift();
 
     editor.value = next.content;
     editor.setSelectionRange(next.selStart, next.selEnd);
     renderMarkdown();
     updateUndoRedoUI();
-    updateLineNumbers();
-    updateStatusBar();
+    debouncedUpdateLineNumbers(0);
+    debouncedUpdateStatusBar(0);
     saveAllTabs();
   }
 
@@ -840,17 +864,23 @@ graph TD
   async function checkServerStatus() {
     const sbSyncStatus = document.getElementById('sbSyncStatus');
     const sbSync = document.getElementById('sbSync');
-    if (!sbSync) return;
+    if (!sbSync) return false;
 
     try {
       const resp = await fetch('/api/health', { method: 'GET', cache: 'no-store' });
       if (resp.ok) {
         if (sbSyncStatus) sbSyncStatus.textContent = 'Port 8080 (Online)';
         sbSync.title = 'Python ব্যাকএন্ড সার্ভার সক্রিয় ও সংযুক্ত';
+        return true;
+      } else {
+        if (sbSyncStatus) sbSyncStatus.textContent = 'Offline';
+        sbSync.title = 'Python ব্যাকএন্ড ডিসকানেক্টেড';
+        return false;
       }
     } catch (e) {
       if (sbSyncStatus) sbSyncStatus.textContent = 'Offline';
       sbSync.title = 'Python ব্যাকএন্ড ডিসকানেক্টেড';
+      return false;
     }
   }
 
@@ -951,8 +981,11 @@ graph TD
   let lastLineCount = -1;
   function updateLineNumbers(force = false) {
     if (!lineNumbers) return;
-    const lines = editor.value.split('\n');
-    const lineCount = lines.length;
+    const text = editor.value;
+    let lineCount = 1;
+    for (let i = 0; i < text.length; i++) {
+      if (text.charCodeAt(i) === 10) lineCount++;
+    }
     if (!force && lineCount === lastLineCount) return;
     lastLineCount = lineCount;
     let html = '';
@@ -960,6 +993,26 @@ graph TD
       html += `<span>${i}</span>`;
     }
     lineNumbers.innerHTML = html;
+  }
+
+  let lineNumbersDebounceTimer = null;
+  function debouncedUpdateLineNumbers(delay = 80) {
+    if (lineNumbersDebounceTimer) clearTimeout(lineNumbersDebounceTimer);
+    if (delay === 0) {
+      updateLineNumbers();
+    } else {
+      lineNumbersDebounceTimer = setTimeout(() => updateLineNumbers(), delay);
+    }
+  }
+
+  let statusBarFastTimer = null;
+  function debouncedUpdateStatusBar(delay = 60) {
+    if (statusBarFastTimer) clearTimeout(statusBarFastTimer);
+    if (delay === 0) {
+      updateStatusBar();
+    } else {
+      statusBarFastTimer = setTimeout(() => updateStatusBar(), delay);
+    }
   }
 
   let statusDebounceTimer = null;
@@ -1268,7 +1321,11 @@ ${previewContent.innerHTML}
       if (data.success) {
         handleConversionResult(file.name, data.markdown);
       } else {
-        showToast(`❌ কনভার্সন ব্যর্থ: ${data.error || 'অজানা সমস্যা'}`, 'error', 4000);
+        if (data.install_command) {
+          showToast(`⚠️ অতিরিক্ত প্যাকেজ প্রয়োজন: ${data.error}\nটার্মিনালে চালান: ${data.install_command}`, 'warning', 7000);
+        } else {
+          showToast(`❌ কনভার্সন ব্যর্থ: ${data.error || 'অজানা সমস্যা'}`, 'error', 4000);
+        }
       }
     } catch (e) {
       showToast(`❌ সার্ভার কানেকশন ত্রুটি: Python সার্ভার চালু আছে কি না পরীক্ষা করুন।`, 'error', 4000);
@@ -2424,8 +2481,8 @@ ${previewContent.innerHTML}
     // Editor inputs (Optimized: 60fps typing with non-blocking debounced rendering)
     editor.addEventListener('input', () => {
       setSaveStatus('dirty');
-      updateLineNumbers();
-      updateStatusBar();
+      debouncedUpdateLineNumbers(80);
+      debouncedUpdateStatusBar(60);
       debouncedRenderMarkdown(140);
       debouncedSaveAllTabs(400);
     });
@@ -2914,7 +2971,11 @@ ${previewContent.innerHTML}
           triggerEditorUpdate();
           showToast(`✅ ${actionLabels[action] || 'AI অ্যাকশন'} সফল হয়েছে!`, 'success', 3000);
         } else {
-          showToast(`❌ AI ব্যর্থ: ${data.error || 'মডেল রেসপন্স দিতে পারেনি'}`, 'error', 5000);
+          if (data.install_command) {
+            showToast(`⚠️ অতিরিক্ত প্যাকেজ প্রয়োজন: ${data.error}\nটার্মিনালে চালান: ${data.install_command}`, 'warning', 7000);
+          } else {
+            showToast(`❌ AI ব্যর্থ: ${data.error || 'মডেল রেসপন্স দিতে পারেনি'}`, 'error', 5000);
+          }
         }
       } catch (err) {
         showToast(`❌ সার্ভার এরর: ${err.message}`, 'error', 4000);
@@ -3082,9 +3143,12 @@ ${previewContent.innerHTML}
     });
 
     document.getElementById('sbSync')?.addEventListener('click', async () => {
-      showToast('🔄 ব্যাকএন্ড সার্ভার স্ট্যাটাস যাচাই করা হচ্ছে...', 'info', 1000);
-      await checkServerStatus();
-      showToast('🟢 লোকাল পাইথন ব্যাকএন্ড সার্ভার সক্রিয় (Port 8080)', 'success', 2000);
+      const isOnline = await checkServerStatus();
+      if (isOnline) {
+        showToast('🟢 লোকাল পাইথন ব্যাকএন্ড সার্ভার সক্রিয় (Port 8080)', 'success', 2000);
+      } else {
+        showToast('🔴 পাইথন ব্যাকএন্ড সার্ভার অফলাইন বা সংযোগ বিচ্ছিন্ন', 'error', 3500);
+      }
     });
 
     document.getElementById('sbDiagnostics')?.addEventListener('click', () => {
@@ -3479,6 +3543,177 @@ ${previewContent.innerHTML}
       }
     }
 
+  // ==================== Structured Document Extractor ====================
+  let lastExtractionData = null;
+
+  async function loadExtractTemplates() {
+    const select = document.getElementById('extractTemplateSelect');
+    if (!select) return;
+    try {
+      const resp = await fetch('/api/extract/templates');
+      const data = await resp.json();
+      if (data.success && data.templates && data.templates.length > 0) {
+        const curVal = select.value;
+        select.innerHTML = data.templates.map(t =>
+          `<option value="${t.id || t.template_id}">${escapeHtml(t.name || t.title)}</option>`
+        ).join('');
+        if (curVal && Array.from(select.options).some(o => o.value === curVal)) {
+          select.value = curVal;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load extraction templates:', e);
+    }
+  }
+
+  function openExtractModal() {
+    closeAllModals();
+    loadExtractTemplates();
+    const modal = document.getElementById('extractModal');
+    if (modal) modal.classList.add('active');
+  }
+
+  async function runStructuredExtraction() {
+    const templateId = document.getElementById('extractTemplateSelect')?.value || 'government_gazette';
+    const source = document.getElementById('extractSourceSelect')?.value || 'editor';
+    const resultsContainer = document.getElementById('extractResultsContainer');
+    const fieldsGrid = document.getElementById('extractFieldsGrid');
+    const confBadge = document.getElementById('extractConfidenceBadge');
+
+    let text = '';
+    let file = null;
+
+    if (source === 'editor') {
+      text = (editor ? editor.value : '') || (document.getElementById('editor')?.value || '');
+      const ta = document.getElementById('editor');
+      if (ta && ta.value && (!text || (text.includes('# MarkItDown Studio') && !ta.value.includes('# MarkItDown Studio')))) {
+        text = ta.value;
+      }
+      if (!text.trim()) {
+        showToast('⚠️ এডিটরে কোনো টেক্সট নেই!', 'warning');
+        return;
+      }
+    } else {
+      const fileInput = document.getElementById('extractFileInput');
+      if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        showToast('⚠️ অনুগ্রহ করে একটি ফাইল নির্বাচন করুন!', 'warning');
+        return;
+      }
+      file = fileInput.files[0];
+    }
+
+    showToast('🔍 তথ্য এক্সট্রাক্ট করা হচ্ছে...', 'info', 3000);
+
+    try {
+      let resp;
+      if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('template_id', templateId);
+        resp = await fetch('/api/extract', { method: 'POST', body: formData });
+      } else {
+        resp = await fetch('/api/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ template_id: templateId, text: text })
+        });
+      }
+
+      const data = await resp.json();
+      if (data.success && data.fields) {
+        lastExtractionData = data;
+        if (resultsContainer) resultsContainer.style.display = 'block';
+        if (confBadge) confBadge.textContent = `Confidence: ${Math.round((data.overall_confidence || 0.9) * 100)}%`;
+
+        if (fieldsGrid) {
+          fieldsGrid.innerHTML = Object.entries(data.fields).map(([k, v]) => {
+            const val = Array.isArray(v.value) ? v.value.join(', ') : (v.value || '');
+            return `
+              <div style="background: var(--bg-secondary); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border-color);">
+                <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 3px;">
+                  ${escapeHtml(v.label || k)}
+                </label>
+                <input type="text" class="form-input extract-field-input" data-field="${escapeHtml(k)}" value="${escapeHtml(val)}" style="width: 100%; font-size: 12px; padding: 4px 6px;">
+              </div>
+            `;
+          }).join('');
+        }
+        showToast('✅ তথ্য সফলভাবে এক্সট্র্যাক্ট করা হয়েছে!', 'success', 2500);
+      } else {
+        showToast(`❌ এক্সট্রাকশন ব্যর্থ: ${data.error || 'অজানা ত্রুটি'}`, 'error', 4000);
+      }
+    } catch (err) {
+      showToast(`❌ এক্সট্রাকশন ত্রুটি: ${err.message}`, 'error', 4000);
+    }
+  }
+
+  function initStructuredExtractor() {
+    document.getElementById('menuExtractStructured')?.addEventListener('click', openExtractModal);
+    document.getElementById('toolExtractStructured')?.addEventListener('click', openExtractModal);
+    document.getElementById('runExtractBtn')?.addEventListener('click', runStructuredExtraction);
+
+    const sourceSelect = document.getElementById('extractSourceSelect');
+    const uploadZone = document.getElementById('extractUploadZone');
+    const fileInput = document.getElementById('extractFileInput');
+
+    sourceSelect?.addEventListener('change', () => {
+      if (uploadZone) {
+        uploadZone.style.display = sourceSelect.value === 'upload' ? 'block' : 'none';
+      }
+    });
+
+    uploadZone?.addEventListener('click', () => fileInput?.click());
+    fileInput?.addEventListener('change', () => {
+      if (fileInput.files && fileInput.files[0]) {
+        const textEl = uploadZone?.querySelector('.drop-zone-text');
+        if (textEl) textEl.textContent = `নির্বাচিত ফাইল: ${fileInput.files[0].name}`;
+      }
+    });
+
+    document.getElementById('extractInsertMdBtn')?.addEventListener('click', () => {
+      if (!lastExtractionData) return;
+      const inputs = document.querySelectorAll('.extract-field-input');
+      const rows = [];
+      inputs.forEach(inp => {
+        const field = inp.getAttribute('data-field');
+        const val = inp.value.trim();
+        const label = lastExtractionData.fields[field]?.label || field;
+        rows.push(`| **${label}** | ${val} |`);
+      });
+      const tableMd = `\n| বিষয় (Field) | বিবরণ (Details) |\n|---|---|\n${rows.join('\n')}\n`;
+      const curContent = (editor ? editor.value : '') || (document.getElementById('editor')?.value || '');
+      pushHistoryState(curContent);
+      const newContent = curContent + tableMd;
+      if (editor) editor.value = newContent;
+      const ta = document.getElementById('editor');
+      if (ta) ta.value = newContent;
+      if (typeof debouncedRenderMarkdown === 'function') debouncedRenderMarkdown(50);
+      if (typeof updateLineNumbers === 'function') updateLineNumbers();
+      if (typeof updateStatusBar === 'function') updateStatusBar();
+      if (typeof debouncedSaveAllTabs === 'function') debouncedSaveAllTabs(300);
+      closeAllModals();
+      showToast('📋 স্ট্রাকচার্ড টেবিল এডিটরে যুক্ত করা হয়েছে!', 'success', 2000);
+    });
+
+    document.getElementById('extractExportJsonBtn')?.addEventListener('click', () => {
+      if (!lastExtractionData) return;
+      const inputs = document.querySelectorAll('.extract-field-input');
+      const exported = JSON.parse(JSON.stringify(lastExtractionData));
+      inputs.forEach(inp => {
+        const field = inp.getAttribute('data-field');
+        if (exported.fields && exported.fields[field]) {
+          exported.fields[field].value = inp.value;
+        }
+      });
+      triggerDownload(JSON.stringify(exported, null, 2), `${exported.template_id || 'extraction'}_result.json`, 'application/json');
+      showToast('💾 JSON ফাইল ডাউনলোড সম্পন্ন!', 'success', 2000);
+    });
+
+    document.querySelectorAll('#extractModal .modal-close, #extractModal .modal-cancel').forEach(btn => {
+      btn.addEventListener('click', closeAllModals);
+    });
+  }
+
   // ==================== Initialization ====================
   function init() {
     const savedTheme = localStorage.getItem('markitdown_studio_theme') || 'dark';
@@ -3527,6 +3762,7 @@ ${previewContent.innerHTML}
         });
         if (facade) {
           editor = facade;
+          window.editor = facade;
           // Hide old textarea
           originalTextarea.style.display = 'none';
         }
@@ -3545,10 +3781,15 @@ ${previewContent.innerHTML}
     updateBranchStatus(false);
     setSaveStatus('saved');
     initTranslationFeatures();
+    initStructuredExtractor();
 
     // Expose helpers for testing and external integrations
     window.renderMarkdown = renderMarkdown;
     window.sanitizeHtml = sanitizeHtml;
+    window.checkServerStatus = checkServerStatus;
+    window.openExtractModal = openExtractModal;
+    window.runStructuredExtraction = runStructuredExtraction;
+    window.editor = editor;
   }
 
   if (document.readyState === 'loading') {
