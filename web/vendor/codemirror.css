@@ -1,0 +1,124 @@
+/* MarkItDown Studio - CodeMirror 6 Styling & Theming */
+
+.cm-editor {
+  height: 100%;
+  width: 100%;
+  font-family: 'Kalpurush', 'Hind Siliguri', Consolas, 'Courier New', monospace;
+  font-size: 14.5px;
+  line-height: 1.65;
+  background-color: var(--editor-bg, #1e1e1e);
+  color: var(--editor-fg, #d4d4d4);
+}
+
+.cm-editor.cm-focused {
+  outline: none;
+}
+
+.cm-scroller {
+  font-family: inherit;
+  overflow: auto;
+  line-height: 1.65;
+}
+
+.cm-content {
+  padding: 12px 16px;
+  min-height: 100%;
+  caret-color: var(--accent-color, #0078d4);
+  tab-size: 4;
+}
+
+.cm-gutters {
+  background-color: var(--gutter-bg, #1e1e1e);
+  color: var(--gutter-fg, #858585);
+  border-right: 1px solid var(--border-color, #333333);
+  padding-right: 4px;
+}
+
+.cm-lineNumbers .cm-gutterElement {
+  padding: 0 10px 0 16px;
+  min-width: 32px;
+  text-align: right;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.cm-activeLineGutter {
+  background-color: var(--active-line-bg, rgba(255, 255, 255, 0.05));
+  color: var(--active-line-fg, #ffffff);
+  opacity: 1 !important;
+}
+
+.cm-activeLine {
+  background-color: var(--active-line-bg, rgba(255, 255, 255, 0.03));
+}
+
+.cm-cursor {
+  border-left: 2px solid var(--accent-color, #0078d4);
+}
+
+.cm-selectionBackground, .cm-editor ::selection {
+  background-color: rgba(38, 79, 120, 0.6) !important;
+}
+
+/* Syntax Highlighting for Markdown & YAML Frontmatter */
+.cm-header-1 { font-size: 1.5em; font-weight: 700; color: #4fc1ff; }
+.cm-header-2 { font-size: 1.3em; font-weight: 600; color: #4fc1ff; }
+.cm-header-3 { font-size: 1.15em; font-weight: 600; color: #9cdcfe; }
+.cm-strong { font-weight: bold; color: #ce9178; }
+.cm-emphasis { font-style: italic; color: #dcdcaa; }
+.cm-link { color: #3794ff; text-decoration: underline; }
+.cm-url { color: #9cdcfe; }
+.cm-code { font-family: Consolas, monospace; background: rgba(255, 255, 255, 0.08); padding: 1px 4px; border-radius: 3px; color: #ce9178; }
+.cm-frontmatter { color: #6a9955; font-style: italic; }
+.cm-callout { color: #dcdcaa; font-weight: 500; }
+.cm-wikilink { color: #4ec9b0; text-decoration: underline; }
+
+/* Light Theme Overrides */
+[data-theme="light"] .cm-editor {
+  background-color: #ffffff;
+  color: #24292f;
+}
+[data-theme="light"] .cm-gutters {
+  background-color: #f6f8fa;
+  color: #6e7781;
+  border-right-color: #d0d7de;
+}
+[data-theme="light"] .cm-activeLine {
+  background-color: #f6f8fa;
+}
+[data-theme="light"] .cm-selectionBackground, [data-theme="light"] .cm-editor ::selection {
+  background-color: #b4d5fe !important;
+}
+
+/* Split View Dual Editor */
+.editor-split-container {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+.editor-split-pane {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  position: relative;
+}
+.editor-split-pane:first-child {
+  border-right: 1px solid var(--border-color, #333333);
+}
+
+/* Optional Minimap */
+.cm-minimap {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 60px;
+  background: rgba(0, 0, 0, 0.2);
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+  pointer-events: auto;
+  opacity: 0.75;
+  transition: opacity 0.2s;
+}
+.cm-minimap:hover {
+  opacity: 1;
+}

@@ -103,7 +103,7 @@
   }
 
   // ==================== Global Elements & State ====================
-  const editor = document.getElementById('editor');
+  let editor = document.getElementById('editor');
   const preview = document.getElementById('preview');
   const previewContent = document.getElementById('previewContent');
   const docTitleInput = document.getElementById('docTitle');
@@ -3254,42 +3254,10 @@ ${previewContent.innerHTML}
         createNewTab("Sample Document", DEFAULT_WELCOME_MD);
       });
     });
-    document.getElementById('menuAbout')?.addEventListener('click', () => aboutModal?.classList.add('active'));
   }
 
-  // ==================== Initialization ====================
-  function init() {
-    const savedTheme = localStorage.getItem('markitdown_studio_theme') || 'dark';
-    setTheme(savedTheme);
-
-    const savedFontSize = parseInt(localStorage.getItem('markitdown_studio_font_size') || '13', 10);
-    if (!isNaN(savedFontSize) && savedFontSize >= 10 && savedFontSize <= 28) {
-      currentFontSize = savedFontSize;
-      editor.style.fontSize = `${currentFontSize}px`;
-      previewContent.style.fontSize = `${currentFontSize}px`;
-      if (lineNumbers) lineNumbers.style.fontSize = `${currentFontSize}px`;
-    }
-
-    if (window.mermaid) {
-      mermaid.initialize({
-        startOnLoad: false,
-        theme: savedTheme === 'light' ? 'default' : 'dark',
-        securityLevel: 'strict',
-      });
-    }
-
-    initTabs();
-    setFontMode('unicode', true);
-    renderMarkdown();
-    updateUndoRedoUI();
-    setupEventListeners();
-    checkServerStatus();
-    updateDiagnostics();
-    detectLineEnding();
-    detectIndentation();
-    updateBranchStatus(false);
-    // ==================== Machine Translation (Task 5.2 - 5.5) ====================
-    let lastTranslationSegments = [];
+  // ==================== Machine Translation (Task 5.2 - 5.5) ====================
+  let lastTranslationSegments = [];
 
     function initTranslationFeatures() {
       const btnToBn = document.getElementById('toolTranslateToBn');
@@ -3511,11 +3479,6 @@ ${previewContent.innerHTML}
       }
     }
 
-    // Expose helpers for testing and external integrations
-    window.renderMarkdown = renderMarkdown;
-    window.sanitizeHtml = sanitizeHtml;
-  }
-
   // ==================== Initialization ====================
   function init() {
     const savedTheme = localStorage.getItem('markitdown_studio_theme') || 'dark';
@@ -3549,6 +3512,10 @@ ${previewContent.innerHTML}
     updateBranchStatus(false);
     setSaveStatus('saved');
     initTranslationFeatures();
+
+    // Expose helpers for testing and external integrations
+    window.renderMarkdown = renderMarkdown;
+    window.sanitizeHtml = sanitizeHtml;
   }
 
   if (document.readyState === 'loading') {
