@@ -477,6 +477,14 @@ def api_ai_action():
                 "result": result_text,
                 "model": model
             }
+    except ImportError as e:
+        response.status = 400
+        return {
+            "success": False,
+            "error": f"AI action requires the optional 'ai' extra: {e}",
+            "missing_extra": "ai",
+            "install_command": "pip install markitdown-studio[ai]"
+        }
     except Exception as e:
         err_msg = str(e)
         if hasattr(e, 'read'):
@@ -528,6 +536,18 @@ def api_convert():
 
     try:
         res = conv.convert_file(tmp_path)
+        err = res.error_message or ""
+        install_cmd = None
+        missing_extra = None
+        if err:
+            err_lower = err.lower()
+            if "speech transcription" in err_lower or "speechrecognition" in err_lower or "audio-transcription" in err_lower or "pydub" in err_lower:
+                install_cmd = "pip install markitdown-studio[voice]"
+                missing_extra = "voice"
+            elif "pandas" in err_lower or "xlsx" in err_lower or "openpyxl" in err_lower:
+                install_cmd = "pip install markitdown-studio[data]"
+                missing_extra = "data"
+
         return {
             "success": res.success,
             "filename": filename,
@@ -535,6 +555,8 @@ def api_convert():
             "markdown": res.markdown,
             "duration": res.duration_seconds,
             "error": res.error_message,
+            "install_command": install_cmd,
+            "missing_extra": missing_extra,
         }
     finally:
         if os.path.exists(tmp_path):
@@ -676,10 +698,19 @@ def api_translate():
       2. 'to_english' (translates only Bengali & mixed segments)
     Supports selection, document, or workspace scope with TM and glossaries.
     """
-    from core.translate import get_download_manager, IndicTransEngine, NLLBEngine, CloudTranslationEngine
-    from core.doc_translator import DocumentTranslator
-    from core.glossary import GlossaryManager
-    from core.translation_memory import TranslationMemory
+    try:
+        from core.translate import get_download_manager, IndicTransEngine, NLLBEngine, CloudTranslationEngine
+        from core.doc_translator import DocumentTranslator
+        from core.glossary import GlossaryManager
+        from core.translation_memory import TranslationMemory
+    except ImportError as e:
+        response.status = 400
+        return {
+            "success": False,
+            "error": f"Translation extra dependencies not installed: {e}",
+            "missing_extra": "translation",
+            "install_command": "pip install markitdown-studio[translation]"
+        }
 
     data = request.json or {}
     text = data.get("text", "")
@@ -696,6 +727,19 @@ def api_translate():
     mgr = get_download_manager()
 
     # Select backend engine
+    if engine_choice in ("indictrans2", "nllb"):
+        try:
+            import ctranslate2  # noqa: F401
+            import sentencepiece  # noqa: F401
+        except ImportError as e:
+            response.status = 400
+            return {
+                "success": False,
+                "error": f"Neural translation requires the 'translation' extra: {e}",
+                "missing_extra": "translation",
+                "install_command": "pip install markitdown-studio[translation]"
+            }
+
     if engine_choice == "indictrans2":
         model_dir = mgr.get_model_path("indictrans2-dist-200m")
         engine = IndicTransEngine(model_dir=model_dir, precision="int8")
@@ -1244,41 +1288,123 @@ class ThreadedWSGIAdapter(ServerAdapter):
 
 
 
+_EMBEDDED_FONTS_CSS = None
+
+
+def _get_embedded_fonts_css() -> str:
+    """Read and base64-encode bundled fonts for 100% offline PDF rendering."""
+    global _EMBEDDED_FONTS_CSS
+    if _EMBEDDED_FONTS_CSS is not None:
+        return _EMBEDDED_FONTS_CSS
+
+    import base64
+    vendor_dir = PROJECT_ROOT / "web" / "vendor"
+    css_rules = []
+
+    fonts_to_embed = [
+        ("Hind Siliguri", 400, "normal", vendor_dir / "HindSiliguri-Regular.ttf"),
+        ("Hind Siliguri", 700, "normal", vendor_dir / "HindSiliguri-Bold.ttf"),
+        ("Kalpurush", 400, "normal", vendor_dir / "Kalpurush.ttf"),
+    ]
+
+    for family, weight, style, font_path in fonts_to_embed:
+        if font_path.exists():
+            try:
+                b64 = base64.b64encode(font_path.read_bytes()).decode('ascii')
+                css_rules.append(f"""@font-face {{
+  font-family: '{family}';
+  font-style: {style};
+  font-weight: {weight};
+  src: url('data:font/truetype;charset=utf-8;base64,{b64}') format('truetype');
+}}""")
+            except Exception as e:
+                logger.warning("Could not embed font %s: %s", font_path.name, e)
+
+    _EMBEDDED_FONTS_CSS = "\n".join(css_rules)
+    return _EMBEDDED_FONTS_CSS
+
+
+def find_chrome_executable() -> Optional[str]:
+    """Find headless Chrome, Chromium, or Edge across Windows, Linux, and macOS."""
+    import shutil
+
+    # 1. Look in PATH
+    for name in ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "msedge", "edge", "chrome"]:
+        p = shutil.which(name)
+        if p and os.path.isfile(p):
+            return p
+
+    # 2. Known platform specific locations
+    if sys.platform == "win32":
+        local_app_data = os.environ.get("LOCALAPPDATA", "")
+        program_files = os.environ.get("ProgramFiles", r"C:\Program Files")
+        program_files_x86 = os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")
+        candidates = [
+            os.path.join(program_files, "Google", "Chrome", "Application", "chrome.exe"),
+            os.path.join(program_files_x86, "Google", "Chrome", "Application", "chrome.exe"),
+            os.path.join(program_files, "Microsoft", "Edge", "Application", "msedge.exe"),
+            os.path.join(program_files_x86, "Microsoft", "Edge", "Application", "msedge.exe"),
+            os.path.join(local_app_data, "Google", "Chrome", "Application", "chrome.exe"),
+            os.path.join(local_app_data, "Microsoft", "Edge", "Application", "msedge.exe"),
+        ]
+    elif sys.platform == "darwin":
+        candidates = [
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "/Applications/Chromium.app/Contents/MacOS/Chromium",
+            "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+        ]
+    else:  # Linux / POSIX
+        candidates = [
+            "/usr/bin/google-chrome",
+            "/usr/bin/google-chrome-stable",
+            "/usr/bin/chromium",
+            "/usr/bin/chromium-browser",
+            "/snap/bin/chromium",
+            "/usr/bin/msedge",
+        ]
+
+    for c in candidates:
+        if c and os.path.isfile(c):
+            return c
+    return None
+
+
+def _markdown_to_html(markdown_text: str) -> str:
+    """Render markdown into clean HTML with table support."""
+    try:
+        from markdown_it import MarkdownIt
+        md = MarkdownIt().enable('table')
+        return md.render(markdown_text)
+    except Exception:
+        import html as html_module
+        return html_module.escape(markdown_text).replace('\n', '<br>')
+
+
 def generate_pdf_from_markdown(markdown_text, title="Document"):
-    """Generate high-fidelity PDF from markdown using Chrome/Edge headless."""
+    """Generate high-fidelity, 100% offline PDF from markdown using Chrome/Edge/Chromium headless with embedded fonts."""
     import subprocess
     import html as html_module
 
-    chrome_candidates = [
-        r'C:\Program Files\Google\Chrome\Application\chrome.exe',
-        r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
-        r'C:\Program Files\Microsoft\Edge\Application\msedge.exe',
-        r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
-    ]
-    chrome_path = None
-    for c in chrome_candidates:
-        if os.path.exists(c):
-            chrome_path = c
-            break
-
+    chrome_path = find_chrome_executable()
     if not chrome_path:
         return None
 
-    # Minimal clean Markdown to HTML parser for PDF
-    escaped_body = html_module.escape(markdown_text).replace('\n', '<br>')
+    embedded_fonts_css = _get_embedded_fonts_css()
+    rendered_body = _markdown_to_html(markdown_text)
+
     html_content = f"""<!DOCTYPE html>
 <html lang="bn">
 <head>
   <meta charset="UTF-8">
   <title>{html_module.escape(title)}</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap');
+    {embedded_fonts_css}
     @page {{
       size: A4;
       margin: 20mm 15mm 20mm 15mm;
     }}
     body {{
-      font-family: 'Hind Siliguri', 'Segoe UI', system-ui, sans-serif;
+      font-family: 'Hind Siliguri', 'Kalpurush', 'Segoe UI', system-ui, sans-serif;
       font-size: 11pt;
       line-height: 1.65;
       color: #1a1a1a;
@@ -1295,11 +1421,12 @@ def generate_pdf_from_markdown(markdown_text, title="Document"):
     th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
     th {{ background: #f2f2f2; }}
     img {{ max-width: 100%; height: auto; }}
+    blockquote {{ border-left: 3px solid #0078d4; margin: 1em 0; padding-left: 12px; color: #555; }}
   </style>
 </head>
 <body>
   <h1>{html_module.escape(title)}</h1>
-  <div class="content">{escaped_body}</div>
+  <div class="content">{rendered_body}</div>
 </body>
 </html>"""
 
@@ -1313,13 +1440,15 @@ def generate_pdf_from_markdown(markdown_text, title="Document"):
         chrome_path,
         '--headless=new',
         '--disable-gpu',
+        '--no-sandbox',
+        '--disable-dev-shm-usage',
         '--no-pdf-header-footer',
         f'--print-to-pdf={pdf_path}',
         html_path
     ]
 
     try:
-        res = subprocess.run(cmd, capture_output=True, timeout=15)
+        res = subprocess.run(cmd, capture_output=True, timeout=20)
         if res.returncode == 0 and os.path.exists(pdf_path):
             with open(pdf_path, 'rb') as f_pdf:
                 return f_pdf.read()
