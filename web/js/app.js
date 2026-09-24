@@ -3500,6 +3500,34 @@ ${previewContent.innerHTML}
       });
     }
 
+    if (window.EditorCM6) {
+      const container = document.getElementById('editorContainer');
+      const originalTextarea = document.getElementById('editor');
+      if (container && originalTextarea) {
+        // Initialize CodeMirror 6
+        const facade = window.EditorCM6.setupEditor(container, originalTextarea.value, (newDoc) => {
+          // Sync changes
+          renderMarkdown();
+          updateLineNumbers();
+          updateStatusBar();
+          setSaveStatus('dirty');
+        }, (scrollRatio) => {
+          // Scroll sync
+          if (preview) {
+            const pScrollHeight = preview.scrollHeight - preview.clientHeight;
+            if (pScrollHeight > 0) {
+              preview.scrollTop = pScrollHeight * scrollRatio;
+            }
+          }
+        });
+        if (facade) {
+          editor = facade;
+          // Hide old textarea
+          originalTextarea.style.display = 'none';
+        }
+      }
+    }
+
     initTabs();
     setFontMode('unicode', true);
     renderMarkdown();
