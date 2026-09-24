@@ -46,11 +46,11 @@ def test_xss_payloads_neutralized(server_url):
         page.goto(server_url, wait_until="networkidle", timeout=15000)
 
         # Wait for editor to be interactive
-        page.wait_for_selector("#editor", timeout=5000)
+        page.wait_for_selector(".cm-content, #editor", state="attached", timeout=5000)
 
         # 1. Test <script> injection
         script_payload = '<script>window.__XSS_SCRIPT__ = true; alert("xss-script");</script>'
-        page.fill("#editor", script_payload)
+        page.evaluate("payload => { editor.value = payload; }", script_payload)
         page.evaluate("renderMarkdown()")
         time.sleep(0.3)
 
@@ -59,7 +59,7 @@ def test_xss_payloads_neutralized(server_url):
 
         # 2. Test <img onerror> injection
         img_payload = '<img src="nonexistent.png" onerror="window.__XSS_IMG__ = true; alert(\'xss-img\');">'
-        page.fill("#editor", img_payload)
+        page.evaluate("payload => { editor.value = payload; }", img_payload)
         page.evaluate("renderMarkdown()")
         time.sleep(0.5)
 
@@ -68,7 +68,7 @@ def test_xss_payloads_neutralized(server_url):
 
         # 3. Test <svg onload> injection
         svg_payload = '<svg onload="window.__XSS_SVG__ = true; alert(\'xss-svg\');"><circle r=10/></svg>'
-        page.fill("#editor", svg_payload)
+        page.evaluate("payload => { editor.value = payload; }", svg_payload)
         page.evaluate("renderMarkdown()")
         time.sleep(0.3)
 
@@ -77,7 +77,7 @@ def test_xss_payloads_neutralized(server_url):
 
         # 4. Test [click](javascript:...) link injection
         link_payload = '[Malicious Link](javascript:window.__XSS_LINK__=true;alert("xss-link"))'
-        page.fill("#editor", link_payload)
+        page.evaluate("payload => { editor.value = payload; }", link_payload)
         page.evaluate("renderMarkdown()")
         time.sleep(0.3)
 
@@ -98,7 +98,7 @@ def test_katex_and_mermaid_render_cleanly(server_url):
         page = browser.new_page()
 
         page.goto(server_url, wait_until="networkidle", timeout=15000)
-        page.wait_for_selector("#editor", timeout=5000)
+        page.wait_for_selector(".cm-content, #editor", state="attached", timeout=5000)
 
         # Math formula and safe mermaid diagram
         safe_markdown = """# Safe Document
@@ -112,7 +112,7 @@ graph LR
     Start --> Stop
 ```
 """
-        page.fill("#editor", safe_markdown)
+        page.evaluate("payload => { editor.value = payload; }", safe_markdown)
         page.evaluate("renderMarkdown()")
         time.sleep(0.8)
 
@@ -137,7 +137,7 @@ def test_mermaid_click_callbacks_neutralized(server_url):
         page.on("dialog", lambda d: (dialogs.append(d.message), d.dismiss()))
 
         page.goto(server_url, wait_until="networkidle", timeout=15000)
-        page.wait_for_selector("#editor", timeout=5000)
+        page.wait_for_selector(".cm-content, #editor", state="attached", timeout=5000)
 
         # Mermaid payload with click callback attempt
         mermaid_callback_payload = """```mermaid
@@ -146,7 +146,7 @@ graph TD
     click NodeA "javascript:alert('mermaid-click')" "Call tooltip"
 ```
 """
-        page.fill("#editor", mermaid_callback_payload)
+        page.evaluate("payload => { editor.value = payload; }", mermaid_callback_payload)
         page.evaluate("renderMarkdown()")
         time.sleep(0.8)
 
