@@ -129,8 +129,13 @@
         CodeMirror.indentWithTab
       ]),
       CodeMirror.EditorView.updateListener.of((update) => {
-        if (update.docChanged && onDocChange) {
-          onDocChange(update.state.doc.toString());
+        if (update.docChanged) {
+          const docStr = update.state.doc.toString();
+          const ta = document.getElementById('editor');
+          if (ta) ta.value = docStr;
+          if (onDocChange) {
+            onDocChange(docStr);
+          }
         }
       })
     ];
@@ -172,6 +177,8 @@
             changes: { from: 0, to: curVal.length, insert: val }
           });
         }
+        const ta = document.getElementById('editor');
+        if (ta) ta.value = val;
       },
 
       get value() {

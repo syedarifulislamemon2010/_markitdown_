@@ -1114,9 +1114,13 @@ def api_workspace_git_status():
 def api_extract_templates():
     """List all available structured document extraction templates."""
     from core.structured_extractor import list_templates
+    templates = list_templates()
+    for t in templates:
+        t.setdefault("id", t.get("template_id"))
+        t.setdefault("name", t.get("title"))
     return {
         "success": True,
-        "templates": list_templates()
+        "templates": templates
     }
 
 
