@@ -37,6 +37,11 @@ dependencies = [
     "keyring>=25.0.0",
     "customtkinter>=6.0.0",
     "markitdown>=0.1.8b3",
+    "rapidfuzz>=3.0.0",
+    "sacrebleu>=2.4.0",
+    "ctranslate2>=4.0.0",
+    "indic-nlp-library>=0.92",
+    "sentencepiece>=0.2.0",
 ]
 
 [project.optional-dependencies]
