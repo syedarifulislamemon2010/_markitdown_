@@ -3507,7 +3507,12 @@ ${previewContent.innerHTML}
         // Initialize CodeMirror 6
         const facade = window.EditorCM6.setupEditor(container, originalTextarea.value, (newDoc) => {
           // Sync changes
-          renderMarkdown();
+          if (typeof debouncedRenderMarkdown === 'function') {
+            debouncedRenderMarkdown(140);
+          }
+          if (typeof debouncedSaveAllTabs === 'function') {
+            debouncedSaveAllTabs(400);
+          }
           updateLineNumbers();
           updateStatusBar();
           setSaveStatus('dirty');
