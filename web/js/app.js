@@ -1511,6 +1511,63 @@ ${previewContent.innerHTML}
     }
   }
 
+  function repairBrokenBengaliAction() {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const rawVal = editor.value;
+    const hasSelection = start !== end;
+    const targetText = hasSelection ? rawVal.substring(start, end) : rawVal;
+
+    if (!targetText.trim()) {
+      showToast("কোনো টেক্সট পাওয়া যায়নি।", "warning");
+      return;
+    }
+
+    pushHistoryState(rawVal);
+
+    if (window.BijoyToUnicode && window.BijoyToUnicode.repairBrokenBengali) {
+      const repaired = window.BijoyToUnicode.repairBrokenBengali(targetText);
+      if (hasSelection) {
+        editor.value = rawVal.substring(0, start) + repaired + rawVal.substring(end);
+        editor.setSelectionRange(start, start + repaired.length);
+      } else {
+        editor.value = repaired;
+      }
+      renderMarkdown();
+      updateLineNumbers();
+      updateStatusBar();
+      saveAllTabs();
+      showToast('🛠️ ভাঙা বাংলা ফন্ট ও যুক্তবর্ণ মেরামত সম্পন্ন!', 'success');
+      return;
+    }
+
+    // Backend fallback
+    fetch('/api/repair-bengali', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: targetText })
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.repaired) {
+          if (hasSelection) {
+            editor.value = rawVal.substring(0, start) + data.repaired + rawVal.substring(end);
+            editor.setSelectionRange(start, start + data.repaired.length);
+          } else {
+            editor.value = data.repaired;
+          }
+          renderMarkdown();
+          updateLineNumbers();
+          updateStatusBar();
+          saveAllTabs();
+          showToast('🛠️ ভাঙা বাংলা ফন্ট ও যুক্তবর্ণ মেরামত সম্পন্ন!', 'success');
+        }
+      })
+      .catch(() => {
+        showToast('❌ বাংলা ফন্ট মেরামত ব্যর্থ হয়েছে', 'error');
+      });
+  }
+
   // ==================== Editor & Preview Utility Actions ====================
   function selectAllAction() {
     editor.focus();
@@ -2567,11 +2624,13 @@ ${previewContent.innerHTML}
     document.getElementById('toolMath')?.addEventListener('click', () => insertFormatting('$$\n', '\n$$', 'E = mc^2'));
     document.getElementById('toolMermaid')?.addEventListener('click', () => insertFormatting('```mermaid\ngraph TD\n    A[শুরু] --> B[শেষ]\n```\n'));
 
-    // Bengali conversion
+    // Bengali conversion & Repair
     document.getElementById('toolAnsiToUnicode')?.addEventListener('click', convertAnsiToUnicodeAction);
     document.getElementById('toolUnicodeToAnsi')?.addEventListener('click', convertUnicodeToAnsiAction);
     document.getElementById('menuAnsiToUnicode')?.addEventListener('click', convertAnsiToUnicodeAction);
     document.getElementById('menuUnicodeToAnsi')?.addEventListener('click', convertUnicodeToAnsiAction);
+    document.getElementById('toolRepairBengali')?.addEventListener('click', repairBrokenBengaliAction);
+    document.getElementById('menuRepairBengali')?.addEventListener('click', repairBrokenBengaliAction);
 
     // Toolbar utilities
     document.getElementById('toolUndo')?.addEventListener('click', undo);

@@ -269,6 +269,13 @@ class DocumentConverter:
                         )
                         markdown_content = f"{clean_body}\n{notice}" if clean_body else notice
 
+            # Repair broken Bengali font ligatures, visual-order glyphs, and PDF null bytes
+            try:
+                from core.bengali_repair import repair_broken_bengali
+                markdown_content = repair_broken_bengali(markdown_content)
+            except Exception as repair_err:
+                logger.warning("Bengali repair warning: %s", repair_err)
+
             elapsed = time.perf_counter() - start_time
 
             return ConversionResult(

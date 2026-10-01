@@ -95,6 +95,7 @@
           <div class="menu-dropdown">
             <button id="menuAnsiToUnicode" class="dropdown-item"><span class="menu-icon">🔄</span> বিজয় (ANSI) ➜ ইউনিকোড রূপান্তর</button>
             <button id="menuUnicodeToAnsi" class="dropdown-item"><span class="menu-icon">🔁</span> ইউনিকোড ➜ বিজয় (ANSI) রূপান্তর</button>
+            <button id="menuRepairBengali" class="dropdown-item"><span class="menu-icon">🛠️</span> ভাঙা ফন্ট ও যুক্তবর্ণ মেরামত</button>
             <button id="menuTogglePhonetic" class="dropdown-item"><span class="menu-icon">অ</span> Toggle Phonetic Bangla <span class="shortcut">Ctrl+M</span></button>
             <div class="menu-separator"></div>
             <button id="menuOcr" class="dropdown-item"><span class="menu-icon">🔍</span> Image OCR (Text Extraction)</button>
@@ -206,6 +207,9 @@
       </button>
       <button id="toolUnicodeToAnsi" class="tool-btn tool-btn-accent" title="ইউনিকোড বাংলাকে প্রেস/সুতন্মীএমজে (ANSI) ফন্টে রূপান্তর">
         🔁 ইউনিকোড ➜ বিজয়
+      </button>
+      <button id="toolRepairBengali" class="tool-btn tool-btn-accent" title="ভাঙা ফন্ট, NUL ক্যারেক্টার ও যুক্তবর্ণ মেরামত করুন">
+        🛠️ ফন্ট মেরামত
       </button>
       <button id="toolToggleFont" class="tool-btn" title="ফন্ট পরিবর্তন করুন: কালপুরুষ (ইউনিকোড) ⇄ কালপুরুষ ANSI (বিজয়)">
         🔤 কালপুরুষ
@@ -683,6 +687,9 @@
             </button>
             <button type="button" class="preset-chip" data-provider="ollama" data-url="http://localhost:11434/v1" data-model="llama3">
               🦙 Local Ollama
+            </button>
+            <button type="button" class="preset-chip" data-provider="huggingface" data-url="https://router.huggingface.co/v1" data-model="Qwen/Qwen3.8-27B">
+              🤗 HuggingFace
             </button>
             <button type="button" class="preset-chip" data-provider="custom" data-url="" data-model="">
               🛠️ Custom Proxy

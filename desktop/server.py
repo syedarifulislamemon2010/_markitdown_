@@ -1211,6 +1211,22 @@ def api_convert_unicode_to_ansi():
     }
 
 
+@app.post('/api/repair-bengali')
+def api_repair_bengali():
+    """Repair broken Bengali font ligatures, visual-order glyphs, and PDF null bytes."""
+    data = request.json or {}
+    raw_text = data.get('text', '')
+    if not raw_text:
+        raw_text = request.forms.get('text', '')
+
+    from core.bengali_repair import repair_broken_bengali
+    repaired = repair_broken_bengali(raw_text)
+    return {
+        "success": True,
+        "repaired": repaired,
+    }
+
+
 @app.post('/api/export-docx')
 def api_export_docx():
     """Convert Markdown to Word (.docx) file and trigger download."""

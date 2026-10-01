@@ -170,7 +170,7 @@
       },
 
       setValue(val) {
-        val = val || '';
+        val = (val || '').replace(/\x00/g, '');
         const curVal = view.state.doc.toString();
         if (curVal !== val) {
           view.dispatch({
