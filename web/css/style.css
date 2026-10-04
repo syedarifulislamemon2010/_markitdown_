@@ -292,6 +292,10 @@ body {
   margin-top: 2px;
   background-color: var(--bg-card);
   min-width: 220px;
+  width: max-content;
+  max-width: min(90vw, 380px);
+  max-height: calc(100vh - 50px);
+  overflow-y: auto;
   box-shadow: 0 8px 24px rgba(0,0,0,0.25);
   border: 1px solid var(--border-color);
   border-radius: 6px;
@@ -347,18 +351,25 @@ body {
   border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
   padding: 4px 10px;
-  overflow: visible;
-  scrollbar-width: none;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
   user-select: none;
   flex-shrink: 0;
   z-index: 50;
 }
 
 .toolbar::-webkit-scrollbar {
-  display: none;
+  height: 3px;
+}
+
+.toolbar::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
 }
 
 .tool-group {
@@ -1699,8 +1710,10 @@ body.zen-mode .editor-textarea {
 .dropdown-menu-pop {
   position: absolute;
   top: calc(100% + 4px);
-  left: 0;
+  right: 0;
+  left: auto;
   min-width: 260px;
+  max-width: min(90vw, 360px);
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 6px;

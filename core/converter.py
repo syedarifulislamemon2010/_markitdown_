@@ -172,6 +172,7 @@ class DocumentConverter:
         try:
             is_pdf = p.suffix.lower() == ".pdf"
             is_image = p.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp", ".bmp")
+            res = None
 
             # 1. Specialized handling for Bangladesh Gazette / Nikosh CID PDFs
             if is_pdf:
@@ -195,17 +196,56 @@ class DocumentConverter:
                 except Exception as gaz_err:
                     logger.warning("Gazette extractor notice: %s", gaz_err)
 
-            # Run MarkItDown conversion
-            res = self._md.convert(str(p.resolve()))
-            markdown_content = res.text_content
+            # Run conversion
+            markdown_content = ""
+            pdf_n_pages = 0
+            pdf_fast_text = ""
 
-            # If it's an image, run OCR text extraction
+            if is_pdf:
+                # Use ultra-fast pypdfium2 to check pages and extract initial text
+                try:
+                    import pypdfium2
+                    pdf_doc = pypdfium2.PdfDocument(str(p.resolve()))
+                    pdf_n_pages = len(pdf_doc)
+                    if pdf_n_pages > 0:
+                        chunks = []
+                        total_fast_chars = 0
+                        for idx in range(pdf_n_pages):
+                            pg_txt = pdf_doc[idx].get_textpage().get_text_range().strip()
+                            if pg_txt:
+                                chunks.append(f"<!-- 📄 Page {idx + 1} of {pdf_n_pages} -->\n\n{pg_txt}")
+                                total_fast_chars += len(pg_txt)
+                        if total_fast_chars > 50:
+                            pdf_fast_text = "\n\n---\n\n".join(chunks)
+                except Exception as pdfium_err:
+                    logger.warning("PDFium fast-scan notice: %s", pdfium_err)
+
+                # For large PDFs (>10 pages) with embedded text, use instant PDFium text to prevent hanging
+                if pdf_fast_text and pdf_n_pages > 10:
+                    markdown_content = pdf_fast_text
+                else:
+                    try:
+                        res = self._md.convert(str(p.resolve()))
+                        markdown_content = res.text_content
+                    except Exception as md_err:
+                        logger.warning("MarkItDown default PDF convert warning: %s", md_err)
+                        if pdf_fast_text:
+                            markdown_content = pdf_fast_text
+                        elif pdf_n_pages == 0:
+                            # Truly corrupted or invalid PDF file
+                            raise md_err
+            else:
+                res = self._md.convert(str(p.resolve()))
+                markdown_content = res.text_content
+
+            # If it's an image, run OCR text extraction (supports OpenAI, Gemini & Windows Media OCR)
             if is_image:
                 try:
                     from core.ocr import extract_text_from_image
                     ocr_text = extract_text_from_image(
                         p,
                         openai_api_key=self.openai_api_key,
+                        gemini_api_key=self.gemini_api_key,
                         openai_model=self.llm_model,
                         openai_base_url=self.openai_base_url,
                     )
@@ -223,46 +263,41 @@ class DocumentConverter:
             except Exception as be_err:
                 logger.warning("Bengali conversion warning: %s", be_err)
 
-            # Smart PDF CID Font & Scanned Document Handling
-            is_pdf = p.suffix.lower() == ".pdf"
+            # Smart PDF Scanned Document & CID Font OCR Handling
             if is_pdf:
                 import re
                 cid_count = len(re.findall(r'\(?cid:\d+\)?', markdown_content, re.IGNORECASE))
                 is_scanned_or_cid = (cid_count > 10) or (len(markdown_content.strip()) < 30)
 
                 if is_scanned_or_cid:
-                    has_vision_api = bool(
-                        (self.openai_api_key and self.openai_api_key.strip()) or
-                        (self.gemini_api_key and self.gemini_api_key.strip())
-                    )
+                    # Run OCR (supports AI Vision if keys present, or Windows Native Media OCR offline)
+                    try:
+                        from core.ocr import extract_text_from_pdf_pages
+                        ocr_result = extract_text_from_pdf_pages(
+                            p,
+                            openai_api_key=self.openai_api_key,
+                            gemini_api_key=self.gemini_api_key,
+                            openai_model=self.llm_model,
+                            openai_base_url=self.openai_base_url,
+                            max_pages=20,
+                        )
+                        if ocr_result and "⚠️" not in ocr_result and len(ocr_result.strip()) > 30:
+                            markdown_content = ocr_result
+                        elif pdf_fast_text and len(pdf_fast_text.strip()) > len(markdown_content.strip()):
+                            markdown_content = pdf_fast_text
+                    except Exception as pdf_ocr_err:
+                        logger.error("PDF OCR error: %s", pdf_ocr_err)
+                        if pdf_fast_text:
+                            markdown_content = pdf_fast_text
 
-                    if has_vision_api:
-                        try:
-                            from core.ocr import extract_text_from_pdf_pages
-                            ocr_result = extract_text_from_pdf_pages(
-                                p,
-                                openai_api_key=self.openai_api_key,
-                                gemini_api_key=self.gemini_api_key,
-                                openai_model=self.llm_model,
-                                openai_base_url=self.openai_base_url,
-                            )
-                            if ocr_result and "⚠️" not in ocr_result:
-                                markdown_content = ocr_result
-                        except Exception as pdf_ocr_err:
-                            logger.error("PDF Vision OCR error: %s", pdf_ocr_err)
-                    else:
-                        # Clean excessive (cid:X) noise to prevent freezing editor and provide clear user notice
-                        cleaned_lines = []
-                        for line in markdown_content.split('\n'):
-                            if len(re.findall(r'\(?cid:\d+\)?', line, re.IGNORECASE)) > 1:
-                                continue
-                            cleaned_lines.append(line)
+                    # If still empty or unreadable after OCR, supply user notice
+                    if len(markdown_content.strip()) < 30 or cid_count > 10:
+                        cleaned_lines = [l for l in markdown_content.split('\n') if len(re.findall(r'\(?cid:\d+\)?', l, re.IGNORECASE)) <= 1]
                         clean_body = "\n".join(cleaned_lines).strip()
-
                         notice = (
                             "\n\n> [!WARNING]\n"
                             "> **পিডিএফ ফন্ট নোটিশ (CID Font / Scanned PDF Detected):**\n"
-                            "> এই গেজেট বা পিডিএফ ফাইলের ভেতরের লেখাগুলো একটি কাস্টম ফন্ট (`Nikosh`) দিয়ে সংরক্ষিত, যাতে ইউনিকোড ক্যারেক্টার ম্যাপ (CMap) নেই। ফলে সাধারণ টেক্সট এক্সট্রাক্টর অক্ষরগুলো সরাসরি পড়তে পারছে না।\n"
+                            "> এই ডকুমেন্টে সরাসরি পড়াযোগ্য টেক্সট পাওয়া যায়নি।\n"
                             ">\n"
                             "> 💡 **১০০% নিখুঁত ও হুবহু বাংলা টেক্সট পেতে:**\n"
                             "> উপরের ডান পাশের ⚙️ **Settings** থেকে আপনার **OpenAI API Key** (gpt-4o) অথবা **Gemini API Key** যুক্ত করুন। AI Vision স্বয়ংক্রিয়ভাবে প্রতিটি পাতা পড়ে হুবহু বাংলা মার্কডাউনে রূপান্তর করবে!\n"
@@ -284,7 +319,7 @@ class DocumentConverter:
                 file_size_bytes=file_size,
                 file_size_str=file_size_str,
                 markdown=markdown_content,
-                title=getattr(res, "title", None) or p.stem,
+                title=(getattr(res, "title", None) if res else None) or p.stem,
                 duration_seconds=elapsed,
                 success=True,
                 error_message=None,

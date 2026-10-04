@@ -103,7 +103,8 @@
   }
 
   // ==================== Global Elements & State ====================
-  let editor = document.getElementById('editor');
+  const originalTextarea = document.getElementById('editor');
+  let editor = originalTextarea;
   const preview = document.getElementById('preview');
   const previewContent = document.getElementById('previewContent');
   const docTitleInput = document.getElementById('docTitle');
@@ -981,6 +982,14 @@ graph TD
   let lastLineCount = -1;
   function updateLineNumbers(force = false) {
     if (!lineNumbers) return;
+    // When CodeMirror 6 is active, it handles its own virtualized line gutter (<16ms)
+    if (editor && editor !== originalTextarea) {
+      if (lineNumbers.style.display !== 'none') {
+        lineNumbers.style.display = 'none';
+        lineNumbers.innerHTML = '';
+      }
+      return;
+    }
     const text = editor.value;
     let lineCount = 1;
     for (let i = 0; i < text.length; i++) {
@@ -989,7 +998,8 @@ graph TD
     if (!force && lineCount === lastLineCount) return;
     lastLineCount = lineCount;
     let html = '';
-    for (let i = 1; i <= lineCount; i++) {
+    const maxVisible = Math.min(lineCount, 1000);
+    for (let i = 1; i <= maxVisible; i++) {
       html += `<span>${i}</span>`;
     }
     lineNumbers.innerHTML = html;
@@ -3796,7 +3806,6 @@ ${previewContent.innerHTML}
 
     if (window.EditorCM6) {
       const container = document.getElementById('editorContainer');
-      const originalTextarea = document.getElementById('editor');
       if (container && originalTextarea) {
         // Initialize CodeMirror 6
         const facade = window.EditorCM6.setupEditor(container, originalTextarea.value, (newDoc) => {

@@ -96,13 +96,23 @@ def _ensure_pil(image_input: Union[str, Path, Image.Image]) -> Image.Image:
 
 
 def _ocr_via_winocr(image_input: Union[str, Path, Image.Image]) -> str:
-    pil_img = _ensure_pil(image_input)
-    # Convert RGBA or Palette to RGB for OCR compatibility
-    if pil_img.mode != "RGB":
-        pil_img = pil_img.convert("RGB")
-    res = winocr.recognize_pil_sync(pil_img)
-    text = res.get("text", "").strip() if isinstance(res, dict) else ""
-    return text if text else "⚠️ No readable text detected in this image."
+    try:
+        pil_img = _ensure_pil(image_input)
+        # Convert RGBA or Palette to RGB for OCR compatibility
+        if pil_img.mode != "RGB":
+            pil_img = pil_img.convert("RGB")
+        res = winocr.recognize_pil_sync(pil_img)
+        if isinstance(res, dict):
+            lines = [l.get("text", "").strip() for l in res.get("lines", []) if l.get("text", "").strip()]
+            if lines:
+                return "\n".join(lines)
+            text = res.get("text", "").strip()
+            if text:
+                return text
+        return "⚠️ No readable text detected in this image."
+    except Exception as e:
+        logger.error("Windows Media OCR error: %s", e)
+        return f"⚠️ Windows Media OCR error: {e}"
 
 
 def _ocr_via_openai(
