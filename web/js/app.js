@@ -2652,6 +2652,8 @@ ${previewContent.innerHTML}
 
     // Pane Header Buttons
     document.getElementById('editorWordWrapBtn')?.addEventListener('click', toggleWordWrap);
+    document.getElementById('paneCopyPreviewTextBtn')?.addEventListener('click', () => copyPreviewTextAction());
+    document.getElementById('paneCopyPreviewHtmlBtn')?.addEventListener('click', () => copyPreviewHtmlAction());
     document.getElementById('paneRefreshBtn')?.addEventListener('click', refreshPreviewAction);
 
     // Export Dropdown & Modal triggers

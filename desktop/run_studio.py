@@ -213,6 +213,7 @@ def main():
             height=850,
             min_size=(980, 680),
             background_color="#181818",
+            text_select=True,
             js_api=api,
         )
         api.window = window
