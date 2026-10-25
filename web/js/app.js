@@ -3176,6 +3176,9 @@ ${previewContent.innerHTML}
         if (presOverlay && presOverlay.classList.contains('active')) {
           e.preventDefault();
           closePresentationMode();
+        } else if (document.querySelector('.modal-overlay.active')) {
+          e.preventDefault();
+          closeAllModals();
         } else if (document.body.classList.contains('zen-mode')) {
           e.preventDefault();
           toggleZenMode();
