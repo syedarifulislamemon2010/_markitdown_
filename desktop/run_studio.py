@@ -132,11 +132,11 @@ def main():
 
     # Actively wait until the server is ready to accept connections
     if not wait_for_server("127.0.0.1", port, timeout=5.0):
-        print(f"⚠️ Warning: Server did not respond within 5s at {url}")
+        print(f"[!] Warning: Server did not respond within 5s at {url}")
 
-    print(f"==================================================")
-    print(f"✨ MarkItDown Studio is running at: {url}")
-    print(f"==================================================")
+    print("==================================================")
+    print(f"[*] MarkItDown Studio is running at: {url}")
+    print("==================================================")
 
     # Check if --browser flag is passed
     if "--browser" in sys.argv:
@@ -161,11 +161,12 @@ def main():
 
         class StudioApi:
             def __init__(self, token=None):
-                self.window = None
-                self.session_token = token or os.environ.get("STUDIO_SESSION_TOKEN", "")
+                # Use private attribute _window so pywebview introspection does not recursively inspect COM WinForms
+                self._window = None
+                self._session_token = token or os.environ.get("STUDIO_SESSION_TOKEN", "")
 
             def get_session_token(self):
-                return self.session_token
+                return self._session_token
 
             def get_api_key(self, service):
                 return secure_get_key(service)
@@ -177,9 +178,9 @@ def main():
                 return secure_clear_keys()
 
             def save_file_dialog(self, filename, content_b64):
-                if not self.window:
+                if not self._window:
                     return {"success": False, "error": "No window"}
-                res = self.window.create_file_dialog(webview.SAVE_DIALOG, save_filename=filename)
+                res = self._window.create_file_dialog(webview.SAVE_DIALOG, save_filename=filename)
                 if res:
                     target_path = res if isinstance(res, str) else res[0]
                     with open(target_path, 'wb') as f:
@@ -216,7 +217,7 @@ def main():
             text_select=True,
             js_api=api,
         )
-        api.window = window
+        api._window = window
         webview.start()
     except Exception as e:
         print(f"Webview note: {e}. Opening in default system browser instead...")
